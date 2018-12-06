@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -121,17 +122,17 @@ namespace clahe
         lut(ty * tilesX + tx, tid) = saturate_cast<uchar>(__float2int_rn(lutScale * lutVal));
     }
 
-    void calcLut(PtrStepSzb src, PtrStepb lut, int tilesX, int tilesY, int2 tileSize, int clipLimit, float lutScale, cudaStream_t stream)
+    void calcLut(PtrStepSzb src, PtrStepb lut, int tilesX, int tilesY, int2 tileSize, int clipLimit, float lutScale, hipStream_t stream)
     {
         const dim3 block(32, 8);
         const dim3 grid(tilesX, tilesY);
 
-        calcLutKernel<<<grid, block, 0, stream>>>(src, lut, tileSize, tilesX, clipLimit, lutScale);
+        hipLaunchKernelGGL((calcLutKernel), dim3(grid), dim3(block), 0, stream, src, lut, tileSize, tilesX, clipLimit, lutScale);
 
-        cudaSafeCall( cudaGetLastError() );
+        cudaSafeCall( hipGetLastError() );
 
         if (stream == 0)
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
     }
 
     __global__ void transformKernel(const PtrStepSzb src, PtrStepb dst, const PtrStepb lut, const int2 tileSize, const int tilesX, const int tilesY)
@@ -168,18 +169,18 @@ namespace clahe
         dst(y, x) = saturate_cast<uchar>(res);
     }
 
-    void transform(PtrStepSzb src, PtrStepSzb dst, PtrStepb lut, int tilesX, int tilesY, int2 tileSize, cudaStream_t stream)
+    void transform(PtrStepSzb src, PtrStepSzb dst, PtrStepb lut, int tilesX, int tilesY, int2 tileSize, hipStream_t stream)
     {
         const dim3 block(32, 8);
         const dim3 grid(divUp(src.cols, block.x), divUp(src.rows, block.y));
 
-        cudaSafeCall( cudaFuncSetCacheConfig(transformKernel, cudaFuncCachePreferL1) );
+        cudaSafeCall( hipFuncSetCacheConfig(transformKernel, hipFuncCachePreferL1) );
 
-        transformKernel<<<grid, block, 0, stream>>>(src, dst, lut, tileSize, tilesX, tilesY);
-        cudaSafeCall( cudaGetLastError() );
+        hipLaunchKernelGGL((transformKernel), dim3(grid), dim3(block), 0, stream, src, dst, lut, tileSize, tilesX, tilesY);
+        cudaSafeCall( hipGetLastError() );
 
         if (stream == 0)
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
     }
 }
 

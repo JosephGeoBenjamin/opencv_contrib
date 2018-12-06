@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -69,16 +70,16 @@ namespace grid_copy_detail
     }
 
     template <class Policy, class SrcPtr, typename DstType, class MaskPtr>
-    __host__ void copy(const SrcPtr& src, const GlobPtr<DstType>& dst, const MaskPtr& mask, int rows, int cols, cudaStream_t stream)
+    __host__ void copy(const SrcPtr& src, const GlobPtr<DstType>& dst, const MaskPtr& mask, int rows, int cols, hipStream_t stream)
     {
         const dim3 block(Policy::block_size_x, Policy::block_size_y);
         const dim3 grid(divUp(cols, block.x), divUp(rows, block.y));
 
-        copy<<<grid, block, 0, stream>>>(src, dst, mask, rows, cols);
-        CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+        hipLaunchKernelGGL((copy), dim3(grid), dim3(block), 0, stream, src, dst, mask, rows, cols);
+        CV_CUDEV_SAFE_CALL( hipGetLastError() );
 
         if (stream == 0)
-            CV_CUDEV_SAFE_CALL( cudaDeviceSynchronize() );
+            CV_CUDEV_SAFE_CALL( hipDeviceSynchronize() );
     }
 
     template <int count> struct Unroll
@@ -114,16 +115,16 @@ namespace grid_copy_detail
     }
 
     template <class Policy, class SrcPtrTuple, class DstPtrTuple, class MaskPtr>
-    __host__ void copy_tuple(const SrcPtrTuple& src, const DstPtrTuple& dst, const MaskPtr& mask, int rows, int cols, cudaStream_t stream)
+    __host__ void copy_tuple(const SrcPtrTuple& src, const DstPtrTuple& dst, const MaskPtr& mask, int rows, int cols, hipStream_t stream)
     {
         const dim3 block(Policy::block_size_x, Policy::block_size_y);
         const dim3 grid(divUp(cols, block.x), divUp(rows, block.y));
 
-        copy_tuple<<<grid, block, 0, stream>>>(src, dst, mask, rows, cols);
-        CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+        hipLaunchKernelGGL((copy_tuple), dim3(grid), dim3(block), 0, stream, src, dst, mask, rows, cols);
+        CV_CUDEV_SAFE_CALL( hipGetLastError() );
 
         if (stream == 0)
-            CV_CUDEV_SAFE_CALL( cudaDeviceSynchronize() );
+            CV_CUDEV_SAFE_CALL( hipDeviceSynchronize() );
     }
 }
 

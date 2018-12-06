@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -116,12 +117,12 @@ namespace cv { namespace cuda { namespace device
             const dim3 block(256);
             const dim3 grid(divUp(count, block.x));
 
-            cudaSafeCall( cudaFuncSetCacheConfig(circlesAccumCenters, cudaFuncCachePreferL1) );
+            cudaSafeCall( hipFuncSetCacheConfig(circlesAccumCenters, hipFuncCachePreferL1) );
 
-            circlesAccumCenters<<<grid, block>>>(list, count, dx, dy, accum, accum.cols - 2, accum.rows - 2, minRadius, maxRadius, idp);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((circlesAccumCenters), dim3(grid), dim3(block), 0, 0, list, count, dx, dy, accum, accum.cols - 2, accum.rows - 2, minRadius, maxRadius, idp);
+            cudaSafeCall( hipGetLastError() );
 
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
         }
 
         ////////////////////////////////////////////////////////////////////////
@@ -154,22 +155,22 @@ namespace cv { namespace cuda { namespace device
         int buildCentersList_gpu(PtrStepSzi accum, unsigned int* centers, int threshold)
         {
             void* counterPtr;
-            cudaSafeCall( cudaGetSymbolAddress(&counterPtr, g_counter) );
+            cudaSafeCall( hipGetSymbolAddress(&counterPtr, g_counter) );
 
-            cudaSafeCall( cudaMemset(counterPtr, 0, sizeof(int)) );
+            cudaSafeCall( hipMemset(counterPtr, 0, sizeof(int)) );
 
             const dim3 block(32, 8);
             const dim3 grid(divUp(accum.cols - 2, block.x), divUp(accum.rows - 2, block.y));
 
-            cudaSafeCall( cudaFuncSetCacheConfig(buildCentersList, cudaFuncCachePreferL1) );
+            cudaSafeCall( hipFuncSetCacheConfig(buildCentersList, hipFuncCachePreferL1) );
 
-            buildCentersList<<<grid, block>>>(accum, centers, threshold);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((buildCentersList), dim3(grid), dim3(block), 0, 0, accum, centers, threshold);
+            cudaSafeCall( hipGetLastError() );
 
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
 
             int totalCount;
-            cudaSafeCall( cudaMemcpy(&totalCount, counterPtr, sizeof(int), cudaMemcpyDeviceToHost) );
+            cudaSafeCall( hipMemcpy(&totalCount, counterPtr, sizeof(int), hipMemcpyDeviceToHost) );
 
             return totalCount;
         }
@@ -230,9 +231,9 @@ namespace cv { namespace cuda { namespace device
                                    float3* circles, int maxCircles, float dp, int minRadius, int maxRadius, int threshold, bool has20)
         {
             void* counterPtr;
-            cudaSafeCall( cudaGetSymbolAddress(&counterPtr, g_counter) );
+            cudaSafeCall( hipGetSymbolAddress(&counterPtr, g_counter) );
 
-            cudaSafeCall( cudaMemset(counterPtr, 0, sizeof(int)) );
+            cudaSafeCall( hipMemset(counterPtr, 0, sizeof(int)) );
 
             const dim3 block(has20 ? 1024 : 512);
             const dim3 grid(centersCount);
@@ -240,13 +241,13 @@ namespace cv { namespace cuda { namespace device
             const int histSize = maxRadius - minRadius + 1;
             size_t smemSize = (histSize + 2) * sizeof(int);
 
-            circlesAccumRadius<<<grid, block, smemSize>>>(centers, list, count, circles, maxCircles, dp, minRadius, maxRadius, histSize, threshold);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((circlesAccumRadius), dim3(grid), dim3(block), smemSize, 0, centers, list, count, circles, maxCircles, dp, minRadius, maxRadius, histSize, threshold);
+            cudaSafeCall( hipGetLastError() );
 
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
 
             int totalCount;
-            cudaSafeCall( cudaMemcpy(&totalCount, counterPtr, sizeof(int), cudaMemcpyDeviceToHost) );
+            cudaSafeCall( hipMemcpy(&totalCount, counterPtr, sizeof(int), hipMemcpyDeviceToHost) );
 
             totalCount = ::min(totalCount, maxCircles);
 

@@ -48,7 +48,7 @@
 
 #include "../common.hpp"
 #if __CUDACC_VER_MAJOR__ >= 9
-#include <cuda_fp16.h>
+#include <hip/hip_fp16.h>
 #endif
 
 namespace cv { namespace cudev {

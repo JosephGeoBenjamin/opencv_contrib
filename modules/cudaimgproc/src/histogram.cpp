@@ -68,8 +68,8 @@ void cv::cuda::histRange(InputArray, GpuMat*, const GpuMat*, Stream&) { throw_no
 
 namespace hist
 {
-    void histogram256(PtrStepSzb src, int* hist, cudaStream_t stream);
-    void histogram256(PtrStepSzb src, PtrStepSzb mask, int* hist, cudaStream_t stream);
+    void histogram256(PtrStepSzb src, int* hist, hipStream_t stream);
+    void histogram256(PtrStepSzb src, PtrStepSzb mask, int* hist, hipStream_t stream);
 }
 
 void cv::cuda::calcHist(InputArray _src, OutputArray _hist, Stream& stream)
@@ -102,7 +102,7 @@ void cv::cuda::calcHist(InputArray _src, InputArray _mask, OutputArray _hist, St
 
 namespace hist
 {
-    void equalizeHist(PtrStepSzb src, PtrStepSzb dst, const int* lut, cudaStream_t stream);
+    void equalizeHist(PtrStepSzb src, PtrStepSzb dst, const int* lut, hipStream_t stream);
 }
 
 void cv::cuda::equalizeHist(InputArray _src, OutputArray _dst, Stream& _stream)
@@ -128,7 +128,7 @@ void cv::cuda::equalizeHist(InputArray _src, OutputArray _dst, Stream& _stream)
 
     cuda::calcHist(src, hist, _stream);
 
-    cudaStream_t stream = StreamAccessor::getStream(_stream);
+    hipStream_t stream = StreamAccessor::getStream(_stream);
     NppStreamHandler h(stream);
 
     nppSafeCall( nppsIntegral_32s(hist.ptr<Npp32s>(), lut.ptr<Npp32s>(), 256, intBuf.ptr<Npp8u>()) );
@@ -141,8 +141,8 @@ void cv::cuda::equalizeHist(InputArray _src, OutputArray _dst, Stream& _stream)
 
 namespace clahe
 {
-    void calcLut(PtrStepSzb src, PtrStepb lut, int tilesX, int tilesY, int2 tileSize, int clipLimit, float lutScale, cudaStream_t stream);
-    void transform(PtrStepSzb src, PtrStepSzb dst, PtrStepb lut, int tilesX, int tilesY, int2 tileSize, cudaStream_t stream);
+    void calcLut(PtrStepSzb src, PtrStepb lut, int tilesX, int tilesY, int2 tileSize, int clipLimit, float lutScale, hipStream_t stream);
+    void transform(PtrStepSzb src, PtrStepSzb dst, PtrStepb lut, int tilesX, int tilesY, int2 tileSize, hipStream_t stream);
 }
 
 namespace
@@ -195,7 +195,7 @@ namespace
 
         ensureSizeIsEnough(tilesX_ * tilesY_, histSize, CV_8UC1, lut_);
 
-        cudaStream_t stream = StreamAccessor::getStream(s);
+        hipStream_t stream = StreamAccessor::getStream(s);
 
         cv::Size tileSize;
         GpuMat srcForLut;
@@ -316,7 +316,7 @@ namespace
                 lowerLevel, upperLevel, buf.ptr<Npp8u>()) );
 
             if (!stream)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
     };
     template<int SDEPTH, typename NppHistogramEvenFuncC4<SDEPTH>::func_ptr func, get_buf_size_c4_t get_buf_size>
@@ -349,7 +349,7 @@ namespace
             nppSafeCall( func(src.ptr<src_t>(), static_cast<int>(src.step), sz, pHist, levels, lowerLevel, upperLevel, buf.ptr<Npp8u>()) );
 
             if (!stream)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
     };
 
@@ -419,7 +419,7 @@ namespace
             nppSafeCall( func(src.ptr<src_t>(), static_cast<int>(src.step), sz, hist.ptr<Npp32s>(), levels.ptr<level_t>(), levels.cols, buf.ptr<Npp8u>()) );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
     };
     template<int SDEPTH, typename NppHistogramRangeFuncC4<SDEPTH>::func_ptr func, get_buf_size_c4_t get_buf_size>
@@ -460,7 +460,7 @@ namespace
             nppSafeCall( func(src.ptr<src_t>(), static_cast<int>(src.step), sz, pHist, pLevels, nLevels, buf.ptr<Npp8u>()) );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
     };
 }
@@ -485,15 +485,15 @@ void cv::cuda::evenLevels(OutputArray _levels, int nLevels, int lowerLevel, int 
 
 namespace hist
 {
-    void histEven8u(PtrStepSzb src, int* hist, int binCount, int lowerLevel, int upperLevel, cudaStream_t stream);
+    void histEven8u(PtrStepSzb src, int* hist, int binCount, int lowerLevel, int upperLevel, hipStream_t stream);
 }
 
 namespace
 {
-    void histEven8u(const GpuMat& src, GpuMat& hist, int histSize, int lowerLevel, int upperLevel, cudaStream_t stream)
+    void histEven8u(const GpuMat& src, GpuMat& hist, int histSize, int lowerLevel, int upperLevel, hipStream_t stream)
     {
         hist.create(1, histSize, CV_32S);
-        cudaSafeCall( cudaMemsetAsync(hist.data, 0, histSize * sizeof(int), stream) );
+        cudaSafeCall( hipMemsetAsync(hist.data, 0, histSize * sizeof(int), stream) );
         hist::histEven8u(src, hist.ptr<int>(), histSize, lowerLevel, upperLevel, stream);
     }
 }

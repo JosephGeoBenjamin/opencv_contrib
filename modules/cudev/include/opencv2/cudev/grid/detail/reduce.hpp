@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -413,22 +414,22 @@ namespace grid_reduce_detail
     }
 
     template <class Reductor, class Policy, class SrcPtr, typename ResType, class MaskPtr>
-    __host__ void reduce(const SrcPtr& src, ResType* result, const MaskPtr& mask, int rows, int cols, cudaStream_t stream)
+    __host__ void reduce(const SrcPtr& src, ResType* result, const MaskPtr& mask, int rows, int cols, hipStream_t stream)
     {
         const dim3 block(Policy::block_size_x, Policy::block_size_y);
         const dim3 grid(divUp(cols, block.x * Policy::patch_size_x), divUp(rows, block.y * Policy::patch_size_y));
 
-        reduce<Reductor, Policy::block_size_x * Policy::block_size_y, Policy::patch_size_x, Policy::patch_size_y><<<grid, block, 0, stream>>>(src, result, mask, rows, cols);
-        CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+        hipLaunchKernelGGL((reduce<Reductor, Policy::block_size_x * Policy::block_size_y, Policy::patch_size_x, Policy::patch_size_y>), dim3(grid), dim3(block), 0, stream, src, result, mask, rows, cols);
+        CV_CUDEV_SAFE_CALL( hipGetLastError() );
 
         if (stream == 0)
-            CV_CUDEV_SAFE_CALL( cudaDeviceSynchronize() );
+            CV_CUDEV_SAFE_CALL( hipDeviceSynchronize() );
     }
 
     // callers
 
     template <class Policy, class SrcPtr, typename ResType, class MaskPtr>
-    __host__ void sum(const SrcPtr& src, ResType* result, const MaskPtr& mask, int rows, int cols, cudaStream_t stream)
+    __host__ void sum(const SrcPtr& src, ResType* result, const MaskPtr& mask, int rows, int cols, hipStream_t stream)
     {
         typedef typename PtrTraits<SrcPtr>::value_type src_type;
         typedef typename VecTraits<ResType>::elem_type res_elem_type;
@@ -437,7 +438,7 @@ namespace grid_reduce_detail
     }
 
     template <class Policy, class SrcPtr, typename ResType, class MaskPtr>
-    __host__ void minVal(const SrcPtr& src, ResType* result, const MaskPtr& mask, int rows, int cols, cudaStream_t stream)
+    __host__ void minVal(const SrcPtr& src, ResType* result, const MaskPtr& mask, int rows, int cols, hipStream_t stream)
     {
         typedef typename PtrTraits<SrcPtr>::value_type src_type;
 
@@ -445,7 +446,7 @@ namespace grid_reduce_detail
     }
 
     template <class Policy, class SrcPtr, typename ResType, class MaskPtr>
-    __host__ void maxVal(const SrcPtr& src, ResType* result, const MaskPtr& mask, int rows, int cols, cudaStream_t stream)
+    __host__ void maxVal(const SrcPtr& src, ResType* result, const MaskPtr& mask, int rows, int cols, hipStream_t stream)
     {
         typedef typename PtrTraits<SrcPtr>::value_type src_type;
 
@@ -453,7 +454,7 @@ namespace grid_reduce_detail
     }
 
     template <class Policy, class SrcPtr, typename ResType, class MaskPtr>
-    __host__ void minMaxVal(const SrcPtr& src, ResType* result, const MaskPtr& mask, int rows, int cols, cudaStream_t stream)
+    __host__ void minMaxVal(const SrcPtr& src, ResType* result, const MaskPtr& mask, int rows, int cols, hipStream_t stream)
     {
         typedef typename PtrTraits<SrcPtr>::value_type src_type;
 

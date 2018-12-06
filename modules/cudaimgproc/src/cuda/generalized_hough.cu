@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -141,22 +142,22 @@ namespace cv { namespace cuda { namespace device
             const int PIXELS_PER_THREAD = 8;
 
             void* counterPtr;
-            cudaSafeCall( cudaGetSymbolAddress(&counterPtr, g_counter) );
+            cudaSafeCall( hipGetSymbolAddress(&counterPtr, g_counter) );
 
-            cudaSafeCall( cudaMemset(counterPtr, 0, sizeof(int)) );
+            cudaSafeCall( hipMemset(counterPtr, 0, sizeof(int)) );
 
             const dim3 block(32, 4);
             const dim3 grid(divUp(edges.cols, block.x * PIXELS_PER_THREAD), divUp(edges.rows, block.y));
 
-            cudaSafeCall( cudaFuncSetCacheConfig(buildEdgePointList<T, PIXELS_PER_THREAD>, cudaFuncCachePreferShared) );
+            cudaSafeCall( hipFuncSetCacheConfig(buildEdgePointList<T, PIXELS_PER_THREAD>, hipFuncCachePreferShared) );
 
-            buildEdgePointList<T, PIXELS_PER_THREAD><<<grid, block>>>(edges, (PtrStepSz<T>) dx, (PtrStepSz<T>) dy, coordList, thetaList);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((buildEdgePointList<T, PIXELS_PER_THREAD>), dim3(grid), dim3(block), 0, 0, edges, (PtrStepSz<T>) dx, (PtrStepSz<T>) dy, coordList, thetaList);
+            cudaSafeCall( hipGetLastError() );
 
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
 
             int totalCount;
-            cudaSafeCall( cudaMemcpy(&totalCount, counterPtr, sizeof(int), cudaMemcpyDeviceToHost) );
+            cudaSafeCall( hipMemcpy(&totalCount, counterPtr, sizeof(int), hipMemcpyDeviceToHost) );
 
             return totalCount;
         }
@@ -196,10 +197,10 @@ namespace cv { namespace cuda { namespace device
 
             const float thetaScale = levels / (2.0f * CV_PI_F);
 
-            buildRTable<<<grid, block>>>(coordList, thetaList, pointsCount, r_table, r_sizes, r_table.cols, templCenter, thetaScale);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((buildRTable), dim3(grid), dim3(block), 0, 0, coordList, thetaList, pointsCount, r_table, r_sizes, r_table.cols, templCenter, thetaScale);
+            cudaSafeCall( hipGetLastError() );
 
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
         }
 
         ////////////////////////////////////////////////////////////////////////
@@ -249,10 +250,10 @@ namespace cv { namespace cuda { namespace device
             const float idp = 1.0f / dp;
             const float thetaScale = levels / (2.0f * CV_PI_F);
 
-            Ballard_Pos_calcHist<<<grid, block>>>(coordList, thetaList, pointsCount, r_table, r_sizes, hist, idp, thetaScale);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((Ballard_Pos_calcHist), dim3(grid), dim3(block), 0, 0, coordList, thetaList, pointsCount, r_table, r_sizes, hist, idp, thetaScale);
+            cudaSafeCall( hipGetLastError() );
 
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
         }
 
         __global__ void Ballard_Pos_findPosInHist(const PtrStepSzi hist, float4* out, int3* votes,
@@ -285,22 +286,22 @@ namespace cv { namespace cuda { namespace device
         int Ballard_Pos_findPosInHist_gpu(PtrStepSzi hist, float4* out, int3* votes, int maxSize, float dp, int threshold)
         {
             void* counterPtr;
-            cudaSafeCall( cudaGetSymbolAddress(&counterPtr, g_counter) );
+            cudaSafeCall( hipGetSymbolAddress(&counterPtr, g_counter) );
 
-            cudaSafeCall( cudaMemset(counterPtr, 0, sizeof(int)) );
+            cudaSafeCall( hipMemset(counterPtr, 0, sizeof(int)) );
 
             const dim3 block(32, 8);
             const dim3 grid(divUp(hist.cols - 2, block.x), divUp(hist.rows - 2, block.y));
 
-            cudaSafeCall( cudaFuncSetCacheConfig(Ballard_Pos_findPosInHist, cudaFuncCachePreferL1) );
+            cudaSafeCall( hipFuncSetCacheConfig(Ballard_Pos_findPosInHist, hipFuncCachePreferL1) );
 
-            Ballard_Pos_findPosInHist<<<grid, block>>>(hist, out, votes, maxSize, dp, threshold);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((Ballard_Pos_findPosInHist), dim3(grid), dim3(block), 0, 0, hist, out, votes, maxSize, dp, threshold);
+            cudaSafeCall( hipGetLastError() );
 
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
 
             int totalCount;
-            cudaSafeCall( cudaMemcpy(&totalCount, counterPtr, sizeof(int), cudaMemcpyDeviceToHost) );
+            cudaSafeCall( hipMemcpy(&totalCount, counterPtr, sizeof(int), hipMemcpyDeviceToHost) );
 
             totalCount = ::min(totalCount, maxSize);
 
@@ -356,7 +357,7 @@ namespace cv { namespace cuda { namespace device
             tbl.r2_data = r2.data;
             tbl.r2_step = r2.step;
 
-            cudaSafeCall( cudaMemcpyToSymbol(c_templFeatures, &tbl, sizeof(FeatureTable)) );
+            cudaSafeCall( hipMemcpyToSymbol(c_templFeatures, &tbl, sizeof(FeatureTable)) );
         }
         void Guil_Full_setImageFeatures(PtrStepb p1_pos, PtrStepb p1_theta, PtrStepb p2_pos, PtrStepb d12, PtrStepb r1, PtrStepb r2)
         {
@@ -380,7 +381,7 @@ namespace cv { namespace cuda { namespace device
             tbl.r2_data = r2.data;
             tbl.r2_step = r2.step;
 
-            cudaSafeCall( cudaMemcpyToSymbol(c_imageFeatures, &tbl, sizeof(FeatureTable)) );
+            cudaSafeCall( hipMemcpyToSymbol(c_imageFeatures, &tbl, sizeof(FeatureTable)) );
         }
 
         struct TemplFeatureTable
@@ -529,13 +530,13 @@ namespace cv { namespace cuda { namespace device
 
             const float alphaScale = levels / (2.0f * CV_PI_F);
 
-            Guil_Full_buildFeatureList<FT, isTempl><<<grid, block>>>(coordList, thetaList, pointsCount,
+            hipLaunchKernelGGL((Guil_Full_buildFeatureList<FT, isTempl>), dim3(grid), dim3(block), 0, 0, coordList, thetaList, pointsCount,
                                                                      sizes, maxSize,
                                                                      xi * (CV_PI_F / 180.0f), angleEpsilon * (CV_PI_F / 180.0f), alphaScale,
                                                                      center, maxDist);
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
 
             thrust::device_ptr<int> sizesPtr(sizes);
             thrust::transform(sizesPtr, sizesPtr + levels + 1, sizesPtr, device::bind2nd(device::minimum<int>(), maxSize));
@@ -565,7 +566,7 @@ namespace cv { namespace cuda { namespace device
         __global__ void Guil_Full_calcOHist(const int* templSizes, const int* imageSizes, int* OHist,
                                             const float minAngle, const float maxAngle, const float iAngleStep, const int angleRange)
         {
-            extern __shared__ int s_OHist[];
+            HIP_DYNAMIC_SHARED( int, s_OHist)
             for (int i = threadIdx.x; i <= angleRange; i += blockDim.x)
                 s_OHist[i] = 0;
             __syncthreads();
@@ -613,18 +614,18 @@ namespace cv { namespace cuda { namespace device
 
             const size_t smemSize = (angleRange + 1) * sizeof(float);
 
-            Guil_Full_calcOHist<<<grid, block, smemSize>>>(templSizes, imageSizes, OHist,
+            hipLaunchKernelGGL((Guil_Full_calcOHist), dim3(grid), dim3(block), smemSize, 0, templSizes, imageSizes, OHist,
                                                            minAngle, maxAngle, 1.0f / angleStep, angleRange);
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
         }
 
         __global__ void Guil_Full_calcSHist(const int* templSizes, const int* imageSizes, int* SHist,
                                             const float angle, const float angleEpsilon,
                                             const float minScale, const float maxScale, const float iScaleStep, const int scaleRange)
         {
-            extern __shared__ int s_SHist[];
+            HIP_DYNAMIC_SHARED( int, s_SHist)
             for (int i = threadIdx.x; i <= scaleRange; i += blockDim.x)
                 s_SHist[i] = 0;
             __syncthreads();
@@ -677,12 +678,12 @@ namespace cv { namespace cuda { namespace device
 
             const size_t smemSize = (scaleRange + 1) * sizeof(float);
 
-            Guil_Full_calcSHist<<<grid, block, smemSize>>>(templSizes, imageSizes, SHist,
+            hipLaunchKernelGGL((Guil_Full_calcSHist), dim3(grid), dim3(block), smemSize, 0, templSizes, imageSizes, SHist,
                                                            angle, angleEpsilon,
                                                            minScale, maxScale, iScaleStep, scaleRange);
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
         }
 
         __global__ void Guil_Full_calcPHist(const int* templSizes, const int* imageSizes, PtrStepSzi PHist,
@@ -750,14 +751,14 @@ namespace cv { namespace cuda { namespace device
             const float sinVal = ::sinf(angle);
             const float cosVal = ::cosf(angle);
 
-            cudaSafeCall( cudaFuncSetCacheConfig(Guil_Full_calcPHist, cudaFuncCachePreferL1) );
+            cudaSafeCall( hipFuncSetCacheConfig(Guil_Full_calcPHist, hipFuncCachePreferL1) );
 
-            Guil_Full_calcPHist<<<grid, block>>>(templSizes, imageSizes, PHist,
+            hipLaunchKernelGGL((Guil_Full_calcPHist), dim3(grid), dim3(block), 0, 0, templSizes, imageSizes, PHist,
                                                  angle, sinVal, cosVal, angleEpsilon, scale,
                                                  1.0f / dp);
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
         }
 
         __global__ void Guil_Full_findPosInHist(const PtrStepSzi hist, float4* out, int3* votes, const int maxSize,
@@ -793,24 +794,24 @@ namespace cv { namespace cuda { namespace device
                                         float dp, int threshold)
         {
             void* counterPtr;
-            cudaSafeCall( cudaGetSymbolAddress(&counterPtr, g_counter) );
+            cudaSafeCall( hipGetSymbolAddress(&counterPtr, g_counter) );
 
-            cudaSafeCall( cudaMemcpy(counterPtr, &curSize, sizeof(int), cudaMemcpyHostToDevice) );
+            cudaSafeCall( hipMemcpy(counterPtr, &curSize, sizeof(int), hipMemcpyHostToDevice) );
 
             const dim3 block(32, 8);
             const dim3 grid(divUp(hist.cols - 2, block.x), divUp(hist.rows - 2, block.y));
 
-            cudaSafeCall( cudaFuncSetCacheConfig(Guil_Full_findPosInHist, cudaFuncCachePreferL1) );
+            cudaSafeCall( hipFuncSetCacheConfig(Guil_Full_findPosInHist, hipFuncCachePreferL1) );
 
-            Guil_Full_findPosInHist<<<grid, block>>>(hist, out, votes, maxSize,
+            hipLaunchKernelGGL((Guil_Full_findPosInHist), dim3(grid), dim3(block), 0, 0, hist, out, votes, maxSize,
                                                      angle, angleVotes, scale, scaleVotes,
                                                      dp, threshold);
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
 
             int totalCount;
-            cudaSafeCall( cudaMemcpy(&totalCount, counterPtr, sizeof(int), cudaMemcpyDeviceToHost) );
+            cudaSafeCall( hipMemcpy(&totalCount, counterPtr, sizeof(int), hipMemcpyDeviceToHost) );
 
             totalCount = ::min(totalCount, maxSize);
 

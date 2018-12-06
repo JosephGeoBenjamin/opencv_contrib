@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -143,15 +144,15 @@ namespace integral_detail
     }
 
     template <class SrcPtr, typename D>
-    __host__ void horizontal_pass(const SrcPtr& src, const GlobPtr<D>& dst, int rows, int cols, cudaStream_t stream)
+    __host__ void horizontal_pass(const SrcPtr& src, const GlobPtr<D>& dst, int rows, int cols, hipStream_t stream)
     {
         const int NUM_SCAN_THREADS = 256;
 
         const dim3 block(NUM_SCAN_THREADS);
         const dim3 grid(rows);
 
-        horizontal_pass<NUM_SCAN_THREADS><<<grid, block, 0, stream>>>(src, dst, cols);
-        CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+        hipLaunchKernelGGL((horizontal_pass<NUM_SCAN_THREADS>), dim3(grid), dim3(block), 0, stream, src, dst, cols);
+        CV_CUDEV_SAFE_CALL( hipGetLastError() );
     }
 
     // horisontal_pass_8u_shfl
@@ -396,7 +397,7 @@ namespace integral_detail
     #endif
     }
 
-    __host__ static void horisontal_pass_8u_shfl(const GlobPtr<uchar> src, GlobPtr<uint> integral, int rows, int cols, cudaStream_t stream)
+    __host__ static void horisontal_pass_8u_shfl(const GlobPtr<uchar> src, GlobPtr<uint> integral, int rows, int cols, hipStream_t stream)
     {
         // each thread handles 16 values, use 1 block/row
         // save, because step is actually can't be less 512 bytes
@@ -405,13 +406,13 @@ namespace integral_detail
         // launch 1 block / row
         const int grid = rows;
 
-        CV_CUDEV_SAFE_CALL( cudaFuncSetCacheConfig(horisontal_pass_8u_shfl_kernel, cudaFuncCachePreferL1) );
+        CV_CUDEV_SAFE_CALL( hipFuncSetCacheConfig(horisontal_pass_8u_shfl_kernel, hipFuncCachePreferL1) );
 
         GlobPtr<uint4> src4 = globPtr((uint4*) src.data, src.step);
         GlobPtr<uint4> integral4 = globPtr((uint4*) integral.data, integral.step);
 
-        horisontal_pass_8u_shfl_kernel<<<grid, block, 0, stream>>>(src4, integral4);
-        CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+        hipLaunchKernelGGL((horisontal_pass_8u_shfl_kernel), dim3(grid), dim3(block), 0, stream, src4, integral4);
+        CV_CUDEV_SAFE_CALL( hipGetLastError() );
     }
 
     // vertical
@@ -574,28 +575,28 @@ namespace integral_detail
     }
 
     template <typename T>
-    __host__ void vertical_pass(const GlobPtr<T>& integral, int rows, int cols, cudaStream_t stream)
+    __host__ void vertical_pass(const GlobPtr<T>& integral, int rows, int cols, hipStream_t stream)
     {
         const dim3 block(32, 8);
         const dim3 grid(divUp(cols, block.x));
 
-        vertical_pass<<<grid, block, 0, stream>>>(integral, rows, cols);
-        CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+        hipLaunchKernelGGL((vertical_pass), dim3(grid), dim3(block), 0, stream, integral, rows, cols);
+        CV_CUDEV_SAFE_CALL( hipGetLastError() );
     }
 
     // integral
 
     template <class SrcPtr, typename D>
-    __host__ void integral(const SrcPtr& src, const GlobPtr<D>& dst, int rows, int cols, cudaStream_t stream)
+    __host__ void integral(const SrcPtr& src, const GlobPtr<D>& dst, int rows, int cols, hipStream_t stream)
     {
         horizontal_pass(src, dst, rows, cols, stream);
         vertical_pass(dst, rows, cols, stream);
 
         if (stream == 0)
-            CV_CUDEV_SAFE_CALL( cudaDeviceSynchronize() );
+            CV_CUDEV_SAFE_CALL( hipDeviceSynchronize() );
     }
 
-    __host__ static void integral(const GlobPtr<uchar>& src, const GlobPtr<uint>& dst, int rows, int cols, cudaStream_t stream)
+    __host__ static void integral(const GlobPtr<uchar>& src, const GlobPtr<uint>& dst, int rows, int cols, hipStream_t stream)
     {
         if (deviceSupports(FEATURE_SET_COMPUTE_30)
             && (cols % 64 == 0)
@@ -612,10 +613,10 @@ namespace integral_detail
         vertical_pass(dst, rows, cols, stream);
 
         if (stream == 0)
-            CV_CUDEV_SAFE_CALL( cudaDeviceSynchronize() );
+            CV_CUDEV_SAFE_CALL( hipDeviceSynchronize() );
     }
 
-    __host__ __forceinline__ void integral(const GlobPtr<uchar>& src, const GlobPtr<int>& dst, int rows, int cols, cudaStream_t stream)
+    __host__ __forceinline__ void integral(const GlobPtr<uchar>& src, const GlobPtr<int>& dst, int rows, int cols, hipStream_t stream)
     {
         GlobPtr<uint> dstui = globPtr((uint*) dst.data, dst.step);
         integral(src, dstui, rows, cols, stream);

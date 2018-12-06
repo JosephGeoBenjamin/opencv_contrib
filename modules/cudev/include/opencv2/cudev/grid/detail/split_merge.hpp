@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -77,16 +78,16 @@ namespace grid_split_merge_detail
     }
 
     template <class Policy, class Src1Ptr, class Src2Ptr, typename DstType, class MaskPtr>
-    __host__ void mergeC2(const Src1Ptr& src1, const Src2Ptr& src2, const GlobPtr<DstType>& dst, const MaskPtr& mask, int rows, int cols, cudaStream_t stream)
+    __host__ void mergeC2(const Src1Ptr& src1, const Src2Ptr& src2, const GlobPtr<DstType>& dst, const MaskPtr& mask, int rows, int cols, hipStream_t stream)
     {
         const dim3 block(Policy::block_size_x, Policy::block_size_y);
         const dim3 grid(divUp(cols, block.x), divUp(rows, block.y));
 
-        mergeC2<<<grid, block, 0, stream>>>(src1, src2, dst, mask, rows, cols);
-        CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+        hipLaunchKernelGGL((mergeC2), dim3(grid), dim3(block), 0, stream, src1, src2, dst, mask, rows, cols);
+        CV_CUDEV_SAFE_CALL( hipGetLastError() );
 
         if (stream == 0)
-            CV_CUDEV_SAFE_CALL(cudaDeviceSynchronize());
+            CV_CUDEV_SAFE_CALL(hipDeviceSynchronize());
     }
 
     template <class Src1Ptr, class Src2Ptr, class Src3Ptr, typename DstType, class MaskPtr>
@@ -108,16 +109,16 @@ namespace grid_split_merge_detail
     }
 
     template <class Policy, class Src1Ptr, class Src2Ptr, class Src3Ptr, typename DstType, class MaskPtr>
-    __host__ void mergeC3(const Src1Ptr& src1, const Src2Ptr& src2, const Src3Ptr& src3, const GlobPtr<DstType>& dst, const MaskPtr& mask, int rows, int cols, cudaStream_t stream)
+    __host__ void mergeC3(const Src1Ptr& src1, const Src2Ptr& src2, const Src3Ptr& src3, const GlobPtr<DstType>& dst, const MaskPtr& mask, int rows, int cols, hipStream_t stream)
     {
         const dim3 block(Policy::block_size_x, Policy::block_size_y);
         const dim3 grid(divUp(cols, block.x), divUp(rows, block.y));
 
-        mergeC3<<<grid, block, 0, stream>>>(src1, src2, src3, dst, mask, rows, cols);
-        CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+        hipLaunchKernelGGL((mergeC3), dim3(grid), dim3(block), 0, stream, src1, src2, src3, dst, mask, rows, cols);
+        CV_CUDEV_SAFE_CALL( hipGetLastError() );
 
         if (stream == 0)
-            CV_CUDEV_SAFE_CALL(cudaDeviceSynchronize());
+            CV_CUDEV_SAFE_CALL(hipDeviceSynchronize());
     }
 
     template <class Src1Ptr, class Src2Ptr, class Src3Ptr, class Src4Ptr, typename DstType, class MaskPtr>
@@ -140,16 +141,16 @@ namespace grid_split_merge_detail
     }
 
     template <class Policy, class Src1Ptr, class Src2Ptr, class Src3Ptr, class Src4Ptr, typename DstType, class MaskPtr>
-    __host__ void mergeC4(const Src1Ptr& src1, const Src2Ptr& src2, const Src3Ptr& src3, const Src4Ptr& src4, const GlobPtr<DstType>& dst, const MaskPtr& mask, int rows, int cols, cudaStream_t stream)
+    __host__ void mergeC4(const Src1Ptr& src1, const Src2Ptr& src2, const Src3Ptr& src3, const Src4Ptr& src4, const GlobPtr<DstType>& dst, const MaskPtr& mask, int rows, int cols, hipStream_t stream)
     {
         const dim3 block(Policy::block_size_x, Policy::block_size_y);
         const dim3 grid(divUp(cols, block.x), divUp(rows, block.y));
 
-        mergeC4<<<grid, block, 0, stream>>>(src1, src2, src3, src4, dst, mask, rows, cols);
-        CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+        hipLaunchKernelGGL((mergeC4), dim3(grid), dim3(block), 0, stream, src1, src2, src3, src4, dst, mask, rows, cols);
+        CV_CUDEV_SAFE_CALL( hipGetLastError() );
 
         if (stream == 0)
-            CV_CUDEV_SAFE_CALL(cudaDeviceSynchronize());
+            CV_CUDEV_SAFE_CALL(hipDeviceSynchronize());
     }
 
     template <int cn, class Policy> struct MergeImpl;
@@ -157,7 +158,7 @@ namespace grid_split_merge_detail
     template <class Policy> struct MergeImpl<2, Policy>
     {
         template <class SrcPtrTuple, typename DstType, class MaskPtr>
-        __host__ static void merge(const SrcPtrTuple& src, const GlobPtr<DstType>& dst, const MaskPtr& mask, int rows, int cols, cudaStream_t stream)
+        __host__ static void merge(const SrcPtrTuple& src, const GlobPtr<DstType>& dst, const MaskPtr& mask, int rows, int cols, hipStream_t stream)
         {
             mergeC2<Policy>(get<0>(src), get<1>(src), dst, mask, rows, cols, stream);
         }
@@ -166,7 +167,7 @@ namespace grid_split_merge_detail
     template <class Policy> struct MergeImpl<3, Policy>
     {
         template <class SrcPtrTuple, typename DstType, class MaskPtr>
-        __host__ static void merge(const SrcPtrTuple& src, const GlobPtr<DstType>& dst, const MaskPtr& mask, int rows, int cols, cudaStream_t stream)
+        __host__ static void merge(const SrcPtrTuple& src, const GlobPtr<DstType>& dst, const MaskPtr& mask, int rows, int cols, hipStream_t stream)
         {
             mergeC3<Policy>(get<0>(src), get<1>(src), get<2>(src), dst, mask, rows, cols, stream);
         }
@@ -175,7 +176,7 @@ namespace grid_split_merge_detail
     template <class Policy> struct MergeImpl<4, Policy>
     {
         template <class SrcPtrTuple, typename DstType, class MaskPtr>
-        __host__ static void merge(const SrcPtrTuple& src, const GlobPtr<DstType>& dst, const MaskPtr& mask, int rows, int cols, cudaStream_t stream)
+        __host__ static void merge(const SrcPtrTuple& src, const GlobPtr<DstType>& dst, const MaskPtr& mask, int rows, int cols, hipStream_t stream)
         {
             mergeC4<Policy>(get<0>(src), get<1>(src), get<2>(src), get<3>(src), dst, mask, rows, cols, stream);
         }
@@ -201,16 +202,16 @@ namespace grid_split_merge_detail
     }
 
     template <class Policy, class SrcPtr, typename DstType, class MaskPtr>
-    __host__ void split(const SrcPtr& src, const GlobPtr<DstType>& dst1, const GlobPtr<DstType>& dst2, const MaskPtr& mask, int rows, int cols, cudaStream_t stream)
+    __host__ void split(const SrcPtr& src, const GlobPtr<DstType>& dst1, const GlobPtr<DstType>& dst2, const MaskPtr& mask, int rows, int cols, hipStream_t stream)
     {
         const dim3 block(Policy::block_size_x, Policy::block_size_y);
         const dim3 grid(divUp(cols, block.x), divUp(rows, block.y));
 
-        split<<<grid, block, 0, stream>>>(src, dst1, dst2, mask, rows, cols);
-        CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+        hipLaunchKernelGGL((split), dim3(grid), dim3(block), 0, stream, src, dst1, dst2, mask, rows, cols);
+        CV_CUDEV_SAFE_CALL( hipGetLastError() );
 
         if (stream == 0)
-            CV_CUDEV_SAFE_CALL(cudaDeviceSynchronize());
+            CV_CUDEV_SAFE_CALL(hipDeviceSynchronize());
     }
 
     template <class SrcPtr, typename DstType, class MaskPtr>
@@ -232,16 +233,16 @@ namespace grid_split_merge_detail
     }
 
     template <class Policy, class SrcPtr, typename DstType, class MaskPtr>
-    __host__ void split(const SrcPtr& src, const GlobPtr<DstType>& dst1, const GlobPtr<DstType>& dst2, const GlobPtr<DstType>& dst3, const MaskPtr& mask, int rows, int cols, cudaStream_t stream)
+    __host__ void split(const SrcPtr& src, const GlobPtr<DstType>& dst1, const GlobPtr<DstType>& dst2, const GlobPtr<DstType>& dst3, const MaskPtr& mask, int rows, int cols, hipStream_t stream)
     {
         const dim3 block(Policy::block_size_x, Policy::block_size_y);
         const dim3 grid(divUp(cols, block.x), divUp(rows, block.y));
 
-        split<<<grid, block, 0, stream>>>(src, dst1, dst2, dst3, mask, rows, cols);
-        CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+        hipLaunchKernelGGL((split), dim3(grid), dim3(block), 0, stream, src, dst1, dst2, dst3, mask, rows, cols);
+        CV_CUDEV_SAFE_CALL( hipGetLastError() );
 
         if (stream == 0)
-            CV_CUDEV_SAFE_CALL(cudaDeviceSynchronize());
+            CV_CUDEV_SAFE_CALL(hipDeviceSynchronize());
     }
 
     template <class SrcPtr, typename DstType, class MaskPtr>
@@ -264,16 +265,16 @@ namespace grid_split_merge_detail
     }
 
     template <class Policy, class SrcPtr, typename DstType, class MaskPtr>
-    __host__ void split(const SrcPtr& src, const GlobPtr<DstType>& dst1, const GlobPtr<DstType>& dst2, const GlobPtr<DstType>& dst3, const GlobPtr<DstType>& dst4, const MaskPtr& mask, int rows, int cols, cudaStream_t stream)
+    __host__ void split(const SrcPtr& src, const GlobPtr<DstType>& dst1, const GlobPtr<DstType>& dst2, const GlobPtr<DstType>& dst3, const GlobPtr<DstType>& dst4, const MaskPtr& mask, int rows, int cols, hipStream_t stream)
     {
         const dim3 block(Policy::block_size_x, Policy::block_size_y);
         const dim3 grid(divUp(cols, block.x), divUp(rows, block.y));
 
-        split<<<grid, block, 0, stream>>>(src, dst1, dst2, dst3, dst4, mask, rows, cols);
-        CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+        hipLaunchKernelGGL((split), dim3(grid), dim3(block), 0, stream, src, dst1, dst2, dst3, dst4, mask, rows, cols);
+        CV_CUDEV_SAFE_CALL( hipGetLastError() );
 
         if (stream == 0)
-            CV_CUDEV_SAFE_CALL(cudaDeviceSynchronize());
+            CV_CUDEV_SAFE_CALL(hipDeviceSynchronize());
     }
 }
 

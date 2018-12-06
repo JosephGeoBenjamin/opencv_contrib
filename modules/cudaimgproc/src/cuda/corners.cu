@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -58,8 +59,8 @@ namespace cv { namespace cuda { namespace device
     {
         /////////////////////////////////////////// Corner Harris /////////////////////////////////////////////////
 
-        texture<float, cudaTextureType2D, cudaReadModeElementType> harrisDxTex(0, cudaFilterModePoint, cudaAddressModeClamp);
-        texture<float, cudaTextureType2D, cudaReadModeElementType> harrisDyTex(0, cudaFilterModePoint, cudaAddressModeClamp);
+        texture<float, cudaTextureType2D, hipReadModeElementType> harrisDxTex(0, hipFilterModePoint, hipAddressModeClamp);
+        texture<float, cudaTextureType2D, hipReadModeElementType> harrisDyTex(0, hipFilterModePoint, hipAddressModeClamp);
 
         __global__ void cornerHarris_kernel(const int block_size, const float k, PtrStepSzf dst)
         {
@@ -132,7 +133,7 @@ namespace cv { namespace cuda { namespace device
             }
         }
 
-        void cornerHarris_gpu(int block_size, float k, PtrStepSzf Dx, PtrStepSzf Dy, PtrStepSzf dst, int border_type, cudaStream_t stream)
+        void cornerHarris_gpu(int block_size, float k, PtrStepSzf Dx, PtrStepSzf Dy, PtrStepSzf dst, int border_type, hipStream_t stream)
         {
             dim3 block(32, 8);
             dim3 grid(divUp(Dx.cols, block.x), divUp(Dx.rows, block.y));
@@ -143,28 +144,28 @@ namespace cv { namespace cuda { namespace device
             switch (border_type)
             {
             case BORDER_REFLECT101:
-                cornerHarris_kernel<<<grid, block, 0, stream>>>(block_size, k, dst, BrdRowReflect101<void>(Dx.cols), BrdColReflect101<void>(Dx.rows));
+                hipLaunchKernelGGL((cornerHarris_kernel), dim3(grid), dim3(block), 0, stream, block_size, k, dst, BrdRowReflect101<void>(Dx.cols), BrdColReflect101<void>(Dx.rows));
                 break;
 
             case BORDER_REFLECT:
-                cornerHarris_kernel<<<grid, block, 0, stream>>>(block_size, k, dst, BrdRowReflect<void>(Dx.cols), BrdColReflect<void>(Dx.rows));
+                hipLaunchKernelGGL((cornerHarris_kernel), dim3(grid), dim3(block), 0, stream, block_size, k, dst, BrdRowReflect<void>(Dx.cols), BrdColReflect<void>(Dx.rows));
                 break;
 
             case BORDER_REPLICATE:
-                cornerHarris_kernel<<<grid, block, 0, stream>>>(block_size, k, dst);
+                hipLaunchKernelGGL((cornerHarris_kernel), dim3(grid), dim3(block), 0, stream, block_size, k, dst);
                 break;
             }
 
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
         /////////////////////////////////////////// Corner Min Eigen Val /////////////////////////////////////////////////
 
-        texture<float, cudaTextureType2D, cudaReadModeElementType> minEigenValDxTex(0, cudaFilterModePoint, cudaAddressModeClamp);
-        texture<float, cudaTextureType2D, cudaReadModeElementType> minEigenValDyTex(0, cudaFilterModePoint, cudaAddressModeClamp);
+        texture<float, cudaTextureType2D, hipReadModeElementType> minEigenValDxTex(0, hipFilterModePoint, hipAddressModeClamp);
+        texture<float, cudaTextureType2D, hipReadModeElementType> minEigenValDyTex(0, hipFilterModePoint, hipAddressModeClamp);
 
         __global__ void cornerMinEigenVal_kernel(const int block_size, PtrStepSzf dst)
         {
@@ -244,7 +245,7 @@ namespace cv { namespace cuda { namespace device
             }
         }
 
-        void cornerMinEigenVal_gpu(int block_size, PtrStepSzf Dx, PtrStepSzf Dy, PtrStepSzf dst, int border_type, cudaStream_t stream)
+        void cornerMinEigenVal_gpu(int block_size, PtrStepSzf Dx, PtrStepSzf Dy, PtrStepSzf dst, int border_type, hipStream_t stream)
         {
             dim3 block(32, 8);
             dim3 grid(divUp(Dx.cols, block.x), divUp(Dx.rows, block.y));
@@ -255,22 +256,22 @@ namespace cv { namespace cuda { namespace device
             switch (border_type)
             {
             case BORDER_REFLECT101:
-                cornerMinEigenVal_kernel<<<grid, block, 0, stream>>>(block_size, dst, BrdRowReflect101<void>(Dx.cols), BrdColReflect101<void>(Dx.rows));
+                hipLaunchKernelGGL((cornerMinEigenVal_kernel), dim3(grid), dim3(block), 0, stream, block_size, dst, BrdRowReflect101<void>(Dx.cols), BrdColReflect101<void>(Dx.rows));
                 break;
 
             case BORDER_REFLECT:
-                cornerMinEigenVal_kernel<<<grid, block, 0, stream>>>(block_size, dst, BrdRowReflect<void>(Dx.cols), BrdColReflect<void>(Dx.rows));
+                hipLaunchKernelGGL((cornerMinEigenVal_kernel), dim3(grid), dim3(block), 0, stream, block_size, dst, BrdRowReflect<void>(Dx.cols), BrdColReflect<void>(Dx.rows));
                 break;
 
             case BORDER_REPLICATE:
-                cornerMinEigenVal_kernel<<<grid, block, 0, stream>>>(block_size, dst);
+                hipLaunchKernelGGL((cornerMinEigenVal_kernel), dim3(grid), dim3(block), 0, stream, block_size, dst);
                 break;
             }
 
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall(cudaDeviceSynchronize());
+                cudaSafeCall(hipDeviceSynchronize());
         }
     }
 }}}

@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -153,7 +154,7 @@ namespace grid_minmaxloc_detail
     }
 
     template <class Policy, class SrcPtr, typename ResType, class MaskPtr>
-    __host__ void minMaxLoc(const SrcPtr& src, ResType* minVal, ResType* maxVal, int* minLoc, int* maxLoc, const MaskPtr& mask, int rows, int cols, cudaStream_t stream)
+    __host__ void minMaxLoc(const SrcPtr& src, ResType* minVal, ResType* maxVal, int* minLoc, int* maxLoc, const MaskPtr& mask, int rows, int cols, hipStream_t stream)
     {
         dim3 block, grid;
         getLaunchCfg<Policy>(rows, cols, block, grid);
@@ -161,14 +162,14 @@ namespace grid_minmaxloc_detail
         const int patch_x = divUp(divUp(cols, grid.x), block.x);
         const int patch_y = divUp(divUp(rows, grid.y), block.y);
 
-        minMaxLoc_pass_1<Policy::block_size_x * Policy::block_size_y><<<grid, block, 0, stream>>>(src, minVal, maxVal, minLoc, maxLoc, mask, rows, cols, patch_y, patch_x);
-        CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+        hipLaunchKernelGGL((minMaxLoc_pass_1<Policy::block_size_x * Policy::block_size_y>), dim3(grid), dim3(block), 0, stream, src, minVal, maxVal, minLoc, maxLoc, mask, rows, cols, patch_y, patch_x);
+        CV_CUDEV_SAFE_CALL( hipGetLastError() );
 
-        minMaxLoc_pass_2<Policy::block_size_x * Policy::block_size_y><<<1, Policy::block_size_x * Policy::block_size_y, 0, stream>>>(minVal, maxVal, minLoc, maxLoc, grid.x * grid.y);
-        CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+        hipLaunchKernelGGL((minMaxLoc_pass_2<Policy::block_size_x * Policy::block_size_y>), dim3(1), dim3(Policy::block_size_x * Policy::block_size_y), 0, stream, minVal, maxVal, minLoc, maxLoc, grid.x * grid.y);
+        CV_CUDEV_SAFE_CALL( hipGetLastError() );
 
         if (stream == 0)
-            CV_CUDEV_SAFE_CALL( cudaDeviceSynchronize() );
+            CV_CUDEV_SAFE_CALL( hipDeviceSynchronize() );
     }
 }
 

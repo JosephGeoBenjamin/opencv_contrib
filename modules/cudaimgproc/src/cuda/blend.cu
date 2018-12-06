@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -67,20 +68,20 @@ namespace cv { namespace cuda { namespace device
         }
 
         template <typename T>
-        void blendLinearCaller(int rows, int cols, int cn, PtrStep<T> img1, PtrStep<T> img2, PtrStepf weights1, PtrStepf weights2, PtrStep<T> result, cudaStream_t stream)
+        void blendLinearCaller(int rows, int cols, int cn, PtrStep<T> img1, PtrStep<T> img2, PtrStepf weights1, PtrStepf weights2, PtrStep<T> result, hipStream_t stream)
         {
             dim3 threads(16, 16);
             dim3 grid(divUp(cols * cn, threads.x), divUp(rows, threads.y));
 
-            blendLinearKernel<<<grid, threads, 0, stream>>>(rows, cols * cn, cn, img1, img2, weights1, weights2, result);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((blendLinearKernel), dim3(grid), dim3(threads), 0, stream, rows, cols * cn, cn, img1, img2, weights1, weights2, result);
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall(cudaDeviceSynchronize());
+                cudaSafeCall(hipDeviceSynchronize());
         }
 
-        template void blendLinearCaller<uchar>(int, int, int, PtrStep<uchar>, PtrStep<uchar>, PtrStepf, PtrStepf, PtrStep<uchar>, cudaStream_t stream);
-        template void blendLinearCaller<float>(int, int, int, PtrStep<float>, PtrStep<float>, PtrStepf, PtrStepf, PtrStep<float>, cudaStream_t stream);
+        template void blendLinearCaller<uchar>(int, int, int, PtrStep<uchar>, PtrStep<uchar>, PtrStepf, PtrStepf, PtrStep<uchar>, hipStream_t stream);
+        template void blendLinearCaller<float>(int, int, int, PtrStep<float>, PtrStep<float>, PtrStepf, PtrStepf, PtrStep<float>, hipStream_t stream);
 
 
         __global__ void blendLinearKernel8UC4(int rows, int cols, const PtrStepb img1, const PtrStepb img2,
@@ -103,16 +104,16 @@ namespace cv { namespace cuda { namespace device
             }
         }
 
-        void blendLinearCaller8UC4(int rows, int cols, PtrStepb img1, PtrStepb img2, PtrStepf weights1, PtrStepf weights2, PtrStepb result, cudaStream_t stream)
+        void blendLinearCaller8UC4(int rows, int cols, PtrStepb img1, PtrStepb img2, PtrStepf weights1, PtrStepf weights2, PtrStepb result, hipStream_t stream)
         {
             dim3 threads(16, 16);
             dim3 grid(divUp(cols, threads.x), divUp(rows, threads.y));
 
-            blendLinearKernel8UC4<<<grid, threads, 0, stream>>>(rows, cols, img1, img2, weights1, weights2, result);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((blendLinearKernel8UC4), dim3(grid), dim3(threads), 0, stream, rows, cols, img1, img2, weights1, weights2, result);
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall(cudaDeviceSynchronize());
+                cudaSafeCall(hipDeviceSynchronize());
         }
     } // namespace blend
 }}} // namespace cv { namespace cuda { namespace cudev

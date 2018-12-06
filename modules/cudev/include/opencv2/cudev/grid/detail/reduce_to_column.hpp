@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -122,7 +123,7 @@ namespace grid_reduce_to_vec_detail
     }
 
     template <class Reductor, class Policy, class SrcPtr, typename ResType, class MaskPtr>
-    __host__ void reduceToColumn(const SrcPtr& src, ResType* dst, const MaskPtr& mask, int rows, int cols, cudaStream_t stream)
+    __host__ void reduceToColumn(const SrcPtr& src, ResType* dst, const MaskPtr& mask, int rows, int cols, hipStream_t stream)
     {
         const int BLOCK_SIZE_X = Policy::block_size_x;
         const int BLOCK_SIZE_Y = Policy::block_size_y;
@@ -132,11 +133,11 @@ namespace grid_reduce_to_vec_detail
         const dim3 block(BLOCK_SIZE);
         const dim3 grid(rows);
 
-        reduceToColumn<Reductor, BLOCK_SIZE><<<grid, block, 0, stream>>>(src, dst, mask, cols);
-        CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+        hipLaunchKernelGGL((reduceToColumn<Reductor, BLOCK_SIZE>), dim3(grid), dim3(block), 0, stream, src, dst, mask, cols);
+        CV_CUDEV_SAFE_CALL( hipGetLastError() );
 
         if (stream == 0)
-            CV_CUDEV_SAFE_CALL( cudaDeviceSynchronize() );
+            CV_CUDEV_SAFE_CALL( hipDeviceSynchronize() );
 
     }
 }

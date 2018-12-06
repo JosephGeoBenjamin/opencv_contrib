@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -90,7 +91,7 @@ namespace cv { namespace cuda { namespace device
 
 namespace canny
 {
-    texture<uchar, cudaTextureType2D, cudaReadModeElementType> tex_src(false, cudaFilterModePoint, cudaAddressModeClamp);
+    texture<uchar, cudaTextureType2D, hipReadModeElementType> tex_src(false, hipFilterModePoint, hipAddressModeClamp);
     struct SrcTex
     {
         int xoff;
@@ -153,7 +154,7 @@ namespace canny
         mag(y, x) = norm(dxVal, dyVal);
     }
 
-    void calcMagnitude(PtrStepSzb srcWhole, int xoff, int yoff, PtrStepSzi dx, PtrStepSzi dy, PtrStepSzf mag, bool L2Grad, cudaStream_t stream)
+    void calcMagnitude(PtrStepSzb srcWhole, int xoff, int yoff, PtrStepSzi dx, PtrStepSzi dy, PtrStepSzf mag, bool L2Grad, hipStream_t stream)
     {
         const dim3 block(16, 16);
         const dim3 grid(divUp(mag.cols, block.x), divUp(mag.rows, block.y));
@@ -169,13 +170,13 @@ namespace canny
             resDesc.res.pitch2D.height = srcWhole.rows;
             resDesc.res.pitch2D.width = srcWhole.cols;
             resDesc.res.pitch2D.pitchInBytes = srcWhole.step;
-            resDesc.res.pitch2D.desc = cudaCreateChannelDesc<uchar>();
+            resDesc.res.pitch2D.desc = hipCreateChannelDesc<uchar>();
 
             cudaTextureDesc texDesc;
             memset(&texDesc, 0, sizeof(texDesc));
-            texDesc.addressMode[0] = cudaAddressModeClamp;
-            texDesc.addressMode[1] = cudaAddressModeClamp;
-            texDesc.addressMode[2] = cudaAddressModeClamp;
+            texDesc.addressMode[0] = hipAddressModeClamp;
+            texDesc.addressMode[1] = hipAddressModeClamp;
+            texDesc.addressMode[2] = hipAddressModeClamp;
 
             cudaTextureObject_t tex = 0;
             cudaCreateTextureObject(&tex, &resDesc, &texDesc, NULL);
@@ -185,20 +186,20 @@ namespace canny
             if (L2Grad)
             {
                 L2 norm;
-                calcMagnitudeKernel<<<grid, block, 0, stream>>>(src, dx, dy, mag, norm);
+                hipLaunchKernelGGL((calcMagnitudeKernel), dim3(grid), dim3(block), 0, stream, src, dx, dy, mag, norm);
             }
             else
             {
                 L1 norm;
-                calcMagnitudeKernel<<<grid, block, 0, stream>>>(src, dx, dy, mag, norm);
+                hipLaunchKernelGGL((calcMagnitudeKernel), dim3(grid), dim3(block), 0, stream, src, dx, dy, mag, norm);
             }
 
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == NULL)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
             else
-                cudaSafeCall( cudaStreamSynchronize(stream) );
+                cudaSafeCall( hipStreamSynchronize(stream) );
 
             cudaSafeCall( cudaDestroyTextureObject(tex) );
         }
@@ -210,22 +211,22 @@ namespace canny
             if (L2Grad)
             {
                 L2 norm;
-                calcMagnitudeKernel<<<grid, block, 0, stream>>>(src, dx, dy, mag, norm);
+                hipLaunchKernelGGL((calcMagnitudeKernel), dim3(grid), dim3(block), 0, stream, src, dx, dy, mag, norm);
             }
             else
             {
                 L1 norm;
-                calcMagnitudeKernel<<<grid, block, 0, stream>>>(src, dx, dy, mag, norm);
+                hipLaunchKernelGGL((calcMagnitudeKernel), dim3(grid), dim3(block), 0, stream, src, dx, dy, mag, norm);
             }
 
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == NULL)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
     }
 
-    void calcMagnitude(PtrStepSzi dx, PtrStepSzi dy, PtrStepSzf mag, bool L2Grad, cudaStream_t stream)
+    void calcMagnitude(PtrStepSzi dx, PtrStepSzi dy, PtrStepSzf mag, bool L2Grad, hipStream_t stream)
     {
         if (L2Grad)
         {
@@ -244,7 +245,7 @@ namespace canny
 
 namespace canny
 {
-    texture<float, cudaTextureType2D, cudaReadModeElementType> tex_mag(false, cudaFilterModePoint, cudaAddressModeClamp);
+    texture<float, cudaTextureType2D, hipReadModeElementType> tex_mag(false, hipFilterModePoint, hipAddressModeClamp);
     __global__ void calcMapKernel(const PtrStepSzi dx, const PtrStepi dy, PtrStepi map, const float low_thresh, const float high_thresh)
     {
         const int CANNY_SHIFT = 15;
@@ -349,7 +350,7 @@ namespace canny
         map(y, x) = edge_type;
     }
 
-    void calcMap(PtrStepSzi dx, PtrStepSzi dy, PtrStepSzf mag, PtrStepSzi map, float low_thresh, float high_thresh, cudaStream_t stream)
+    void calcMap(PtrStepSzi dx, PtrStepSzi dy, PtrStepSzf mag, PtrStepSzi map, float low_thresh, float high_thresh, hipStream_t stream)
     {
         const dim3 block(16, 16);
         const dim3 grid(divUp(dx.cols, block.x), divUp(dx.rows, block.y));
@@ -364,23 +365,23 @@ namespace canny
             resDesc.res.pitch2D.height = mag.rows;
             resDesc.res.pitch2D.width = mag.cols;
             resDesc.res.pitch2D.pitchInBytes = mag.step;
-            resDesc.res.pitch2D.desc = cudaCreateChannelDesc<float>();
+            resDesc.res.pitch2D.desc = hipCreateChannelDesc<float>();
 
             cudaTextureDesc texDesc;
             memset(&texDesc, 0, sizeof(texDesc));
-            texDesc.addressMode[0] = cudaAddressModeClamp;
-            texDesc.addressMode[1] = cudaAddressModeClamp;
-            texDesc.addressMode[2] = cudaAddressModeClamp;
+            texDesc.addressMode[0] = hipAddressModeClamp;
+            texDesc.addressMode[1] = hipAddressModeClamp;
+            texDesc.addressMode[2] = hipAddressModeClamp;
 
             cudaTextureObject_t tex=0;
             cudaCreateTextureObject(&tex, &resDesc, &texDesc, NULL);
-            calcMapKernel<<<grid, block, 0, stream>>>(dx, dy, map, low_thresh, high_thresh, tex);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((calcMapKernel), dim3(grid), dim3(block), 0, stream, dx, dy, map, low_thresh, high_thresh, tex);
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == NULL)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
             else
-                cudaSafeCall( cudaStreamSynchronize(stream) );
+                cudaSafeCall( hipStreamSynchronize(stream) );
 
             cudaSafeCall( cudaDestroyTextureObject(tex) );
         }
@@ -388,11 +389,11 @@ namespace canny
         {
             // Use the texture reference
             bindTexture(&tex_mag, mag);
-            calcMapKernel<<<grid, block, 0, stream>>>(dx, dy, map, low_thresh, high_thresh);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((calcMapKernel), dim3(grid), dim3(block), 0, stream, dx, dy, map, low_thresh, high_thresh);
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == NULL)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
     }
 }
@@ -492,18 +493,18 @@ namespace canny
         }
     }
 
-    void edgesHysteresisLocal(PtrStepSzi map, short2* st1, int* d_counter, cudaStream_t stream)
+    void edgesHysteresisLocal(PtrStepSzi map, short2* st1, int* d_counter, hipStream_t stream)
     {
-        cudaSafeCall( cudaMemsetAsync(d_counter, 0, sizeof(int), stream) );
+        cudaSafeCall( hipMemsetAsync(d_counter, 0, sizeof(int), stream) );
 
         const dim3 block(16, 16);
         const dim3 grid(divUp(map.cols, block.x), divUp(map.rows, block.y));
 
-        edgesHysteresisLocalKernel<<<grid, block, 0, stream>>>(map, st1, d_counter);
-        cudaSafeCall( cudaGetLastError() );
+        hipLaunchKernelGGL((edgesHysteresisLocalKernel), dim3(grid), dim3(block), 0, stream, map, st1, d_counter);
+        cudaSafeCall( hipGetLastError() );
 
         if (stream == NULL)
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
     }
 }
 
@@ -603,27 +604,27 @@ namespace canny
         }
     }
 
-    void edgesHysteresisGlobal(PtrStepSzi map, short2* st1, short2* st2, int* d_counter, cudaStream_t stream)
+    void edgesHysteresisGlobal(PtrStepSzi map, short2* st1, short2* st2, int* d_counter, hipStream_t stream)
     {
         int count;
-        cudaSafeCall( cudaMemcpyAsync(&count, d_counter, sizeof(int), cudaMemcpyDeviceToHost, stream) );
-        cudaSafeCall( cudaStreamSynchronize(stream) );
+        cudaSafeCall( hipMemcpyAsync(&count, d_counter, sizeof(int), hipMemcpyDeviceToHost, stream) );
+        cudaSafeCall( hipStreamSynchronize(stream) );
 
         while (count > 0)
         {
-            cudaSafeCall( cudaMemsetAsync(d_counter, 0, sizeof(int), stream) );
+            cudaSafeCall( hipMemsetAsync(d_counter, 0, sizeof(int), stream) );
 
             const dim3 block(128);
             const dim3 grid(::min(count, 65535u), divUp(count, 65535), 1);
 
-            edgesHysteresisGlobalKernel<<<grid, block, 0, stream>>>(map, st1, st2, d_counter, count);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((edgesHysteresisGlobalKernel), dim3(grid), dim3(block), 0, stream, map, st1, st2, d_counter, count);
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == NULL)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
 
-            cudaSafeCall( cudaMemcpyAsync(&count, d_counter, sizeof(int), cudaMemcpyDeviceToHost, stream) );
-            cudaSafeCall( cudaStreamSynchronize(stream) );
+            cudaSafeCall( hipMemcpyAsync(&count, d_counter, sizeof(int), hipMemcpyDeviceToHost, stream) );
+            cudaSafeCall( hipStreamSynchronize(stream) );
 
             count = min(count, map.cols * map.rows);
 
@@ -661,7 +662,7 @@ namespace cv { namespace cuda { namespace device
 
 namespace canny
 {
-    void getEdges(PtrStepSzi map, PtrStepSzb dst, cudaStream_t stream)
+    void getEdges(PtrStepSzi map, PtrStepSzb dst, hipStream_t stream)
     {
         transform(map, dst, GetEdges(), WithOutMask(), stream);
     }

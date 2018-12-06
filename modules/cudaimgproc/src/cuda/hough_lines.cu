@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -134,13 +135,13 @@ namespace cv { namespace cuda { namespace device
             size_t smemSize = (accum.cols - 1) * sizeof(int);
 
             if (smemSize < sharedMemPerBlock - 1000)
-                linesAccumShared<<<grid, block, smemSize>>>(list, count, accum, 1.0f / rho, theta, accum.cols - 2);
+                hipLaunchKernelGGL((linesAccumShared), dim3(grid), dim3(block), smemSize, 0, list, count, accum, 1.0f / rho, theta, accum.cols - 2);
             else
-                linesAccumGlobal<<<grid, block>>>(list, count, accum, 1.0f / rho, theta, accum.cols - 2);
+                hipLaunchKernelGGL((linesAccumGlobal), dim3(grid), dim3(block), 0, 0, list, count, accum, 1.0f / rho, theta, accum.cols - 2);
 
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
         }
 
         ////////////////////////////////////////////////////////////////////////
@@ -177,22 +178,22 @@ namespace cv { namespace cuda { namespace device
         int linesGetResult_gpu(PtrStepSzi accum, float2* out, int* votes, int maxSize, float rho, float theta, int threshold, bool doSort)
         {
             void* counterPtr;
-            cudaSafeCall( cudaGetSymbolAddress(&counterPtr, g_counter) );
+            cudaSafeCall( hipGetSymbolAddress(&counterPtr, g_counter) );
 
-            cudaSafeCall( cudaMemset(counterPtr, 0, sizeof(int)) );
+            cudaSafeCall( hipMemset(counterPtr, 0, sizeof(int)) );
 
             const dim3 block(32, 8);
             const dim3 grid(divUp(accum.cols - 2, block.x), divUp(accum.rows - 2, block.y));
 
-            cudaSafeCall( cudaFuncSetCacheConfig(linesGetResult, cudaFuncCachePreferL1) );
+            cudaSafeCall( hipFuncSetCacheConfig(linesGetResult, hipFuncCachePreferL1) );
 
-            linesGetResult<<<grid, block>>>(accum, out, votes, maxSize, rho, theta, threshold, accum.cols - 2);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((linesGetResult), dim3(grid), dim3(block), 0, 0, accum, out, votes, maxSize, rho, theta, threshold, accum.cols - 2);
+            cudaSafeCall( hipGetLastError() );
 
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
 
             int totalCount;
-            cudaSafeCall( cudaMemcpy(&totalCount, counterPtr, sizeof(int), cudaMemcpyDeviceToHost) );
+            cudaSafeCall( hipMemcpy(&totalCount, counterPtr, sizeof(int), hipMemcpyDeviceToHost) );
 
             totalCount = ::min(totalCount, maxSize);
 

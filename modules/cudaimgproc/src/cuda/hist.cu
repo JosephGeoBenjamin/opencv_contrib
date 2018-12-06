@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -94,16 +95,16 @@ namespace hist
             ::atomicAdd(hist + tid, histVal);
     }
 
-    void histogram256(PtrStepSzb src, int* hist, cudaStream_t stream)
+    void histogram256(PtrStepSzb src, int* hist, hipStream_t stream)
     {
         const dim3 block(32, 8);
         const dim3 grid(divUp(src.rows, block.y));
 
-        histogram256Kernel<<<grid, block, 0, stream>>>(src.data, src.cols, src.rows, src.step, hist);
-        cudaSafeCall( cudaGetLastError() );
+        hipLaunchKernelGGL((histogram256Kernel), dim3(grid), dim3(block), 0, stream, src.data, src.cols, src.rows, src.step, hist);
+        cudaSafeCall( hipGetLastError() );
 
         if (stream == 0)
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
     }
 
     __global__ void histogram256Kernel(const uchar* src, int cols, int rows, size_t srcStep, const uchar* mask, size_t maskStep, int* hist)
@@ -160,16 +161,16 @@ namespace hist
             ::atomicAdd(hist + tid, histVal);
     }
 
-    void histogram256(PtrStepSzb src, PtrStepSzb mask, int* hist, cudaStream_t stream)
+    void histogram256(PtrStepSzb src, PtrStepSzb mask, int* hist, hipStream_t stream)
     {
         const dim3 block(32, 8);
         const dim3 grid(divUp(src.rows, block.y));
 
-        histogram256Kernel<<<grid, block, 0, stream>>>(src.data, src.cols, src.rows, src.step, mask.data, mask.step, hist);
-        cudaSafeCall( cudaGetLastError() );
+        hipLaunchKernelGGL((histogram256Kernel), dim3(grid), dim3(block), 0, stream, src.data, src.cols, src.rows, src.step, mask.data, mask.step, hist);
+        cudaSafeCall( hipGetLastError() );
 
         if (stream == 0)
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
     }
 }
 
@@ -189,7 +190,7 @@ namespace hist
     __global__ void histEven8u(const uchar* src, const size_t step, const int rows, const int cols,
                                int* hist, const int binCount, const int binSize, const int lowerLevel, const int upperLevel)
     {
-        extern __shared__ int shist[];
+        HIP_DYNAMIC_SHARED( int, shist)
 
         const int y = blockIdx.x * blockDim.y + threadIdx.y;
         const int tid = threadIdx.y * blockDim.x + threadIdx.x;
@@ -236,7 +237,7 @@ namespace hist
         }
     }
 
-    void histEven8u(PtrStepSzb src, int* hist, int binCount, int lowerLevel, int upperLevel, cudaStream_t stream)
+    void histEven8u(PtrStepSzb src, int* hist, int binCount, int lowerLevel, int upperLevel, hipStream_t stream)
     {
         const dim3 block(32, 8);
         const dim3 grid(divUp(src.rows, block.y));
@@ -245,11 +246,11 @@ namespace hist
 
         const size_t smem_size = binCount * sizeof(int);
 
-        histEven8u<<<grid, block, smem_size, stream>>>(src.data, src.step, src.rows, src.cols, hist, binCount, binSize, lowerLevel, upperLevel);
-        cudaSafeCall( cudaGetLastError() );
+        hipLaunchKernelGGL((histEven8u), dim3(grid), dim3(block), smem_size, stream, src.data, src.step, src.rows, src.cols, hist, binCount, binSize, lowerLevel, upperLevel);
+        cudaSafeCall( hipGetLastError() );
 
         if (stream == 0)
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
     }
 }
 
@@ -283,12 +284,12 @@ namespace cv { namespace cuda { namespace device
 
 namespace hist
 {
-    void equalizeHist(PtrStepSzb src, PtrStepSzb dst, const int* lut, cudaStream_t stream)
+    void equalizeHist(PtrStepSzb src, PtrStepSzb dst, const int* lut, hipStream_t stream)
     {
         if (stream == 0)
-            cudaSafeCall( cudaMemcpyToSymbol(c_lut, lut, 256 * sizeof(int), 0, cudaMemcpyDeviceToDevice) );
+            cudaSafeCall( hipMemcpyToSymbol(c_lut, lut, 256 * sizeof(int), 0, hipMemcpyDeviceToDevice) );
         else
-            cudaSafeCall( cudaMemcpyToSymbolAsync(c_lut, lut, 256 * sizeof(int), 0, cudaMemcpyDeviceToDevice, stream) );
+            cudaSafeCall( cudaMemcpyToSymbolAsync(c_lut, lut, 256 * sizeof(int), 0, hipMemcpyDeviceToDevice, stream) );
 
         const float scale = 255.0f / (src.cols * src.rows);
 

@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -128,21 +129,21 @@ namespace cv { namespace cuda { namespace device
                 do_mean_shift(x0, y0, out, out_step, cols, rows, sp, sr, maxIter, eps);
         }
 
-        void meanShiftFiltering_gpu(const PtrStepSzb& src, PtrStepSzb dst, int sp, int sr, int maxIter, float eps, cudaStream_t stream)
+        void meanShiftFiltering_gpu(const PtrStepSzb& src, PtrStepSzb dst, int sp, int sr, int maxIter, float eps, hipStream_t stream)
         {
             dim3 grid(1, 1, 1);
             dim3 threads(32, 8, 1);
             grid.x = divUp(src.cols, threads.x);
             grid.y = divUp(src.rows, threads.y);
 
-            cudaChannelFormatDesc desc = cudaCreateChannelDesc<uchar4>();
+            hipChannelFormatDesc desc = hipCreateChannelDesc<uchar4>();
             cudaSafeCall( cudaBindTexture2D( 0, tex_meanshift, src.data, desc, src.cols, src.rows, src.step ) );
 
-            meanshift_kernel<<< grid, threads, 0, stream >>>( dst.data, dst.step, dst.cols, dst.rows, sp, sr, maxIter, eps );
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((meanshift_kernel), dim3(grid), dim3(threads), 0, stream ,  dst.data, dst.step, dst.cols, dst.rows, sp, sr, maxIter, eps );
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
         __global__ void meanshiftproc_kernel(unsigned char* outr, size_t outrstep,
@@ -160,21 +161,21 @@ namespace cv { namespace cuda { namespace device
             }
         }
 
-        void meanShiftProc_gpu(const PtrStepSzb& src, PtrStepSzb dstr, PtrStepSzb dstsp, int sp, int sr, int maxIter, float eps, cudaStream_t stream)
+        void meanShiftProc_gpu(const PtrStepSzb& src, PtrStepSzb dstr, PtrStepSzb dstsp, int sp, int sr, int maxIter, float eps, hipStream_t stream)
         {
             dim3 grid(1, 1, 1);
             dim3 threads(32, 8, 1);
             grid.x = divUp(src.cols, threads.x);
             grid.y = divUp(src.rows, threads.y);
 
-            cudaChannelFormatDesc desc = cudaCreateChannelDesc<uchar4>();
+            hipChannelFormatDesc desc = hipCreateChannelDesc<uchar4>();
             cudaSafeCall( cudaBindTexture2D( 0, tex_meanshift, src.data, desc, src.cols, src.rows, src.step ) );
 
-            meanshiftproc_kernel<<< grid, threads, 0, stream >>>( dstr.data, dstr.step, dstsp.data, dstsp.step, dstr.cols, dstr.rows, sp, sr, maxIter, eps );
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((meanshiftproc_kernel), dim3(grid), dim3(threads), 0, stream ,  dstr.data, dstr.step, dstsp.data, dstsp.step, dstr.cols, dstr.rows, sp, sr, maxIter, eps );
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
     }
 }}}

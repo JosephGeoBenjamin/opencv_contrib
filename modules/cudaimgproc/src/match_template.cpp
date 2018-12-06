@@ -55,26 +55,26 @@ namespace cv { namespace cuda { namespace device
 {
     namespace match_template
     {
-        void matchTemplateNaive_CCORR_8U(const PtrStepSzb image, const PtrStepSzb templ, PtrStepSzf result, int cn, cudaStream_t stream);
-        void matchTemplateNaive_CCORR_32F(const PtrStepSzb image, const PtrStepSzb templ, PtrStepSzf result, int cn, cudaStream_t stream);
+        void matchTemplateNaive_CCORR_8U(const PtrStepSzb image, const PtrStepSzb templ, PtrStepSzf result, int cn, hipStream_t stream);
+        void matchTemplateNaive_CCORR_32F(const PtrStepSzb image, const PtrStepSzb templ, PtrStepSzf result, int cn, hipStream_t stream);
 
-        void matchTemplateNaive_SQDIFF_8U(const PtrStepSzb image, const PtrStepSzb templ, PtrStepSzf result, int cn, cudaStream_t stream);
-        void matchTemplateNaive_SQDIFF_32F(const PtrStepSzb image, const PtrStepSzb templ, PtrStepSzf result, int cn, cudaStream_t stream);
+        void matchTemplateNaive_SQDIFF_8U(const PtrStepSzb image, const PtrStepSzb templ, PtrStepSzf result, int cn, hipStream_t stream);
+        void matchTemplateNaive_SQDIFF_32F(const PtrStepSzb image, const PtrStepSzb templ, PtrStepSzf result, int cn, hipStream_t stream);
 
         void matchTemplatePrepared_SQDIFF_8U(int w, int h, const PtrStepSz<double> image_sqsum, double templ_sqsum, PtrStepSzf result,
-            int cn, cudaStream_t stream);
+            int cn, hipStream_t stream);
 
         void matchTemplatePrepared_SQDIFF_NORMED_8U(int w, int h, const PtrStepSz<double> image_sqsum, double templ_sqsum, PtrStepSzf result,
-            int cn, cudaStream_t stream);
+            int cn, hipStream_t stream);
 
-        void matchTemplatePrepared_CCOFF_8U(int w, int h, const PtrStepSz<int> image_sum, int templ_sum, PtrStepSzf result, cudaStream_t stream);
+        void matchTemplatePrepared_CCOFF_8U(int w, int h, const PtrStepSz<int> image_sum, int templ_sum, PtrStepSzf result, hipStream_t stream);
         void matchTemplatePrepared_CCOFF_8UC2(
             int w, int h,
             const PtrStepSz<int> image_sum_r,
             const PtrStepSz<int> image_sum_g,
             int templ_sum_r,
             int templ_sum_g,
-            PtrStepSzf result, cudaStream_t stream);
+            PtrStepSzf result, hipStream_t stream);
         void matchTemplatePrepared_CCOFF_8UC3(
                 int w, int h,
                 const PtrStepSz<int> image_sum_r,
@@ -83,7 +83,7 @@ namespace cv { namespace cuda { namespace device
                 int templ_sum_r,
                 int templ_sum_g,
                 int templ_sum_b,
-                PtrStepSzf result, cudaStream_t stream);
+                PtrStepSzf result, hipStream_t stream);
         void matchTemplatePrepared_CCOFF_8UC4(
                 int w, int h,
                 const PtrStepSz<int> image_sum_r,
@@ -94,21 +94,21 @@ namespace cv { namespace cuda { namespace device
                 int templ_sum_g,
                 int templ_sum_b,
                 int templ_sum_a,
-                PtrStepSzf result, cudaStream_t stream);
+                PtrStepSzf result, hipStream_t stream);
 
 
         void matchTemplatePrepared_CCOFF_NORMED_8U(
                 int w, int h, const PtrStepSz<int> image_sum,
                 const PtrStepSz<double> image_sqsum,
                 int templ_sum, double templ_sqsum,
-                PtrStepSzf result, cudaStream_t stream);
+                PtrStepSzf result, hipStream_t stream);
         void matchTemplatePrepared_CCOFF_NORMED_8UC2(
                 int w, int h,
                 const PtrStepSz<int> image_sum_r, const PtrStepSz<double> image_sqsum_r,
                 const PtrStepSz<int> image_sum_g, const PtrStepSz<double> image_sqsum_g,
                 int templ_sum_r, double templ_sqsum_r,
                 int templ_sum_g, double templ_sqsum_g,
-                PtrStepSzf result, cudaStream_t stream);
+                PtrStepSzf result, hipStream_t stream);
         void matchTemplatePrepared_CCOFF_NORMED_8UC3(
                 int w, int h,
                 const PtrStepSz<int> image_sum_r, const PtrStepSz<double> image_sqsum_r,
@@ -117,7 +117,7 @@ namespace cv { namespace cuda { namespace device
                 int templ_sum_r, double templ_sqsum_r,
                 int templ_sum_g, double templ_sqsum_g,
                 int templ_sum_b, double templ_sqsum_b,
-                PtrStepSzf result, cudaStream_t stream);
+                PtrStepSzf result, hipStream_t stream);
         void matchTemplatePrepared_CCOFF_NORMED_8UC4(
                 int w, int h,
                 const PtrStepSz<int> image_sum_r, const PtrStepSz<double> image_sqsum_r,
@@ -128,12 +128,12 @@ namespace cv { namespace cuda { namespace device
                 int templ_sum_g, double templ_sqsum_g,
                 int templ_sum_b, double templ_sqsum_b,
                 int templ_sum_a, double templ_sqsum_a,
-                PtrStepSzf result, cudaStream_t stream);
+                PtrStepSzf result, hipStream_t stream);
 
         void normalize_8U(int w, int h, const PtrStepSz<double> image_sqsum,
-                          double templ_sqsum, PtrStepSzf result, int cn, cudaStream_t stream);
+                          double templ_sqsum, PtrStepSzf result, int cn, hipStream_t stream);
 
-        void extractFirstChannel_32F(const PtrStepSzb image, PtrStepSzf result, int cn, cudaStream_t stream);
+        void extractFirstChannel_32F(const PtrStepSzb image, PtrStepSzf result, int cn, hipStream_t stream);
     }
 }}}
 
@@ -191,7 +191,7 @@ namespace
         CV_Assert( image.type() == templ.type() );
         CV_Assert( image.cols >= templ.cols && image.rows >= templ.rows );
 
-        cudaStream_t stream = StreamAccessor::getStream(_stream);
+        hipStream_t stream = StreamAccessor::getStream(_stream);
 
         _result.create(image.rows - templ.rows + 1, image.cols - templ.cols + 1, CV_32FC1);
         GpuMat result = _result.getGpuMat();

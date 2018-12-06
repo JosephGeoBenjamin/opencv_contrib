@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -255,29 +256,29 @@ namespace grid_transform_detail
     template <class Policy> struct TransformDispatcher<false, Policy>
     {
         template <class SrcPtr, typename DstType, class UnOp, class MaskPtr>
-        __host__ static void call(const SrcPtr& src, const GlobPtr<DstType>& dst, const UnOp& op, const MaskPtr& mask, int rows, int cols, cudaStream_t stream)
+        __host__ static void call(const SrcPtr& src, const GlobPtr<DstType>& dst, const UnOp& op, const MaskPtr& mask, int rows, int cols, hipStream_t stream)
         {
             const dim3 block(Policy::block_size_x, Policy::block_size_y);
             const dim3 grid(divUp(cols, block.x), divUp(rows, block.y));
 
-            transformSimple<<<grid, block, 0, stream>>>(src, dst, op, mask, rows, cols);
-            CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+            hipLaunchKernelGGL((transformSimple), dim3(grid), dim3(block), 0, stream, src, dst, op, mask, rows, cols);
+            CV_CUDEV_SAFE_CALL( hipGetLastError() );
 
             if (stream == 0)
-                CV_CUDEV_SAFE_CALL( cudaDeviceSynchronize() );
+                CV_CUDEV_SAFE_CALL( hipDeviceSynchronize() );
         }
 
         template <class SrcPtr1, class SrcPtr2, typename DstType, class BinOp, class MaskPtr>
-        __host__ static void call(const SrcPtr1& src1, const SrcPtr2& src2, const GlobPtr<DstType>& dst, const BinOp& op, const MaskPtr& mask, int rows, int cols, cudaStream_t stream)
+        __host__ static void call(const SrcPtr1& src1, const SrcPtr2& src2, const GlobPtr<DstType>& dst, const BinOp& op, const MaskPtr& mask, int rows, int cols, hipStream_t stream)
         {
             const dim3 block(Policy::block_size_x, Policy::block_size_y);
             const dim3 grid(divUp(cols, block.x), divUp(rows, block.y));
 
-            transformSimple<<<grid, block, 0, stream>>>(src1, src2, dst, op, mask, rows, cols);
-            CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+            hipLaunchKernelGGL((transformSimple), dim3(grid), dim3(block), 0, stream, src1, src2, dst, op, mask, rows, cols);
+            CV_CUDEV_SAFE_CALL( hipGetLastError() );
 
             if (stream == 0)
-                CV_CUDEV_SAFE_CALL( cudaDeviceSynchronize() );
+                CV_CUDEV_SAFE_CALL( hipDeviceSynchronize() );
         }
     };
 
@@ -295,7 +296,7 @@ namespace grid_transform_detail
         }
 
         template <typename SrcType, typename DstType, class UnOp, class MaskPtr>
-        __host__ static void call(const GlobPtr<SrcType>& src, const GlobPtr<DstType>& dst, const UnOp& op, const MaskPtr& mask, int rows, int cols, cudaStream_t stream)
+        __host__ static void call(const GlobPtr<SrcType>& src, const GlobPtr<DstType>& dst, const UnOp& op, const MaskPtr& mask, int rows, int cols, hipStream_t stream)
         {
             if (Policy::shift == 1 ||
                 !isAligned(src.data, Policy::shift * sizeof(SrcType)) || !isAligned(src.step, Policy::shift * sizeof(SrcType)) ||
@@ -308,15 +309,15 @@ namespace grid_transform_detail
             const dim3 block(Policy::block_size_x, Policy::block_size_y);
             const dim3 grid(divUp(cols, block.x * Policy::shift), divUp(rows, block.y));
 
-            transformSmart<Policy::shift><<<grid, block, 0, stream>>>(src, dst, op, mask, rows, cols);
-            CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+            hipLaunchKernelGGL((transformSmart<Policy::shift>), dim3(grid), dim3(block), 0, stream, src, dst, op, mask, rows, cols);
+            CV_CUDEV_SAFE_CALL( hipGetLastError() );
 
             if (stream == 0)
-                CV_CUDEV_SAFE_CALL( cudaDeviceSynchronize() );
+                CV_CUDEV_SAFE_CALL( hipDeviceSynchronize() );
         }
 
         template <typename SrcType1, typename SrcType2, typename DstType, class BinOp, class MaskPtr>
-        __host__ static void call(const GlobPtr<SrcType1>& src1, const GlobPtr<SrcType2>& src2, const GlobPtr<DstType>& dst, const BinOp& op, const MaskPtr& mask, int rows, int cols, cudaStream_t stream)
+        __host__ static void call(const GlobPtr<SrcType1>& src1, const GlobPtr<SrcType2>& src2, const GlobPtr<DstType>& dst, const BinOp& op, const MaskPtr& mask, int rows, int cols, hipStream_t stream)
         {
             if (Policy::shift == 1 ||
                 !isAligned(src1.data, Policy::shift * sizeof(SrcType1)) || !isAligned(src1.step, Policy::shift * sizeof(SrcType1)) ||
@@ -330,34 +331,34 @@ namespace grid_transform_detail
             const dim3 block(Policy::block_size_x, Policy::block_size_y);
             const dim3 grid(divUp(cols, block.x * Policy::shift), divUp(rows, block.y));
 
-            transformSmart<Policy::shift><<<grid, block, 0, stream>>>(src1, src2, dst, op, mask, rows, cols);
-            CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+            hipLaunchKernelGGL((transformSmart<Policy::shift>), dim3(grid), dim3(block), 0, stream, src1, src2, dst, op, mask, rows, cols);
+            CV_CUDEV_SAFE_CALL( hipGetLastError() );
 
             if (stream == 0)
-                CV_CUDEV_SAFE_CALL( cudaDeviceSynchronize() );
+                CV_CUDEV_SAFE_CALL( hipDeviceSynchronize() );
         }
     };
 
     template <class Policy, class SrcPtr, typename DstType, class UnOp, class MaskPtr>
-    __host__ void transform_unary(const SrcPtr& src, const GlobPtr<DstType>& dst, const UnOp& op, const MaskPtr& mask, int rows, int cols, cudaStream_t stream)
+    __host__ void transform_unary(const SrcPtr& src, const GlobPtr<DstType>& dst, const UnOp& op, const MaskPtr& mask, int rows, int cols, hipStream_t stream)
     {
         TransformDispatcher<false, Policy>::call(src, dst, op, mask, rows, cols, stream);
     }
 
     template <class Policy, class SrcPtr1, class SrcPtr2, typename DstType, class BinOp, class MaskPtr>
-    __host__ void transform_binary(const SrcPtr1& src1, const SrcPtr2& src2, const GlobPtr<DstType>& dst, const BinOp& op, const MaskPtr& mask, int rows, int cols, cudaStream_t stream)
+    __host__ void transform_binary(const SrcPtr1& src1, const SrcPtr2& src2, const GlobPtr<DstType>& dst, const BinOp& op, const MaskPtr& mask, int rows, int cols, hipStream_t stream)
     {
         TransformDispatcher<false, Policy>::call(src1, src2, dst, op, mask, rows, cols, stream);
     }
 
     template <class Policy, typename SrcType, typename DstType, class UnOp, class MaskPtr>
-    __host__ void transform_unary(const GlobPtr<SrcType>& src, const GlobPtr<DstType>& dst, const UnOp& op, const MaskPtr& mask, int rows, int cols, cudaStream_t stream)
+    __host__ void transform_unary(const GlobPtr<SrcType>& src, const GlobPtr<DstType>& dst, const UnOp& op, const MaskPtr& mask, int rows, int cols, hipStream_t stream)
     {
         TransformDispatcher<VecTraits<SrcType>::cn == 1 && VecTraits<DstType>::cn == 1 && Policy::shift != 1, Policy>::call(src, dst, op, mask, rows, cols, stream);
     }
 
     template <class Policy, typename SrcType1, typename SrcType2, typename DstType, class BinOp, class MaskPtr>
-    __host__ void transform_binary(const GlobPtr<SrcType1>& src1, const GlobPtr<SrcType2>& src2, const GlobPtr<DstType>& dst, const BinOp& op, const MaskPtr& mask, int rows, int cols, cudaStream_t stream)
+    __host__ void transform_binary(const GlobPtr<SrcType1>& src1, const GlobPtr<SrcType2>& src2, const GlobPtr<DstType>& dst, const BinOp& op, const MaskPtr& mask, int rows, int cols, hipStream_t stream)
     {
         TransformDispatcher<VecTraits<SrcType1>::cn == 1 && VecTraits<SrcType2>::cn == 1 && VecTraits<DstType>::cn == 1 && Policy::shift != 1, Policy>::call(src1, src2, dst, op, mask, rows, cols, stream);
     }
@@ -399,16 +400,16 @@ namespace grid_transform_detail
     }
 
     template <class Policy, class SrcPtrTuple, class DstPtrTuple, class OpTuple, class MaskPtr>
-    __host__ void transform_tuple(const SrcPtrTuple& src, const DstPtrTuple& dst, const OpTuple& op, const MaskPtr& mask, int rows, int cols, cudaStream_t stream)
+    __host__ void transform_tuple(const SrcPtrTuple& src, const DstPtrTuple& dst, const OpTuple& op, const MaskPtr& mask, int rows, int cols, hipStream_t stream)
     {
         const dim3 block(Policy::block_size_x, Policy::block_size_y);
         const dim3 grid(divUp(cols, block.x), divUp(rows, block.y));
 
-        transform_tuple<<<grid, block, 0, stream>>>(src, dst, op, mask, rows, cols);
-        CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+        hipLaunchKernelGGL((transform_tuple), dim3(grid), dim3(block), 0, stream, src, dst, op, mask, rows, cols);
+        CV_CUDEV_SAFE_CALL( hipGetLastError() );
 
         if (stream == 0)
-            CV_CUDEV_SAFE_CALL( cudaDeviceSynchronize() );
+            CV_CUDEV_SAFE_CALL( hipDeviceSynchronize() );
     }
 }
 

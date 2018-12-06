@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -91,18 +92,18 @@ namespace grid_histogram_detail
     }
 
     template <int BIN_COUNT, class Policy, class SrcPtr, typename ResType, class MaskPtr>
-    __host__ void histogram(const SrcPtr& src, ResType* hist, const MaskPtr& mask, int rows, int cols, cudaStream_t stream)
+    __host__ void histogram(const SrcPtr& src, ResType* hist, const MaskPtr& mask, int rows, int cols, hipStream_t stream)
     {
         const dim3 block(Policy::block_size_x, Policy::block_size_y);
         const dim3 grid(divUp(rows, block.y));
 
         const int BLOCK_SIZE = Policy::block_size_x * Policy::block_size_y;
 
-        histogram<BIN_COUNT, BLOCK_SIZE><<<grid, block, 0, stream>>>(src, hist, mask, rows, cols);
-        CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+        hipLaunchKernelGGL((histogram<BIN_COUNT, BLOCK_SIZE>), dim3(grid), dim3(block), 0, stream, src, hist, mask, rows, cols);
+        CV_CUDEV_SAFE_CALL( hipGetLastError() );
 
         if (stream == 0)
-            CV_CUDEV_SAFE_CALL( cudaDeviceSynchronize() );
+            CV_CUDEV_SAFE_CALL( hipDeviceSynchronize() );
     }
 }
 

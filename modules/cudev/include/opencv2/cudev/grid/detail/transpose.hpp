@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -109,16 +110,16 @@ namespace transpose_detail
     }
 
     template <class Policy, class SrcPtr, typename DstType>
-    __host__ void transpose(const SrcPtr& src, const GlobPtr<DstType>& dst, int rows, int cols, cudaStream_t stream)
+    __host__ void transpose(const SrcPtr& src, const GlobPtr<DstType>& dst, int rows, int cols, hipStream_t stream)
     {
         const dim3 block(Policy::tile_dim, Policy::block_dim_y);
         const dim3 grid(divUp(cols, block.x), divUp(rows, block.y));
 
-        transpose<Policy::tile_dim, Policy::block_dim_y><<<grid, block, 0, stream>>>(src, dst, rows, cols);
-        CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+        hipLaunchKernelGGL((transpose<Policy::tile_dim, Policy::block_dim_y>), dim3(grid), dim3(block), 0, stream, src, dst, rows, cols);
+        CV_CUDEV_SAFE_CALL( hipGetLastError() );
 
         if (stream == 0)
-            CV_CUDEV_SAFE_CALL( cudaDeviceSynchronize() );
+            CV_CUDEV_SAFE_CALL( hipDeviceSynchronize() );
     }
 }
 

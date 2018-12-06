@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -51,7 +52,7 @@ namespace cv { namespace cuda { namespace device
     {
         __device__ int g_counter;
 
-        texture<uchar, cudaTextureType2D, cudaReadModeElementType> tex_mask(false, cudaFilterModePoint, cudaAddressModeClamp);
+        texture<uchar, cudaTextureType2D, hipReadModeElementType> tex_mask(false, hipFilterModePoint, hipAddressModeClamp);
 
         __global__ void houghLinesProbabilistic(const PtrStepSzi accum,
                                                 int4* out, const int maxSize,
@@ -217,26 +218,26 @@ namespace cv { namespace cuda { namespace device
         int houghLinesProbabilistic_gpu(PtrStepSzb mask, PtrStepSzi accum, int4* out, int maxSize, float rho, float theta, int lineGap, int lineLength)
         {
             void* counterPtr;
-            cudaSafeCall( cudaGetSymbolAddress(&counterPtr, g_counter) );
+            cudaSafeCall( hipGetSymbolAddress(&counterPtr, g_counter) );
 
-            cudaSafeCall( cudaMemset(counterPtr, 0, sizeof(int)) );
+            cudaSafeCall( hipMemset(counterPtr, 0, sizeof(int)) );
 
             const dim3 block(32, 8);
             const dim3 grid(divUp(accum.cols - 2, block.x), divUp(accum.rows - 2, block.y));
 
             bindTexture(&tex_mask, mask);
 
-            houghLinesProbabilistic<<<grid, block>>>(accum,
+            hipLaunchKernelGGL((houghLinesProbabilistic), dim3(grid), dim3(block), 0, 0, accum,
                                                      out, maxSize,
                                                      rho, theta,
                                                      lineGap, lineLength,
                                                      mask.rows, mask.cols);
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
 
             int totalCount;
-            cudaSafeCall( cudaMemcpy(&totalCount, counterPtr, sizeof(int), cudaMemcpyDeviceToHost) );
+            cudaSafeCall( hipMemcpy(&totalCount, counterPtr, sizeof(int), hipMemcpyDeviceToHost) );
 
             totalCount = ::min(totalCount, maxSize);
 

@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -154,16 +155,16 @@ namespace pyramids_detail
     }
 
     template <class SrcPtr, typename DstType>
-    __host__ void pyrUp(const SrcPtr& src, const GlobPtr<DstType>& dst, int src_rows, int src_cols, int dst_rows, int dst_cols, cudaStream_t stream)
+    __host__ void pyrUp(const SrcPtr& src, const GlobPtr<DstType>& dst, int src_rows, int src_cols, int dst_rows, int dst_cols, hipStream_t stream)
     {
         const dim3 block(16, 16);
         const dim3 grid(divUp(dst_cols, block.x), divUp(dst_rows, block.y));
 
-        pyrUp<<<grid, block, 0, stream>>>(src, dst, src_rows, src_cols, dst_rows, dst_cols);
-        CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+        hipLaunchKernelGGL((pyrUp), dim3(grid), dim3(block), 0, stream, src, dst, src_rows, src_cols, dst_rows, dst_cols);
+        CV_CUDEV_SAFE_CALL( hipGetLastError() );
 
         if (stream == 0)
-            CV_CUDEV_SAFE_CALL( cudaDeviceSynchronize() );
+            CV_CUDEV_SAFE_CALL( hipDeviceSynchronize() );
     }
 }
 

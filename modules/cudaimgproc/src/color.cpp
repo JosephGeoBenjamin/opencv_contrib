@@ -66,12 +66,12 @@ namespace cv { namespace cuda {
     namespace device
     {
         template <int cn>
-        void Bayer2BGR_8u_gpu(PtrStepSzb src, PtrStepSzb dst, bool blue_last, bool start_with_green, cudaStream_t stream);
+        void Bayer2BGR_8u_gpu(PtrStepSzb src, PtrStepSzb dst, bool blue_last, bool start_with_green, hipStream_t stream);
         template <int cn>
-        void Bayer2BGR_16u_gpu(PtrStepSzb src, PtrStepSzb dst, bool blue_last, bool start_with_green, cudaStream_t stream);
+        void Bayer2BGR_16u_gpu(PtrStepSzb src, PtrStepSzb dst, bool blue_last, bool start_with_green, hipStream_t stream);
 
         template <int cn>
-        void MHCdemosaic(PtrStepSzb src, int2 sourceOffset, PtrStepSzb dst, int2 firstRed, cudaStream_t stream);
+        void MHCdemosaic(PtrStepSzb src, int2 sourceOffset, PtrStepSzb dst, int2 firstRed, hipStream_t stream);
     }
 }}
 
@@ -1824,7 +1824,7 @@ namespace
         _dst.create(src.size(), src.type());
         GpuMat dst = _dst.getGpuMat();
 
-        cudaStream_t stream = StreamAccessor::getStream(_stream);
+        hipStream_t stream = StreamAccessor::getStream(_stream);
         NppStreamHandler h(stream);
 
         NppiSize oSizeROI;
@@ -1837,13 +1837,13 @@ namespace
             nppSafeCall( nppiAlphaPremul_16u_AC4R(src.ptr<Npp16u>(), static_cast<int>(src.step), dst.ptr<Npp16u>(), static_cast<int>(dst.step), oSizeROI) );
 
         if (stream == 0)
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
     #endif
     }
 
     void bayer_to_BGR(InputArray _src, OutputArray _dst, int dcn, bool blue_last, bool start_with_green, Stream& stream)
     {
-        typedef void (*func_t)(PtrStepSzb src, PtrStepSzb dst, bool blue_last, bool start_with_green, cudaStream_t stream);
+        typedef void (*func_t)(PtrStepSzb src, PtrStepSzb dst, bool blue_last, bool start_with_green, hipStream_t stream);
         static const func_t funcs[3][4] =
         {
             {0,0,Bayer2BGR_8u_gpu<3>, Bayer2BGR_8u_gpu<4>},
@@ -1883,7 +1883,7 @@ namespace
 
     void bayer_to_gray(InputArray _src, OutputArray _dst, bool blue_last, bool start_with_green, Stream& stream)
     {
-        typedef void (*func_t)(PtrStepSzb src, PtrStepSzb dst, bool blue_last, bool start_with_green, cudaStream_t stream);
+        typedef void (*func_t)(PtrStepSzb src, PtrStepSzb dst, bool blue_last, bool start_with_green, hipStream_t stream);
         static const func_t funcs[3] =
         {
             Bayer2BGR_8u_gpu<1>,
@@ -2193,7 +2193,7 @@ void cv::cuda::swapChannels(InputOutputArray _image, const int dstOrder[4], Stre
 
     CV_Assert( image.type() == CV_8UC4 );
 
-    cudaStream_t stream = StreamAccessor::getStream(_stream);
+    hipStream_t stream = StreamAccessor::getStream(_stream);
     NppStreamHandler h(stream);
 
     NppiSize sz;
@@ -2203,7 +2203,7 @@ void cv::cuda::swapChannels(InputOutputArray _image, const int dstOrder[4], Stre
     nppSafeCall( nppiSwapChannels_8u_C4IR(image.ptr<Npp8u>(), static_cast<int>(image.step), sz, dstOrder) );
 
     if (stream == 0)
-        cudaSafeCall( cudaDeviceSynchronize() );
+        cudaSafeCall( hipDeviceSynchronize() );
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -2269,7 +2269,7 @@ namespace
     {
         typedef typename NPPTypeTraits<DEPTH>::npp_type npp_t;
 
-        static void call(const GpuMat& img1, const GpuMat& img2, GpuMat& dst, NppiAlphaOp eAlphaOp, cudaStream_t stream)
+        static void call(const GpuMat& img1, const GpuMat& img2, GpuMat& dst, NppiAlphaOp eAlphaOp, hipStream_t stream)
         {
             NppStreamHandler h(stream);
 
@@ -2281,7 +2281,7 @@ namespace
                               dst.ptr<npp_t>(), static_cast<int>(dst.step), oSizeROI, eAlphaOp) );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
     };
 }
@@ -2304,7 +2304,7 @@ void cv::cuda::alphaComp(InputArray _img1, InputArray _img2, OutputArray _dst, i
         NPPI_OP_ALPHA_PREMUL
     };
 
-    typedef void (*func_t)(const GpuMat& img1, const GpuMat& img2, GpuMat& dst, NppiAlphaOp eAlphaOp, cudaStream_t stream);
+    typedef void (*func_t)(const GpuMat& img1, const GpuMat& img2, GpuMat& dst, NppiAlphaOp eAlphaOp, hipStream_t stream);
     static const func_t funcs[] =
     {
         NppAlphaComp<CV_8U, nppiAlphaComp_8u_AC4R>::call,

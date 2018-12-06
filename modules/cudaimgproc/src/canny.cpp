@@ -53,16 +53,16 @@ Ptr<CannyEdgeDetector> cv::cuda::createCannyEdgeDetector(double, double, int, bo
 
 namespace canny
 {
-    void calcMagnitude(PtrStepSzb srcWhole, int xoff, int yoff, PtrStepSzi dx, PtrStepSzi dy, PtrStepSzf mag, bool L2Grad, cudaStream_t stream);
-    void calcMagnitude(PtrStepSzi dx, PtrStepSzi dy, PtrStepSzf mag, bool L2Grad, cudaStream_t stream);
+    void calcMagnitude(PtrStepSzb srcWhole, int xoff, int yoff, PtrStepSzi dx, PtrStepSzi dy, PtrStepSzf mag, bool L2Grad, hipStream_t stream);
+    void calcMagnitude(PtrStepSzi dx, PtrStepSzi dy, PtrStepSzf mag, bool L2Grad, hipStream_t stream);
 
-    void calcMap(PtrStepSzi dx, PtrStepSzi dy, PtrStepSzf mag, PtrStepSzi map, float low_thresh, float high_thresh, cudaStream_t stream);
+    void calcMap(PtrStepSzi dx, PtrStepSzi dy, PtrStepSzf mag, PtrStepSzi map, float low_thresh, float high_thresh, hipStream_t stream);
 
-    void edgesHysteresisLocal(PtrStepSzi map, short2* st1, int* d_counter, cudaStream_t stream);
+    void edgesHysteresisLocal(PtrStepSzi map, short2* st1, int* d_counter, hipStream_t stream);
 
-    void edgesHysteresisGlobal(PtrStepSzi map, short2* st1, short2* st2, int* d_counter, cudaStream_t stream);
+    void edgesHysteresisGlobal(PtrStepSzi map, short2* st1, short2* st2, int* d_counter, hipStream_t stream);
 
-    void getEdges(PtrStepSzi map, PtrStepSzb dst, cudaStream_t stream);
+    void getEdges(PtrStepSzi map, PtrStepSzb dst, hipStream_t stream);
 }
 
 namespace
@@ -225,13 +225,13 @@ namespace
 
         canny::calcMap(dx_, dy_, mag_, map_, static_cast<float>(low_thresh_), static_cast<float>(high_thresh_), StreamAccessor::getStream(stream));
 
-        cudaSafeCall( cudaMalloc(&d_counter, sizeof(int)) );
+        cudaSafeCall( hipMalloc(&d_counter, sizeof(int)) );
 
         canny::edgesHysteresisLocal(map_, st1_.ptr<short2>(), d_counter, StreamAccessor::getStream(stream));
 
         canny::edgesHysteresisGlobal(map_, st1_.ptr<short2>(), st2_.ptr<short2>(), d_counter, StreamAccessor::getStream(stream));
 
-        cudaSafeCall( cudaFree(d_counter) );
+        cudaSafeCall( hipFree(d_counter) );
 
         canny::getEdges(map_, edges, StreamAccessor::getStream(stream));
     }
