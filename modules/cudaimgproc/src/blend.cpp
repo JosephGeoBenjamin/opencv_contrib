@@ -45,7 +45,7 @@
 using namespace cv;
 using namespace cv::cuda;
 
-#if !defined (HAVE_CUDA) || defined (CUDA_DISABLER)
+#if !defined (HAVE_HIP) || defined (CUDA_DISABLER)
 
 void cv::cuda::blendLinear(InputArray, InputArray, InputArray, InputArray, OutputArray, Stream&) { throw_no_cuda(); }
 

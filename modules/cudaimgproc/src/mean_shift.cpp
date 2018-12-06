@@ -45,12 +45,12 @@
 using namespace cv;
 using namespace cv::cuda;
 
-#if !defined (HAVE_CUDA) || defined (CUDA_DISABLER)
+#if !defined (HAVE_HIP) || defined (CUDA_DISABLER)
 
 void cv::cuda::meanShiftFiltering(InputArray, OutputArray, int, int, TermCriteria, Stream&) { throw_no_cuda(); }
 void cv::cuda::meanShiftProc(InputArray, OutputArray, OutputArray, int, int, TermCriteria, Stream&) { throw_no_cuda(); }
 
-#else /* !defined (HAVE_CUDA) */
+#else /* !defined (HAVE_HIP) */
 
 ////////////////////////////////////////////////////////////////////////
 // meanShiftFiltering
@@ -125,4 +125,4 @@ void cv::cuda::meanShiftProc(InputArray _src, OutputArray _dstr, OutputArray _ds
     meanShiftProc_gpu(src, dstr, dstsp, sp, sr, maxIter, eps, StreamAccessor::getStream(stream));
 }
 
-#endif /* !defined (HAVE_CUDA) */
+#endif /* !defined (HAVE_HIP) */

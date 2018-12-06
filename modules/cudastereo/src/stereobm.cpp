@@ -45,11 +45,11 @@
 using namespace cv;
 using namespace cv::cuda;
 
-#if !defined (HAVE_CUDA) || defined (CUDA_DISABLER)
+#if !defined (HAVE_HIP) || defined (CUDA_DISABLER)
 
 Ptr<cuda::StereoBM> cv::cuda::createStereoBM(int, int) { throw_no_cuda(); return Ptr<cuda::StereoBM>(); }
 
-#else /* !defined (HAVE_CUDA) */
+#else /* !defined (HAVE_HIP) */
 
 namespace cv { namespace cuda { namespace device
 {
@@ -182,4 +182,4 @@ Ptr<cuda::StereoBM> cv::cuda::createStereoBM(int numDisparities, int blockSize)
     return makePtr<StereoBMImpl>(numDisparities, blockSize);
 }
 
-#endif /* !defined (HAVE_CUDA) */
+#endif /* !defined (HAVE_HIP) */

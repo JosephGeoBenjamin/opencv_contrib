@@ -45,11 +45,11 @@
 using namespace cv;
 using namespace cv::cuda;
 
-#if !defined (HAVE_CUDA) || defined (CUDA_DISABLER)
+#if !defined (HAVE_HIP) || defined (CUDA_DISABLER)
 
 Ptr<cv::cuda::ORB> cv::cuda::ORB::create(int, float, int, int, int, int, int, int, int, bool) { throw_no_cuda(); return Ptr<cv::cuda::ORB>(); }
 
-#else /* !defined (HAVE_CUDA) */
+#else /* !defined (HAVE_HIP) */
 
 namespace cv { namespace cuda { namespace device
 {
@@ -927,4 +927,4 @@ Ptr<cv::cuda::ORB> cv::cuda::ORB::create(int nfeatures,
     return makePtr<ORB_Impl>(nfeatures, scaleFactor, nlevels, edgeThreshold, firstLevel, WTA_K, scoreType, patchSize, fastThreshold, blurForDescriptor);
 }
 
-#endif /* !defined (HAVE_CUDA) */
+#endif /* !defined (HAVE_HIP) */

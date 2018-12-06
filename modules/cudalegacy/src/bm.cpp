@@ -45,11 +45,11 @@
 using namespace cv;
 using namespace cv::cuda;
 
-#if !defined HAVE_CUDA || defined(CUDA_DISABLER)
+#if !defined HAVE_HIP || defined(CUDA_DISABLER)
 
 void cv::cuda::calcOpticalFlowBM(const GpuMat&, const GpuMat&, Size, Size, Size, bool, GpuMat&, GpuMat&, GpuMat&, Stream&) { throw_no_cuda(); }
 
-#else // HAVE_CUDA
+#else // HAVE_HIP
 
 namespace optflowbm
 {
@@ -201,4 +201,4 @@ void cv::cuda::calcOpticalFlowBM(const GpuMat& prev, const GpuMat& curr, Size bl
                     maxX, maxY, acceptLevel, escapeLevel, buf.ptr<short2>(), ssCount, stream);
 }
 
-#endif // HAVE_CUDA
+#endif // HAVE_HIP

@@ -42,7 +42,7 @@
 
 #include "test_precomp.hpp"
 
-#ifdef HAVE_CUDA
+#ifdef HAVE_HIP
 
 OutputLevel nvidiaTestOutputLevel = OutputLevelNone;
 
@@ -149,4 +149,4 @@ INSTANTIATE_TEST_CASE_P(CUDA_Legacy, NCV, ALL_DEVICES);
 
 
 }} // namespace
-#endif // HAVE_CUDA
+#endif // HAVE_HIP

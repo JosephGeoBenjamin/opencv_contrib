@@ -46,7 +46,7 @@
 using namespace cv;
 using namespace cv::cuda;
 
-#if !defined (HAVE_CUDA) || defined (CUDA_DISABLER)
+#if !defined (HAVE_HIP) || defined (CUDA_DISABLER)
 
 Ptr<cuda::CascadeClassifier> cv::cuda::CascadeClassifier::create(const String&) { throw_no_cuda(); return Ptr<cuda::CascadeClassifier>(); }
 Ptr<cuda::CascadeClassifier> cv::cuda::CascadeClassifier::create(const FileStorage&) { throw_no_cuda(); return Ptr<cuda::CascadeClassifier>(); }

@@ -45,12 +45,12 @@
 using namespace cv;
 using namespace cv::cuda;
 
-#if !defined (HAVE_CUDA) || defined (CUDA_DISABLER) || !defined(HAVE_OPENCV_CUDAFILTERS)
+#if !defined (HAVE_HIP) || defined (CUDA_DISABLER) || !defined(HAVE_OPENCV_CUDAFILTERS)
 
 Ptr<cuda::CornernessCriteria> cv::cuda::createHarrisCorner(int, int, int, double, int) { throw_no_cuda(); return Ptr<cuda::CornernessCriteria>(); }
 Ptr<cuda::CornernessCriteria> cv::cuda::createMinEigenValCorner(int, int, int, int) { throw_no_cuda(); return Ptr<cuda::CornernessCriteria>(); }
 
-#else /* !defined (HAVE_CUDA) */
+#else /* !defined (HAVE_HIP) */
 
 namespace cv { namespace cuda { namespace device
 {
@@ -186,4 +186,4 @@ Ptr<cuda::CornernessCriteria> cv::cuda::createMinEigenValCorner(int srcType, int
     return makePtr<MinEigenVal>(srcType, blockSize, ksize, borderType);
 }
 
-#endif /* !defined (HAVE_CUDA) */
+#endif /* !defined (HAVE_HIP) */

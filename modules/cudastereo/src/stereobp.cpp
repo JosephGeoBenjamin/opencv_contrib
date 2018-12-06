@@ -45,13 +45,13 @@
 using namespace cv;
 using namespace cv::cuda;
 
-#if !defined (HAVE_CUDA) || defined (CUDA_DISABLER)
+#if !defined (HAVE_HIP) || defined (CUDA_DISABLER)
 
 void cv::cuda::StereoBeliefPropagation::estimateRecommendedParams(int, int, int&, int&, int&) { throw_no_cuda(); }
 
 Ptr<cuda::StereoBeliefPropagation> cv::cuda::createStereoBeliefPropagation(int, int, int, int) { throw_no_cuda(); return Ptr<cuda::StereoBeliefPropagation>(); }
 
-#else /* !defined (HAVE_CUDA) */
+#else /* !defined (HAVE_HIP) */
 
 namespace cv { namespace cuda { namespace device
 {
@@ -377,4 +377,4 @@ void cv::cuda::StereoBeliefPropagation::estimateRecommendedParams(int width, int
     if (levels == 0) levels++;
 }
 
-#endif /* !defined (HAVE_CUDA) */
+#endif /* !defined (HAVE_HIP) */

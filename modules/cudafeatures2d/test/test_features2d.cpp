@@ -42,7 +42,7 @@
 
 #include "test_precomp.hpp"
 
-#ifdef HAVE_CUDA
+#ifdef HAVE_HIP
 
 #include <cuda_runtime_api.h>
 
@@ -757,4 +757,4 @@ INSTANTIATE_TEST_CASE_P(CUDA_Features2D, BruteForceMatcher, testing::Combine(
     testing::Values(UseMask(false), UseMask(true))));
 
 }} // namespace
-#endif // HAVE_CUDA
+#endif // HAVE_HIP

@@ -43,7 +43,7 @@
 #include "precomp.hpp"
 
 // GraphCut has been removed in NPP 8.0
-#if !defined (HAVE_CUDA) || defined (CUDA_DISABLER) || (CUDART_VERSION >= 8000)
+#if !defined (HAVE_HIP) || defined (CUDA_DISABLER) || (CUDART_VERSION >= 8000)
 
 void cv::cuda::graphcut(GpuMat&, GpuMat&, GpuMat&, GpuMat&, GpuMat&, GpuMat&, GpuMat&, Stream&) { throw_no_cuda(); }
 void cv::cuda::graphcut(GpuMat&, GpuMat&, GpuMat&, GpuMat&, GpuMat&, GpuMat&, GpuMat&, GpuMat&, GpuMat&, GpuMat&, GpuMat&, Stream&) { throw_no_cuda(); }
@@ -51,7 +51,7 @@ void cv::cuda::graphcut(GpuMat&, GpuMat&, GpuMat&, GpuMat&, GpuMat&, GpuMat&, Gp
 void cv::cuda::connectivityMask(const GpuMat&, GpuMat&, const cv::Scalar&, const cv::Scalar&, Stream&) { throw_no_cuda(); }
 void cv::cuda::labelComponents(const GpuMat&, GpuMat&, int, Stream&) { throw_no_cuda(); }
 
-#else /* !defined (HAVE_CUDA) */
+#else /* !defined (HAVE_HIP) */
 
 namespace cv { namespace cuda { namespace device
 {
@@ -280,4 +280,4 @@ void cv::cuda::graphcut(GpuMat& terminals, GpuMat& leftTransp, GpuMat& rightTran
         cudaSafeCall( cudaDeviceSynchronize() );
 }
 
-#endif /* !defined (HAVE_CUDA) */
+#endif /* !defined (HAVE_HIP) */

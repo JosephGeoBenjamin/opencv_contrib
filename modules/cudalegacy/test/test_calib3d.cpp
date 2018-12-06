@@ -42,7 +42,7 @@
 
 #include "test_precomp.hpp"
 
-#if defined HAVE_CUDA && defined HAVE_OPENCV_CALIB3D
+#if defined HAVE_HIP && defined HAVE_OPENCV_CALIB3D
 
 #include "opencv2/calib3d.hpp"
 
@@ -190,4 +190,4 @@ CUDA_TEST_P(SolvePnPRansac, Accuracy)
 INSTANTIATE_TEST_CASE_P(CUDA_Calib3D, SolvePnPRansac, ALL_DEVICES);
 
 }} // namespace
-#endif // HAVE_CUDA
+#endif // HAVE_HIP

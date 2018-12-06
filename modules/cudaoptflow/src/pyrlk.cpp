@@ -45,13 +45,13 @@
 using namespace cv;
 using namespace cv::cuda;
 
-#if !defined (HAVE_CUDA) || defined (CUDA_DISABLER)
+#if !defined (HAVE_HIP) || defined (CUDA_DISABLER)
 
 Ptr<cv::cuda::SparsePyrLKOpticalFlow> cv::cuda::SparsePyrLKOpticalFlow::create(Size, int, int, bool) { throw_no_cuda(); return Ptr<SparsePyrLKOpticalFlow>(); }
 
 Ptr<cv::cuda::DensePyrLKOpticalFlow> cv::cuda::DensePyrLKOpticalFlow::create(Size, int, int, bool) { throw_no_cuda(); return Ptr<DensePyrLKOpticalFlow>(); }
 
-#else /* !defined (HAVE_CUDA) */
+#else /* !defined (HAVE_HIP) */
 
 namespace pyrlk
 {
@@ -401,4 +401,4 @@ Ptr<cv::cuda::DensePyrLKOpticalFlow> cv::cuda::DensePyrLKOpticalFlow::create(Siz
     return makePtr<DensePyrLKOpticalFlowImpl>(winSize, maxLevel, iters, useInitialFlow);
 }
 
-#endif /* !defined (HAVE_CUDA) */
+#endif /* !defined (HAVE_HIP) */

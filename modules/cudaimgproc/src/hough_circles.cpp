@@ -45,11 +45,11 @@
 using namespace cv;
 using namespace cv::cuda;
 
-#if !defined (HAVE_CUDA) || defined (CUDA_DISABLER) || !defined(HAVE_OPENCV_CUDAFILTERS)
+#if !defined (HAVE_HIP) || defined (CUDA_DISABLER) || !defined(HAVE_OPENCV_CUDAFILTERS)
 
 Ptr<cuda::HoughCirclesDetector> cv::cuda::createHoughCirclesDetector(float, float, int, int, int, int, int) { throw_no_cuda(); return Ptr<HoughCirclesDetector>(); }
 
-#else /* !defined (HAVE_CUDA) */
+#else /* !defined (HAVE_HIP) */
 
 namespace cv { namespace cuda { namespace device
 {
@@ -315,4 +315,4 @@ Ptr<HoughCirclesDetector> cv::cuda::createHoughCirclesDetector(float dp, float m
     return makePtr<HoughCirclesDetectorImpl>(dp, minDist, cannyThreshold, votesThreshold, minRadius, maxRadius, maxCircles);
 }
 
-#endif /* !defined (HAVE_CUDA) */
+#endif /* !defined (HAVE_HIP) */

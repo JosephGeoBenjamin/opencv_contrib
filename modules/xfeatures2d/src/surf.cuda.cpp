@@ -67,7 +67,7 @@ void cv::cuda::SURF_CUDA::operator()(const GpuMat&, const GpuMat&, std::vector<K
 void cv::cuda::SURF_CUDA::releaseMemory() { throw_no_nonfree }
 
 
-#elif (!defined (HAVE_CUDA) || !defined (HAVE_OPENCV_CUDAARITHM))
+#elif (!defined (HAVE_HIP) || !defined (HAVE_OPENCV_CUDAARITHM))
 
 cv::cuda::SURF_CUDA::SURF_CUDA() { throw_no_cuda(); }
 cv::cuda::SURF_CUDA::SURF_CUDA(double, int, int, bool, float, bool) { throw_no_cuda(); }

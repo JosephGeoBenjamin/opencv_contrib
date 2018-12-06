@@ -45,7 +45,7 @@
 using namespace cv;
 using namespace cv::cuda;
 
-#if !defined (HAVE_CUDA) || defined (CUDA_DISABLER)
+#if !defined (HAVE_HIP) || defined (CUDA_DISABLER)
 
 void cv::cuda::bilateralFilter(InputArray, OutputArray, int, float, float, int, Stream&) { throw_no_cuda(); }
 

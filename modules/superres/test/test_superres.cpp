@@ -278,7 +278,7 @@ TEST_F(SuperResolution, BTVL1)
     RunTest<cv::Mat>(cv::superres::createSuperResolution_BTVL1());
 }
 
-#if defined(HAVE_CUDA) && defined(HAVE_OPENCV_CUDAARITHM) && defined(HAVE_OPENCV_CUDAWARPING) && defined(HAVE_OPENCV_CUDAFILTERS)
+#if defined(HAVE_HIP) && defined(HAVE_OPENCV_CUDAARITHM) && defined(HAVE_OPENCV_CUDAWARPING) && defined(HAVE_OPENCV_CUDAFILTERS)
 
 TEST_F(SuperResolution, BTVL1_CUDA)
 {

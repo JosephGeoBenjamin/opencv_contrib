@@ -45,7 +45,7 @@
 using namespace perf;
 
 static const char * impls[] = {
-#ifdef HAVE_CUDA
+#ifdef HAVE_HIP
     "cuda",
 #endif
     "plain"

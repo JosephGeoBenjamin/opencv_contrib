@@ -41,7 +41,7 @@
 //M*/
 #include "precomp.hpp"
 
-#if !defined HAVE_CUDA || defined(CUDA_DISABLER)
+#if !defined HAVE_HIP || defined(CUDA_DISABLER)
 
 void cv::cuda::meanShiftSegmentation(InputArray, OutputArray, int, int, int, TermCriteria, Stream&) { throw_no_cuda(); }
 
@@ -391,4 +391,4 @@ void cv::cuda::meanShiftSegmentation(InputArray _src, OutputArray _dst, int sp, 
     dst.copyTo(_dst);
 }
 
-#endif // #if !defined (HAVE_CUDA) || defined (CUDA_DISABLER)
+#endif // #if !defined (HAVE_HIP) || defined (CUDA_DISABLER)

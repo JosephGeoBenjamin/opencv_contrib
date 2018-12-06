@@ -1,4 +1,4 @@
-if(HAVE_CUDA)
+if(HAVE_HIP)
   add_definitions(-D_HFS_CUDA_ON_)
 endif()
 

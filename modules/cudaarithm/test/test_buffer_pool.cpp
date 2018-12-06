@@ -42,7 +42,7 @@
 
 #include "test_precomp.hpp"
 
-#ifdef HAVE_CUDA
+#ifdef HAVE_HIP
 
 #include "opencv2/core/cuda.hpp"
 #include "opencv2/core/private.cuda.hpp"
@@ -117,4 +117,4 @@ CUDA_TEST_P(BufferPoolTest, From2Streams)
 INSTANTIATE_TEST_CASE_P(CUDA_Stream, BufferPoolTest, ALL_DEVICES);
 
 }} // namespace
-#endif // HAVE_CUDA
+#endif // HAVE_HIP

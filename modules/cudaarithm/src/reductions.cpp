@@ -45,7 +45,7 @@
 using namespace cv;
 using namespace cv::cuda;
 
-#if !defined (HAVE_CUDA) || defined (CUDA_DISABLER)
+#if !defined (HAVE_HIP) || defined (CUDA_DISABLER)
 
 double cv::cuda::norm(InputArray, int, InputArray) { throw_no_cuda(); return 0.0; }
 void cv::cuda::calcNorm(InputArray, OutputArray, int, InputArray, Stream&) { throw_no_cuda(); }

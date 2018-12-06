@@ -42,7 +42,7 @@
 
 #include "test_precomp.hpp"
 
-#if defined(HAVE_CUDA) && defined(HAVE_OPENGL)
+#if defined(HAVE_HIP) && defined(HAVE_OPENGL)
 
 #include "opencv2/core/cuda.hpp"
 #include "opencv2/core/opengl.hpp"

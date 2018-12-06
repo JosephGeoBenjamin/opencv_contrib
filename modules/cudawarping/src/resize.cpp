@@ -42,11 +42,11 @@
 
 #include "precomp.hpp"
 
-#if !defined HAVE_CUDA || defined(CUDA_DISABLER)
+#if !defined HAVE_HIP || defined(CUDA_DISABLER)
 
 void cv::cuda::resize(InputArray, OutputArray, Size, double, double, int, Stream&) { throw_no_cuda(); }
 
-#else // HAVE_CUDA
+#else // HAVE_HIP
 
 namespace cv { namespace cuda { namespace device
 {
@@ -105,4 +105,4 @@ void cv::cuda::resize(InputArray _src, OutputArray _dst, Size dsize, double fx, 
     func(src, wholeSrc, ofs.y, ofs.x, dst, static_cast<float>(1.0 / fy), static_cast<float>(1.0 / fx), interpolation, StreamAccessor::getStream(stream));
 }
 
-#endif // HAVE_CUDA
+#endif // HAVE_HIP

@@ -45,11 +45,11 @@
 using namespace cv;
 using namespace cv::cuda;
 
-#if !defined (HAVE_CUDA) || defined (CUDA_DISABLER)
+#if !defined (HAVE_HIP) || defined (CUDA_DISABLER)
 
 Ptr<cv::cuda::FastFeatureDetector> cv::cuda::FastFeatureDetector::create(int, bool, int, int) { throw_no_cuda(); return Ptr<cv::cuda::FastFeatureDetector>(); }
 
-#else /* !defined (HAVE_CUDA) */
+#else /* !defined (HAVE_HIP) */
 
 namespace cv { namespace cuda { namespace device
 {
@@ -211,4 +211,4 @@ Ptr<cv::cuda::FastFeatureDetector> cv::cuda::FastFeatureDetector::create(int thr
     return makePtr<FAST_Impl>(threshold, nonmaxSuppression, max_npoints);
 }
 
-#endif /* !defined (HAVE_CUDA) */
+#endif /* !defined (HAVE_HIP) */

@@ -45,7 +45,7 @@
 using namespace cv;
 using namespace cv::cuda;
 
-#if !defined HAVE_CUDA || defined(CUDA_DISABLER)
+#if !defined HAVE_HIP || defined(CUDA_DISABLER)
 
 void cv::cuda::warpAffine(InputArray, OutputArray, InputArray, Size, int, int, Scalar, Stream&) { throw_no_cuda(); }
 void cv::cuda::buildWarpAffineMaps(InputArray, bool, Size, OutputArray, OutputArray, Stream&) { throw_no_cuda(); }
@@ -55,7 +55,7 @@ void cv::cuda::buildWarpPerspectiveMaps(InputArray, bool, Size, OutputArray, Out
 
 void cv::cuda::rotate(InputArray, OutputArray, Size, double, double, double, int, Stream&) { throw_no_cuda(); }
 
-#else // HAVE_CUDA
+#else // HAVE_HIP
 
 namespace cv { namespace cuda { namespace device
 {
@@ -531,4 +531,4 @@ void cv::cuda::rotate(InputArray _src, OutputArray _dst, Size dsize, double angl
     funcs[src.depth()][src.channels() - 1](src, dst, dsize, angle, xShift, yShift, interpolation, StreamAccessor::getStream(stream));
 }
 
-#endif // HAVE_CUDA
+#endif // HAVE_HIP

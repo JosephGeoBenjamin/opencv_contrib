@@ -45,7 +45,7 @@
 using namespace cv;
 using namespace cv::cuda;
 
-#if !defined (HAVE_CUDA) || defined (CUDA_DISABLER)
+#if !defined (HAVE_HIP) || defined (CUDA_DISABLER)
 
 void cv::cuda::calcHist(InputArray, OutputArray, Stream&) { throw_no_cuda(); }
 
@@ -61,7 +61,7 @@ void cv::cuda::histEven(InputArray, GpuMat*, int*, int*, int*, Stream&) { throw_
 void cv::cuda::histRange(InputArray, OutputArray, InputArray, Stream&) { throw_no_cuda(); }
 void cv::cuda::histRange(InputArray, GpuMat*, const GpuMat*, Stream&) { throw_no_cuda(); }
 
-#else /* !defined (HAVE_CUDA) */
+#else /* !defined (HAVE_HIP) */
 
 ////////////////////////////////////////////////////////////////////////
 // calcHist
@@ -581,4 +581,4 @@ void cv::cuda::histRange(InputArray _src, GpuMat hist[4], const GpuMat levels[4]
     hist_callers[src.depth()](src, hist, levels, stream);
 }
 
-#endif /* !defined (HAVE_CUDA) */
+#endif /* !defined (HAVE_HIP) */

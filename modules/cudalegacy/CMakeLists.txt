@@ -1,4 +1,4 @@
-if(NOT HAVE_CUDA)
+if(NOT HAVE_HIP)
   ocv_module_disable(cudalegacy)
 endif()
 

@@ -45,7 +45,7 @@
 using namespace cv;
 using namespace cv::cuda;
 
-#if !defined(HAVE_CUDA) || defined(CUDA_DISABLER) || !defined(HAVE_OPENCV_IMGPROC) || !defined(HAVE_OPENCV_CUDAARITHM) || !defined(HAVE_OPENCV_CUDAIMGPROC)
+#if !defined(HAVE_HIP) || defined(CUDA_DISABLER) || !defined(HAVE_OPENCV_IMGPROC) || !defined(HAVE_OPENCV_CUDAARITHM) || !defined(HAVE_OPENCV_CUDAIMGPROC)
 
 cv::cuda::FGDParams::FGDParams() { throw_no_cuda(); }
 
@@ -726,4 +726,4 @@ Ptr<cuda::BackgroundSubtractorFGD> cv::cuda::createBackgroundSubtractorFGD(const
     return makePtr<FGDImpl>(params);
 }
 
-#endif // HAVE_CUDA
+#endif // HAVE_HIP

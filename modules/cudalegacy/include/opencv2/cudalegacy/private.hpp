@@ -50,7 +50,7 @@
 
 #include "opencv2/core/private.cuda.hpp"
 
-#ifndef HAVE_CUDA
+#ifndef HAVE_HIP
 #  error cudalegacy module requires CUDA
 #endif
 

@@ -45,7 +45,7 @@
 using namespace cv;
 using namespace cv::cuda;
 
-#if !defined (HAVE_CUDA) || !defined (HAVE_OPENCV_CUDALEGACY) || defined (CUDA_DISABLER)
+#if !defined (HAVE_HIP) || !defined (HAVE_OPENCV_CUDALEGACY) || defined (CUDA_DISABLER)
 
 Ptr<BroxOpticalFlow> cv::cuda::BroxOpticalFlow::create(double, double, double, int, int, int) { throw_no_cuda(); return Ptr<BroxOpticalFlow>(); }
 
@@ -191,4 +191,4 @@ Ptr<BroxOpticalFlow> cv::cuda::BroxOpticalFlow::create(double alpha, double gamm
     return makePtr<BroxOpticalFlowImpl>(alpha, gamma, scale_factor, inner_iterations, outer_iterations, solver_iterations);
 }
 
-#endif /* HAVE_CUDA */
+#endif /* HAVE_HIP */

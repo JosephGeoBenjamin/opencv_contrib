@@ -50,7 +50,7 @@
 #include "opencv2/core/private.cuda.hpp"
 
 #if defined(HAVE_OPENCV_CUDAIMGPROC) && defined(HAVE_OPENCV_CUDAOPTFLOW)
-    #if !defined HAVE_CUDA || defined(CUDA_DISABLER)
+    #if !defined HAVE_HIP || defined(CUDA_DISABLER)
         namespace cv { namespace cuda {
             static void compactPoints(GpuMat&, GpuMat&, const GpuMat&) { throw_no_cuda(); }
         }}

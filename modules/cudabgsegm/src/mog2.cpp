@@ -45,7 +45,7 @@
 using namespace cv;
 using namespace cv::cuda;
 
-#if !defined HAVE_CUDA || defined(CUDA_DISABLER)
+#if !defined HAVE_HIP || defined(CUDA_DISABLER)
 
 Ptr<cuda::BackgroundSubtractorMOG2> cv::cuda::createBackgroundSubtractorMOG2(int, double, bool) { throw_no_cuda(); return Ptr<cuda::BackgroundSubtractorMOG2>(); }
 

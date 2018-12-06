@@ -136,4 +136,4 @@ bool cv::cudacodec::detail::FFmpegVideoSource::getNextPacket(unsigned char** dat
     return res != 0;
 }
 
-#endif // HAVE_CUDA
+#endif // HAVE_HIP

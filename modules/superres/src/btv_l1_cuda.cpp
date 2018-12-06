@@ -50,14 +50,14 @@ using namespace cv::cuda;
 using namespace cv::superres;
 using namespace cv::superres::detail;
 
-#if !defined(HAVE_CUDA) || !defined(HAVE_OPENCV_CUDAARITHM) || !defined(HAVE_OPENCV_CUDAWARPING) || !defined(HAVE_OPENCV_CUDAFILTERS)
+#if !defined(HAVE_HIP) || !defined(HAVE_OPENCV_CUDAARITHM) || !defined(HAVE_OPENCV_CUDAWARPING) || !defined(HAVE_OPENCV_CUDAFILTERS)
 
 Ptr<SuperResolution> cv::superres::createSuperResolution_BTVL1_CUDA()
 {
     CV_Error(Error::StsNotImplemented, "The called functionality is disabled for current build or platform");
 }
 
-#else // HAVE_CUDA
+#else // HAVE_HIP
 
 namespace btv_l1_cudev
 {
@@ -587,4 +587,4 @@ Ptr<SuperResolution> cv::superres::createSuperResolution_BTVL1_CUDA()
     return makePtr<BTVL1_CUDA>();
 }
 
-#endif // HAVE_CUDA
+#endif // HAVE_HIP

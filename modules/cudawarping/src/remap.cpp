@@ -42,11 +42,11 @@
 
 #include "precomp.hpp"
 
-#if !defined HAVE_CUDA || defined(CUDA_DISABLER)
+#if !defined HAVE_HIP || defined(CUDA_DISABLER)
 
 void cv::cuda::remap(InputArray, OutputArray, InputArray, InputArray, int, int, Scalar, Stream&){ throw_no_cuda(); }
 
-#else // HAVE_CUDA
+#else // HAVE_HIP
 
 namespace cv { namespace cuda { namespace device
 {
@@ -101,4 +101,4 @@ void cv::cuda::remap(InputArray _src, OutputArray _dst, InputArray _xmap, InputA
         dst, interpolation, borderMode, borderValueFloat.val, StreamAccessor::getStream(stream), deviceSupports(FEATURE_SET_COMPUTE_20));
 }
 
-#endif // HAVE_CUDA
+#endif // HAVE_HIP

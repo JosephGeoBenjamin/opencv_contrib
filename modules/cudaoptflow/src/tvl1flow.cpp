@@ -42,7 +42,7 @@
 
 #include "precomp.hpp"
 
-#if !defined HAVE_CUDA || defined(CUDA_DISABLER)
+#if !defined HAVE_HIP || defined(CUDA_DISABLER)
 
 cv::Ptr<cv::cuda::OpticalFlowDual_TVL1> cv::cuda::OpticalFlowDual_TVL1::create(double, double, double, int, int, double, int, double, double, bool)
 {
@@ -382,4 +382,4 @@ Ptr<OpticalFlowDual_TVL1> cv::cuda::OpticalFlowDual_TVL1::create(
                                               epsilon, iterations, scaleStep, gamma, useInitialFlow);
 }
 
-#endif // !defined HAVE_CUDA || defined(CUDA_DISABLER)
+#endif // !defined HAVE_HIP || defined(CUDA_DISABLER)

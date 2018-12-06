@@ -3,7 +3,7 @@ if(IOS OR WINRT)
 endif()
 
 set(the_description "Super Resolution")
-if(HAVE_CUDA)
+if(HAVE_HIP)
   ocv_warnings_disable(CMAKE_CXX_FLAGS -Wundef -Wshadow)
 endif()
 ocv_define_module(superres opencv_imgproc opencv_video opencv_optflow

@@ -45,11 +45,11 @@
 using namespace cv;
 using namespace cv::cuda;
 
-#if !defined HAVE_CUDA || defined(CUDA_DISABLER)
+#if !defined HAVE_HIP || defined(CUDA_DISABLER)
 
 Ptr<ImagePyramid> cv::cuda::createImagePyramid(InputArray, int, Stream&) { throw_no_cuda(); return Ptr<ImagePyramid>(); }
 
-#else // HAVE_CUDA
+#else // HAVE_HIP
 
 namespace
 {

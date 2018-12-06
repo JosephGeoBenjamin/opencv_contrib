@@ -45,11 +45,11 @@
 using namespace cv;
 using namespace cv::cuda;
 
-#if !defined (HAVE_CUDA) || defined (CUDA_DISABLER)
+#if !defined (HAVE_HIP) || defined (CUDA_DISABLER)
 
 Ptr<cuda::DisparityBilateralFilter> cv::cuda::createDisparityBilateralFilter(int, int, int) { throw_no_cuda(); return Ptr<cuda::DisparityBilateralFilter>(); }
 
-#else /* !defined (HAVE_CUDA) */
+#else /* !defined (HAVE_HIP) */
 
 #include "cuda/disparity_bilateral_filter.hpp"
 
@@ -194,4 +194,4 @@ Ptr<cuda::DisparityBilateralFilter> cv::cuda::createDisparityBilateralFilter(int
     return makePtr<DispBilateralFilterImpl>(ndisp, radius, iters);
 }
 
-#endif /* !defined (HAVE_CUDA) */
+#endif /* !defined (HAVE_HIP) */

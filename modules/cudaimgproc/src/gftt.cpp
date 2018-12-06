@@ -45,11 +45,11 @@
 using namespace cv;
 using namespace cv::cuda;
 
-#if !defined (HAVE_CUDA) || defined (CUDA_DISABLER) || !defined(HAVE_OPENCV_CUDAARITHM)
+#if !defined (HAVE_HIP) || defined (CUDA_DISABLER) || !defined(HAVE_OPENCV_CUDAARITHM)
 
 Ptr<cuda::CornersDetector> cv::cuda::createGoodFeaturesToTrackDetector(int, int, double, double, int, bool, double) { throw_no_cuda(); return Ptr<cuda::CornersDetector>(); }
 
-#else /* !defined (HAVE_CUDA) */
+#else /* !defined (HAVE_HIP) */
 
 namespace cv { namespace cuda { namespace device
 {
@@ -212,4 +212,4 @@ Ptr<cuda::CornersDetector> cv::cuda::createGoodFeaturesToTrackDetector(int srcTy
         new GoodFeaturesToTrackDetector(srcType, maxCorners, qualityLevel, minDistance, blockSize, useHarrisDetector, harrisK));
 }
 
-#endif /* !defined (HAVE_CUDA) */
+#endif /* !defined (HAVE_HIP) */

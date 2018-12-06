@@ -45,7 +45,7 @@
 using namespace cv;
 using namespace cv::cuda;
 
-#if !defined (HAVE_CUDA) || !defined (HAVE_OPENCV_CUDALEGACY) || defined (CUDA_DISABLER)
+#if !defined (HAVE_HIP) || !defined (HAVE_OPENCV_CUDALEGACY) || defined (CUDA_DISABLER)
 
 void cv::cuda::interpolateFrames(const GpuMat&, const GpuMat&, const GpuMat&, const GpuMat&, const GpuMat&, const GpuMat&, float, GpuMat&, GpuMat&, Stream&) { throw_no_cuda(); }
 
@@ -110,4 +110,4 @@ void cv::cuda::interpolateFrames(const GpuMat& frame0, const GpuMat& frame1, con
         cudaSafeCall( cudaDeviceSynchronize() );
 }
 
-#endif /* HAVE_CUDA */
+#endif /* HAVE_HIP */

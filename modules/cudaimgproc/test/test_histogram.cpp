@@ -42,7 +42,7 @@
 
 #include "test_precomp.hpp"
 
-#ifdef HAVE_CUDA
+#ifdef HAVE_HIP
 
 namespace opencv_test { namespace {
 
@@ -274,4 +274,4 @@ INSTANTIATE_TEST_CASE_P(CUDA_ImgProc, CLAHE, testing::Combine(
 
 
 }} // namespace
-#endif // HAVE_CUDA
+#endif // HAVE_HIP

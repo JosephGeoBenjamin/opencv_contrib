@@ -45,7 +45,7 @@
 using namespace cv;
 using namespace cv::cuda;
 
-#if !defined (HAVE_CUDA) || defined (CUDA_DISABLER)
+#if !defined (HAVE_HIP) || defined (CUDA_DISABLER)
 
 void cv::cuda::gemm(InputArray, InputArray, double, InputArray, double, OutputArray, int, Stream&) { throw_no_cuda(); }
 
@@ -56,7 +56,7 @@ void cv::cuda::dft(InputArray, OutputArray, Size, int, Stream&) { throw_no_cuda(
 
 Ptr<Convolution> cv::cuda::createConvolution(Size) { throw_no_cuda(); return Ptr<Convolution>(); }
 
-#else /* !defined (HAVE_CUDA) */
+#else /* !defined (HAVE_HIP) */
 
 namespace
 {
@@ -579,4 +579,4 @@ Ptr<Convolution> cv::cuda::createConvolution(Size user_block_size)
 #endif
 }
 
-#endif /* !defined (HAVE_CUDA) */
+#endif /* !defined (HAVE_HIP) */

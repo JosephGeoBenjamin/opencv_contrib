@@ -45,11 +45,11 @@
 using namespace cv;
 using namespace cv::cuda;
 
-#if !defined (HAVE_CUDA) || defined (CUDA_DISABLER)
+#if !defined (HAVE_HIP) || defined (CUDA_DISABLER)
 
 Ptr<cuda::HoughLinesDetector> cv::cuda::createHoughLinesDetector(float, float, int, bool, int) { throw_no_cuda(); return Ptr<HoughLinesDetector>(); }
 
-#else /* !defined (HAVE_CUDA) */
+#else /* !defined (HAVE_HIP) */
 
 namespace cv { namespace cuda { namespace device
 {
@@ -209,4 +209,4 @@ Ptr<HoughLinesDetector> cv::cuda::createHoughLinesDetector(float rho, float thet
     return makePtr<HoughLinesDetectorImpl>(rho, theta, threshold, doSort, maxLines);
 }
 
-#endif /* !defined (HAVE_CUDA) */
+#endif /* !defined (HAVE_HIP) */

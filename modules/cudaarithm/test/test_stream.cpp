@@ -42,7 +42,7 @@
 
 #include "test_precomp.hpp"
 
-#ifdef HAVE_CUDA
+#ifdef HAVE_HIP
 
 #include <cuda_runtime.h>
 
@@ -173,4 +173,4 @@ CUDA_TEST_P(Async, HostMemAllocator)
 INSTANTIATE_TEST_CASE_P(CUDA_Stream, Async, ALL_DEVICES);
 
 }} // namespace
-#endif // HAVE_CUDA
+#endif // HAVE_HIP

@@ -45,7 +45,7 @@
 using namespace cv;
 using namespace cv::cuda;
 
-#if !defined (HAVE_CUDA) || defined (CUDA_DISABLER)
+#if !defined (HAVE_HIP) || defined (CUDA_DISABLER)
 
 void cv::cuda::merge(const GpuMat*, size_t, OutputArray, Stream&) { throw_no_cuda(); }
 void cv::cuda::merge(const std::vector<GpuMat>&, OutputArray, Stream&) { throw_no_cuda(); }
@@ -61,7 +61,7 @@ Ptr<LookUpTable> cv::cuda::createLookUpTable(InputArray) { throw_no_cuda(); retu
 
 void cv::cuda::copyMakeBorder(InputArray, OutputArray, int, int, int, int, int, Scalar, Stream&) { throw_no_cuda(); }
 
-#else /* !defined (HAVE_CUDA) */
+#else /* !defined (HAVE_HIP) */
 
 ////////////////////////////////////////////////////////////////////////
 // flip
@@ -132,4 +132,4 @@ void cv::cuda::flip(InputArray _src, OutputArray _dst, int flipCode, Stream& str
     syncOutput(dst, _dst, stream);
 }
 
-#endif /* !defined (HAVE_CUDA) */
+#endif /* !defined (HAVE_HIP) */

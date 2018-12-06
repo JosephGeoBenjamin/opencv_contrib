@@ -45,11 +45,11 @@
 using namespace cv;
 using namespace cv::cuda;
 
-#if !defined (HAVE_CUDA) || defined (CUDA_DISABLER)
+#if !defined (HAVE_HIP) || defined (CUDA_DISABLER)
 
 Ptr<CannyEdgeDetector> cv::cuda::createCannyEdgeDetector(double, double, int, bool) { throw_no_cuda(); return Ptr<CannyEdgeDetector>(); }
 
-#else /* !defined (HAVE_CUDA) */
+#else /* !defined (HAVE_HIP) */
 
 namespace canny
 {
@@ -242,4 +242,4 @@ Ptr<CannyEdgeDetector> cv::cuda::createCannyEdgeDetector(double low_thresh, doub
     return makePtr<CannyImpl>(low_thresh, high_thresh, apperture_size, L2gradient);
 }
 
-#endif /* !defined (HAVE_CUDA) */
+#endif /* !defined (HAVE_HIP) */

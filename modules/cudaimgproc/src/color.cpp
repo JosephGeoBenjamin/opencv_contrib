@@ -45,7 +45,7 @@
 using namespace cv;
 using namespace cv::cuda;
 
-#if !defined (HAVE_CUDA) || defined (CUDA_DISABLER)
+#if !defined (HAVE_HIP) || defined (CUDA_DISABLER)
 
 void cv::cuda::cvtColor(InputArray, OutputArray, int, int, Stream&) { throw_no_cuda(); }
 
@@ -58,7 +58,7 @@ void cv::cuda::gammaCorrection(InputArray, OutputArray, bool, Stream&) { throw_n
 void cv::cuda::alphaComp(InputArray, InputArray, OutputArray, int, Stream&) { throw_no_cuda(); }
 
 
-#else /* !defined (HAVE_CUDA) */
+#else /* !defined (HAVE_HIP) */
 
 #include "cvt_color_internal.h"
 
@@ -2329,4 +2329,4 @@ void cv::cuda::alphaComp(InputArray _img1, InputArray _img2, OutputArray _dst, i
     func(img1, img2, dst, npp_alpha_ops[alpha_op], StreamAccessor::getStream(stream));
 }
 
-#endif /* !defined (HAVE_CUDA) */
+#endif /* !defined (HAVE_HIP) */

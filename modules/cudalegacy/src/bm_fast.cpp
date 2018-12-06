@@ -45,11 +45,11 @@
 using namespace cv;
 using namespace cv::cuda;
 
-#if !defined HAVE_CUDA || !defined(HAVE_OPENCV_CUDAARITHM) || defined(CUDA_DISABLER)
+#if !defined HAVE_HIP || !defined(HAVE_OPENCV_CUDAARITHM) || defined(CUDA_DISABLER)
 
 void cv::cuda::FastOpticalFlowBM::operator ()(const GpuMat&, const GpuMat&, GpuMat&, GpuMat&, int, int, Stream&) { throw_no_cuda(); }
 
-#else // HAVE_CUDA
+#else // HAVE_HIP
 
 namespace optflowbm_fast
 {
@@ -87,4 +87,4 @@ void cv::cuda::FastOpticalFlowBM::operator ()(const GpuMat& I0, const GpuMat& I1
     optflowbm_fast::calc<uchar>(I0_hdr, I1_hdr, flowx, flowy, buffer, search_window, block_window, StreamAccessor::getStream(stream));
 }
 
-#endif // HAVE_CUDA
+#endif // HAVE_HIP

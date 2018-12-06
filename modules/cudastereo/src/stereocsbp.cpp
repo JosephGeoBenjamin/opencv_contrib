@@ -45,13 +45,13 @@
 using namespace cv;
 using namespace cv::cuda;
 
-#if !defined (HAVE_CUDA) || defined (CUDA_DISABLER)
+#if !defined (HAVE_HIP) || defined (CUDA_DISABLER)
 
 void cv::cuda::StereoConstantSpaceBP::estimateRecommendedParams(int, int, int&, int&, int&, int&) { throw_no_cuda(); }
 
 Ptr<cuda::StereoConstantSpaceBP> cv::cuda::createStereoConstantSpaceBP(int, int, int, int, int) { throw_no_cuda(); return Ptr<cuda::StereoConstantSpaceBP>(); }
 
-#else /* !defined (HAVE_CUDA) */
+#else /* !defined (HAVE_HIP) */
 
 #include "cuda/stereocsbp.hpp"
 
@@ -354,4 +354,4 @@ void cv::cuda::StereoConstantSpaceBP::estimateRecommendedParams(int width, int h
     nr_plane = (int) ((float) ndisp / std::pow(2.0, levels + 1));
 }
 
-#endif /* !defined (HAVE_CUDA) */
+#endif /* !defined (HAVE_HIP) */

@@ -13,7 +13,7 @@
 #  include "opencv2/ocl.hpp"
 #endif
 
-#ifdef HAVE_CUDA
+#ifdef HAVE_HIP
 #  include "opencv2/xfeatures2d/cuda.hpp"
 #endif
 

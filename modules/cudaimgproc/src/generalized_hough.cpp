@@ -45,13 +45,13 @@
 using namespace cv;
 using namespace cv::cuda;
 
-#if !defined (HAVE_CUDA) || defined (CUDA_DISABLER) || !defined(HAVE_OPENCV_CUDAARITHM)
+#if !defined (HAVE_HIP) || defined (CUDA_DISABLER) || !defined(HAVE_OPENCV_CUDAARITHM)
 
 Ptr<GeneralizedHoughBallard> cv::cuda::createGeneralizedHoughBallard() { throw_no_cuda(); return Ptr<GeneralizedHoughBallard>(); }
 
 Ptr<GeneralizedHoughGuil> cv::cuda::createGeneralizedHoughGuil() { throw_no_cuda(); return Ptr<GeneralizedHoughGuil>(); }
 
-#else /* !defined (HAVE_CUDA) */
+#else /* !defined (HAVE_HIP) */
 
 namespace cv { namespace cuda { namespace device
 {
@@ -882,4 +882,4 @@ Ptr<GeneralizedHoughGuil> cv::cuda::createGeneralizedHoughGuil()
     return makePtr<GeneralizedHoughGuilImpl>();
 }
 
-#endif /* !defined (HAVE_CUDA) */
+#endif /* !defined (HAVE_HIP) */

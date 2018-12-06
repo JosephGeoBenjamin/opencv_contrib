@@ -42,7 +42,7 @@
 
 #include "test_precomp.hpp"
 
-#ifdef HAVE_CUDA
+#ifdef HAVE_HIP
 
 using namespace std;
 using namespace cv;
@@ -119,7 +119,7 @@ int main(int argc, char** argv)
     return 0;
 }
 
-#else // HAVE_CUDA
+#else // HAVE_HIP
 
 int main()
 {
@@ -127,4 +127,4 @@ int main()
     return 0;
 }
 
-#endif // HAVE_CUDA
+#endif // HAVE_HIP
