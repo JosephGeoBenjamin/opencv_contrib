@@ -59,7 +59,7 @@ namespace cv { namespace cuda { namespace device
 {
     namespace imgproc
     {
-        void meanShiftFiltering_gpu(const PtrStepSzb& src, PtrStepSzb dst, int sp, int sr, int maxIter, float eps, cudaStream_t stream);
+        void meanShiftFiltering_gpu(const PtrStepSzb& src, PtrStepSzb dst, int sp, int sr, int maxIter, float eps, hipStream_t stream);
     }
 }}}
 
@@ -94,7 +94,7 @@ namespace cv { namespace cuda { namespace device
 {
     namespace imgproc
     {
-        void meanShiftProc_gpu(const PtrStepSzb& src, PtrStepSzb dstr, PtrStepSzb dstsp, int sp, int sr, int maxIter, float eps, cudaStream_t stream);
+        void meanShiftProc_gpu(const PtrStepSzb& src, PtrStepSzb dstr, PtrStepSzb dstsp, int sp, int sr, int maxIter, float eps, hipStream_t stream);
     }
 }}}
 

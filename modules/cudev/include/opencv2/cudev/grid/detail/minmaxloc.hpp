@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -64,17 +65,17 @@ namespace grid_minmaxloc_detail
         __shared__ uint sMinLoc[BLOCK_SIZE];
         __shared__ uint sMaxLoc[BLOCK_SIZE];
 
-        const int x0 = blockIdx.x * blockDim.x * patch_x + threadIdx.x;
-        const int y0 = blockIdx.y * blockDim.y * patch_y + threadIdx.y;
+        const int x0 = hipBlockIdx_x * hipBlockDim_x * patch_x + hipThreadIdx_x;
+        const int y0 = hipBlockIdx_y * hipBlockDim_y * patch_y + hipThreadIdx_y;
 
         ResType myMin = numeric_limits<ResType>::max();
         ResType myMax = -numeric_limits<ResType>::max();
         int myMinLoc = -1;
         int myMaxLoc = -1;
 
-        for (int i = 0, y = y0; i < patch_y && y < rows; ++i, y += blockDim.y)
+        for (int i = 0, y = y0; i < patch_y && y < rows; ++i, y += hipBlockDim_y)
         {
-            for (int j = 0, x = x0; j < patch_x && x < cols; ++j, x += blockDim.x)
+            for (int j = 0, x = x0; j < patch_x && x < cols; ++j, x += hipBlockDim_x)
             {
                 if (mask(y, x))
                 {
@@ -95,14 +96,14 @@ namespace grid_minmaxloc_detail
             }
         }
 
-        const int tid = threadIdx.y * blockDim.x + threadIdx.x;
+        const int tid = hipThreadIdx_y * hipBlockDim_x + hipThreadIdx_x;
 
         blockReduceKeyVal<BLOCK_SIZE>(smem_tuple(sMinVal, sMaxVal), tie(myMin, myMax),
                                       smem_tuple(sMinLoc, sMaxLoc), tie(myMinLoc, myMaxLoc),
                                       tid,
                                       make_tuple(less<ResType>(), greater<ResType>()));
 
-        const int bid = blockIdx.y * gridDim.x + blockIdx.x;
+        const int bid = hipBlockIdx_y * hipGridDim_x + hipBlockIdx_x;
 
         if (tid == 0)
         {
@@ -121,7 +122,7 @@ namespace grid_minmaxloc_detail
         __shared__ int sMinLoc[BLOCK_SIZE];
         __shared__ int sMaxLoc[BLOCK_SIZE];
 
-        const int idx = ::min(threadIdx.x, count - 1);
+        const int idx = ::min(hipThreadIdx_x, count - 1);
 
         T myMin = minMal[idx];
         T myMax = maxVal[idx];
@@ -130,10 +131,10 @@ namespace grid_minmaxloc_detail
 
         blockReduceKeyVal<BLOCK_SIZE>(smem_tuple(sMinVal, sMaxVal), tie(myMin, myMax),
                                       smem_tuple(sMinLoc, sMaxLoc), tie(myMinLoc, myMaxLoc),
-                                      threadIdx.x,
+                                      hipThreadIdx_x,
                                       make_tuple(less<T>(), greater<T>()));
 
-        if (threadIdx.x == 0)
+        if (hipThreadIdx_x == 0)
         {
             minMal[0] = myMin;
             maxVal[0] = myMax;
@@ -153,7 +154,7 @@ namespace grid_minmaxloc_detail
     }
 
     template <class Policy, class SrcPtr, typename ResType, class MaskPtr>
-    __host__ void minMaxLoc(const SrcPtr& src, ResType* minVal, ResType* maxVal, int* minLoc, int* maxLoc, const MaskPtr& mask, int rows, int cols, cudaStream_t stream)
+    __host__ void minMaxLoc(const SrcPtr& src, ResType* minVal, ResType* maxVal, int* minLoc, int* maxLoc, const MaskPtr& mask, int rows, int cols, hipStream_t stream)
     {
         dim3 block, grid;
         getLaunchCfg<Policy>(rows, cols, block, grid);
@@ -161,14 +162,14 @@ namespace grid_minmaxloc_detail
         const int patch_x = divUp(divUp(cols, grid.x), block.x);
         const int patch_y = divUp(divUp(rows, grid.y), block.y);
 
-        minMaxLoc_pass_1<Policy::block_size_x * Policy::block_size_y><<<grid, block, 0, stream>>>(src, minVal, maxVal, minLoc, maxLoc, mask, rows, cols, patch_y, patch_x);
-        CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+        hipLaunchKernelGGL((minMaxLoc_pass_1<Policy::block_size_x * Policy::block_size_y>), dim3(grid), dim3(block), 0, stream, src, minVal, maxVal, minLoc, maxLoc, mask, rows, cols, patch_y, patch_x);
+        CV_CUDEV_SAFE_CALL( hipGetLastError() );
 
-        minMaxLoc_pass_2<Policy::block_size_x * Policy::block_size_y><<<1, Policy::block_size_x * Policy::block_size_y, 0, stream>>>(minVal, maxVal, minLoc, maxLoc, grid.x * grid.y);
-        CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+        hipLaunchKernelGGL((minMaxLoc_pass_2<Policy::block_size_x * Policy::block_size_y>), dim3(1), dim3(Policy::block_size_x * Policy::block_size_y), 0, stream, minVal, maxVal, minLoc, maxLoc, grid.x * grid.y);
+        CV_CUDEV_SAFE_CALL( hipGetLastError() );
 
         if (stream == 0)
-            CV_CUDEV_SAFE_CALL( cudaDeviceSynchronize() );
+            CV_CUDEV_SAFE_CALL( hipDeviceSynchronize() );
     }
 }
 

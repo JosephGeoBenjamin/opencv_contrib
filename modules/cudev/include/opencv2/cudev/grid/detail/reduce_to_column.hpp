@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -61,7 +62,7 @@ namespace grid_reduce_to_vec_detail
         __device__ __forceinline__ static void call(work_elem_type smem[1][BLOCK_SIZE], work_type& myVal)
         {
             typename Reductor::template rebind<work_elem_type>::other op;
-            blockReduce<BLOCK_SIZE>(smem[0], myVal, threadIdx.x, op);
+            blockReduce<BLOCK_SIZE>(smem[0], myVal, hipThreadIdx_x, op);
         }
     };
 
@@ -70,7 +71,7 @@ namespace grid_reduce_to_vec_detail
         __device__ __forceinline__ static void call(work_elem_type smem[2][BLOCK_SIZE], work_type& myVal)
         {
             typename Reductor::template rebind<work_elem_type>::other op;
-            blockReduce<BLOCK_SIZE>(smem_tuple(smem[0], smem[1]), tie(myVal.x, myVal.y), threadIdx.x, make_tuple(op, op));
+            blockReduce<BLOCK_SIZE>(smem_tuple(smem[0], smem[1]), tie(myVal.x, myVal.y), hipThreadIdx_x, make_tuple(op, op));
         }
     };
 
@@ -79,7 +80,7 @@ namespace grid_reduce_to_vec_detail
         __device__ __forceinline__ static void call(work_elem_type smem[3][BLOCK_SIZE], work_type& myVal)
         {
             typename Reductor::template rebind<work_elem_type>::other op;
-            blockReduce<BLOCK_SIZE>(smem_tuple(smem[0], smem[1], smem[2]), tie(myVal.x, myVal.y, myVal.z), threadIdx.x, make_tuple(op, op, op));
+            blockReduce<BLOCK_SIZE>(smem_tuple(smem[0], smem[1], smem[2]), tie(myVal.x, myVal.y, myVal.z), hipThreadIdx_x, make_tuple(op, op, op));
         }
     };
 
@@ -88,7 +89,7 @@ namespace grid_reduce_to_vec_detail
         __device__ __forceinline__ static void call(work_elem_type smem[4][BLOCK_SIZE], work_type& myVal)
         {
             typename Reductor::template rebind<work_elem_type>::other op;
-            blockReduce<BLOCK_SIZE>(smem_tuple(smem[0], smem[1], smem[2], smem[3]), tie(myVal.x, myVal.y, myVal.z, myVal.w), threadIdx.x, make_tuple(op, op, op, op));
+            blockReduce<BLOCK_SIZE>(smem_tuple(smem[0], smem[1], smem[2], smem[3]), tie(myVal.x, myVal.y, myVal.z, myVal.w), hipThreadIdx_x, make_tuple(op, op, op, op));
         }
     };
 
@@ -101,13 +102,13 @@ namespace grid_reduce_to_vec_detail
 
         __shared__ work_elem_type smem[cn][BLOCK_SIZE];
 
-        const int y = blockIdx.x;
+        const int y = hipBlockIdx_x;
 
         work_type myVal = Reductor::initialValue();
 
         Reductor op;
 
-        for (int x = threadIdx.x; x < cols; x += BLOCK_SIZE)
+        for (int x = hipThreadIdx_x; x < cols; x += BLOCK_SIZE)
         {
             if (mask(y, x))
             {
@@ -117,12 +118,12 @@ namespace grid_reduce_to_vec_detail
 
         Reduce<BLOCK_SIZE, work_type, work_elem_type, Reductor, cn>::call(smem, myVal);
 
-        if (threadIdx.x == 0)
+        if (hipThreadIdx_x == 0)
             dst[y] = saturate_cast<ResType>(Reductor::result(myVal, cols));
     }
 
     template <class Reductor, class Policy, class SrcPtr, typename ResType, class MaskPtr>
-    __host__ void reduceToColumn(const SrcPtr& src, ResType* dst, const MaskPtr& mask, int rows, int cols, cudaStream_t stream)
+    __host__ void reduceToColumn(const SrcPtr& src, ResType* dst, const MaskPtr& mask, int rows, int cols, hipStream_t stream)
     {
         const int BLOCK_SIZE_X = Policy::block_size_x;
         const int BLOCK_SIZE_Y = Policy::block_size_y;
@@ -132,11 +133,11 @@ namespace grid_reduce_to_vec_detail
         const dim3 block(BLOCK_SIZE);
         const dim3 grid(rows);
 
-        reduceToColumn<Reductor, BLOCK_SIZE><<<grid, block, 0, stream>>>(src, dst, mask, cols);
-        CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+        hipLaunchKernelGGL((reduceToColumn<Reductor, BLOCK_SIZE>), dim3(grid), dim3(block), 0, stream, src, dst, mask, cols);
+        CV_CUDEV_SAFE_CALL( hipGetLastError() );
 
         if (stream == 0)
-            CV_CUDEV_SAFE_CALL( cudaDeviceSynchronize() );
+            CV_CUDEV_SAFE_CALL( hipDeviceSynchronize() );
 
     }
 }

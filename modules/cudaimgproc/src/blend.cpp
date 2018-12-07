@@ -59,9 +59,9 @@ namespace cv { namespace cuda { namespace device
     namespace blend
     {
         template <typename T>
-        void blendLinearCaller(int rows, int cols, int cn, PtrStep<T> img1, PtrStep<T> img2, PtrStepf weights1, PtrStepf weights2, PtrStep<T> result, cudaStream_t stream);
+        void blendLinearCaller(int rows, int cols, int cn, PtrStep<T> img1, PtrStep<T> img2, PtrStepf weights1, PtrStepf weights2, PtrStep<T> result, hipStream_t stream);
 
-        void blendLinearCaller8UC4(int rows, int cols, PtrStepb img1, PtrStepb img2, PtrStepf weights1, PtrStepf weights2, PtrStepb result, cudaStream_t stream);
+        void blendLinearCaller8UC4(int rows, int cols, PtrStepb img1, PtrStepb img2, PtrStepf weights1, PtrStepf weights2, PtrStepb result, hipStream_t stream);
     }
 }}}
 

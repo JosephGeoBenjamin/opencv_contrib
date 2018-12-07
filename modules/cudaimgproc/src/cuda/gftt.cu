@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -52,14 +53,14 @@ namespace cv { namespace cuda { namespace device
 {
     namespace gfft
     {
-        texture<float, cudaTextureType2D, cudaReadModeElementType> eigTex(0, cudaFilterModePoint, cudaAddressModeClamp);
+        texture<float, hipTextureType2D, hipReadModeElementType> eigTex(0, hipFilterModePoint, hipAddressModeClamp);
 
         __device__ int g_counter = 0;
 
         template <class Mask> __global__ void findCorners(float threshold, const Mask mask, float2* corners, int max_count, int rows, int cols)
         {
-            const int j = blockIdx.x * blockDim.x + threadIdx.x;
-            const int i = blockIdx.y * blockDim.y + threadIdx.y;
+            const int j = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int i = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (i > 0 && i < rows - 1 && j > 0 && j < cols - 1 && mask(i, j))
             {
@@ -91,12 +92,14 @@ namespace cv { namespace cuda { namespace device
             }
         }
 
-        int findCorners_gpu(PtrStepSzf eig, float threshold, PtrStepSzb mask, float2* corners, int max_count, cudaStream_t stream)
+        int findCorners_gpu(PtrStepSzf eig, float threshold, PtrStepSzb mask, float2* corners, int max_count, hipStream_t stream)
         {
             void* counter_ptr;
-            cudaSafeCall( cudaGetSymbolAddress(&counter_ptr, g_counter) );
 
-            cudaSafeCall( cudaMemsetAsync(counter_ptr, 0, sizeof(int), stream) );
+#ifdef HIP_TODO
+            cudaSafeCall( hipGetSymbolAddress((void **)&counter_ptr, (const void *)g_counter) );
+#endif
+            cudaSafeCall( hipMemsetAsync(counter_ptr, 0, sizeof(int), stream) );
 
             bindTexture(&eigTex, eig);
 
@@ -104,18 +107,18 @@ namespace cv { namespace cuda { namespace device
             dim3 grid(divUp(eig.cols, block.x), divUp(eig.rows, block.y));
 
             if (mask.data)
-                findCorners<<<grid, block, 0, stream>>>(threshold, SingleMask(mask), corners, max_count, eig.rows, eig.cols);
+                hipLaunchKernelGGL((findCorners), dim3(grid), dim3(block), 0, stream, threshold, SingleMask(mask), corners, max_count, eig.rows, eig.cols);
             else
-                findCorners<<<grid, block, 0, stream>>>(threshold, WithOutMask(), corners, max_count, eig.rows, eig.cols);
+                hipLaunchKernelGGL((findCorners), dim3(grid), dim3(block), 0, stream, threshold, WithOutMask(), corners, max_count, eig.rows, eig.cols);
 
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
             int count;
-            cudaSafeCall( cudaMemcpyAsync(&count, counter_ptr, sizeof(int), cudaMemcpyDeviceToHost, stream) );
+            cudaSafeCall( hipMemcpyAsync(&count, counter_ptr, sizeof(int), hipMemcpyDeviceToHost, stream) );
             if (stream)
-                cudaSafeCall(cudaStreamSynchronize(stream));
+                cudaSafeCall(hipStreamSynchronize(stream));
             else
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
             return std::min(count, max_count);
         }
 
@@ -129,7 +132,7 @@ namespace cv { namespace cuda { namespace device
         };
 
 
-        void sortCorners_gpu(PtrStepSzf eig, float2* corners, int count, cudaStream_t stream)
+        void sortCorners_gpu(PtrStepSzf eig, float2* corners, int count, hipStream_t stream)
         {
             bindTexture(&eigTex, eig);
 

@@ -46,7 +46,7 @@
 #ifndef OPENCV_CUDEV_COMMON_HPP
 #define OPENCV_CUDEV_COMMON_HPP
 
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 #include "opencv2/core/cuda.hpp"
 #include "opencv2/core/cuda_stream_accessor.hpp"
 
@@ -67,10 +67,10 @@ using namespace cv::cuda;
 
 // CV_CUDEV_SAFE_CALL
 
-__host__ __forceinline__ void checkCudaError(cudaError_t err, const char* file, const int line, const char* func)
+__host__ __forceinline__ void checkCudaError(hipError_t err, const char* file, const int line, const char* func)
 {
-    if (cudaSuccess != err)
-        cv::error(cv::Error::GpuApiCallError, cudaGetErrorString(err), func, file, line);
+    if (hipSuccess != err)
+        cv::error(cv::Error::GpuApiCallError, hipGetErrorString(err), func, file, line);
 }
 
 #define CV_CUDEV_SAFE_CALL(expr) cv::cudev::checkCudaError((expr), __FILE__, __LINE__, CV_Func)

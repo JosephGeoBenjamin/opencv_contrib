@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -67,8 +68,8 @@ namespace pyramids_detail
 
         __shared__ work_type smem[256 + 4];
 
-        const int x = blockIdx.x * blockDim.x + threadIdx.x;
-        const int y = blockIdx.y;
+        const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+        const int y = hipBlockIdx_y;
 
         const int src_y = 2 * y;
 
@@ -83,10 +84,10 @@ namespace pyramids_detail
                 sum = sum + 0.25f   * src(src_y + 1, x);
                 sum = sum + 0.0625f * src(src_y + 2, x);
 
-                smem[2 + threadIdx.x] = sum;
+                smem[2 + hipThreadIdx_x] = sum;
             }
 
-            if (threadIdx.x < 2)
+            if (hipThreadIdx_x < 2)
             {
                 const int left_x = x - 2;
 
@@ -98,10 +99,10 @@ namespace pyramids_detail
                 sum = sum + 0.25f   * src(src_y + 1, left_x);
                 sum = sum + 0.0625f * src(src_y + 2, left_x);
 
-                smem[threadIdx.x] = sum;
+                smem[hipThreadIdx_x] = sum;
             }
 
-            if (threadIdx.x > 253)
+            if (hipThreadIdx_x > 253)
             {
                 const int right_x = x + 2;
 
@@ -113,7 +114,7 @@ namespace pyramids_detail
                 sum = sum + 0.25f   * src(src_y + 1, right_x);
                 sum = sum + 0.0625f * src(src_y + 2, right_x);
 
-                smem[4 + threadIdx.x] = sum;
+                smem[4 + hipThreadIdx_x] = sum;
             }
         }
         else
@@ -127,10 +128,10 @@ namespace pyramids_detail
                 sum = sum + 0.25f   * src(Brd::idx_high(src_y + 1, src_rows), Brd::idx_high(x, src_cols));
                 sum = sum + 0.0625f * src(Brd::idx_high(src_y + 2, src_rows), Brd::idx_high(x, src_cols));
 
-                smem[2 + threadIdx.x] = sum;
+                smem[2 + hipThreadIdx_x] = sum;
             }
 
-            if (threadIdx.x < 2)
+            if (hipThreadIdx_x < 2)
             {
                 const int left_x = x - 2;
 
@@ -142,10 +143,10 @@ namespace pyramids_detail
                 sum = sum + 0.25f   * src(Brd::idx_high(src_y + 1, src_rows), Brd::idx_low(Brd::idx_high(left_x, src_cols), src_cols));
                 sum = sum + 0.0625f * src(Brd::idx_high(src_y + 2, src_rows), Brd::idx_low(Brd::idx_high(left_x, src_cols), src_cols));
 
-                smem[threadIdx.x] = sum;
+                smem[hipThreadIdx_x] = sum;
             }
 
-            if (threadIdx.x > 253)
+            if (hipThreadIdx_x > 253)
             {
                 const int right_x = x + 2;
 
@@ -157,15 +158,15 @@ namespace pyramids_detail
                 sum = sum + 0.25f   * src(Brd::idx_high(src_y + 1, src_rows), Brd::idx_high(right_x, src_cols));
                 sum = sum + 0.0625f * src(Brd::idx_high(src_y + 2, src_rows), Brd::idx_high(right_x, src_cols));
 
-                smem[4 + threadIdx.x] = sum;
+                smem[4 + hipThreadIdx_x] = sum;
             }
         }
 
         __syncthreads();
 
-        if (threadIdx.x < 128)
+        if (hipThreadIdx_x < 128)
         {
-            const int tid2 = threadIdx.x * 2;
+            const int tid2 = hipThreadIdx_x * 2;
 
             work_type sum;
 
@@ -175,7 +176,7 @@ namespace pyramids_detail
             sum = sum + 0.25f   * smem[2 + tid2 + 1];
             sum = sum + 0.0625f * smem[2 + tid2 + 2];
 
-            const int dst_x = (blockIdx.x * blockDim.x + tid2) / 2;
+            const int dst_x = (hipBlockIdx_x * hipBlockDim_x + tid2) / 2;
 
             if (dst_x < dst_cols)
                 dst(y, dst_x) = saturate_cast<DstType>(sum);
@@ -183,16 +184,16 @@ namespace pyramids_detail
     }
 
     template <class Brd, class SrcPtr, typename DstType>
-    __host__ void pyrDown(const SrcPtr& src, const GlobPtr<DstType>& dst, int src_rows, int src_cols, int dst_rows, int dst_cols, cudaStream_t stream)
+    __host__ void pyrDown(const SrcPtr& src, const GlobPtr<DstType>& dst, int src_rows, int src_cols, int dst_rows, int dst_cols, hipStream_t stream)
     {
         const dim3 block(256);
         const dim3 grid(divUp(src_cols, block.x), dst_rows);
 
-        pyrDown<Brd><<<grid, block, 0, stream>>>(src, dst, src_rows, src_cols, dst_cols);
-        CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+        hipLaunchKernelGGL((pyrDown<Brd>), dim3(grid), dim3(block), 0, stream, src, dst, src_rows, src_cols, dst_cols);
+        CV_CUDEV_SAFE_CALL( hipGetLastError() );
 
         if (stream == 0)
-            CV_CUDEV_SAFE_CALL( cudaDeviceSynchronize() );
+            CV_CUDEV_SAFE_CALL( hipDeviceSynchronize() );
     }
 }
 

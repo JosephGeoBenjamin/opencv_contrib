@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -65,7 +66,7 @@ namespace cv { namespace cuda { namespace device
             const int SHIFT = 10;
             const int ONE = 1 << SHIFT;
 
-            const int tid = blockIdx.x * blockDim.x + threadIdx.x;
+            const int tid = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
 
             if (tid >= count)
                 return;
@@ -115,13 +116,14 @@ namespace cv { namespace cuda { namespace device
         {
             const dim3 block(256);
             const dim3 grid(divUp(count, block.x));
+#ifdef HIP_TODO
+            cudaSafeCall( hipFuncSetCacheConfig(circlesAccumCenters, hipFuncCachePreferL1) );
+#endif
 
-            cudaSafeCall( cudaFuncSetCacheConfig(circlesAccumCenters, cudaFuncCachePreferL1) );
+            hipLaunchKernelGGL((circlesAccumCenters), dim3(grid), dim3(block), 0, 0, list, count, dx, dy, accum, accum.cols - 2, accum.rows - 2, minRadius, maxRadius, idp);
+            cudaSafeCall( hipGetLastError() );
 
-            circlesAccumCenters<<<grid, block>>>(list, count, dx, dy, accum, accum.cols - 2, accum.rows - 2, minRadius, maxRadius, idp);
-            cudaSafeCall( cudaGetLastError() );
-
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
         }
 
         ////////////////////////////////////////////////////////////////////////
@@ -129,8 +131,8 @@ namespace cv { namespace cuda { namespace device
 
         __global__ void buildCentersList(const PtrStepSzi accum, unsigned int* centers, const int threshold)
         {
-            const int x = blockIdx.x * blockDim.x + threadIdx.x;
-            const int y = blockIdx.y * blockDim.y + threadIdx.y;
+            const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (x < accum.cols - 2 && y < accum.rows - 2)
             {
@@ -154,22 +156,24 @@ namespace cv { namespace cuda { namespace device
         int buildCentersList_gpu(PtrStepSzi accum, unsigned int* centers, int threshold)
         {
             void* counterPtr;
-            cudaSafeCall( cudaGetSymbolAddress(&counterPtr, g_counter) );
+            cudaSafeCall( hipGetSymbolAddress(&counterPtr, g_counter) );
 
-            cudaSafeCall( cudaMemset(counterPtr, 0, sizeof(int)) );
+            cudaSafeCall( hipMemset(counterPtr, 0, sizeof(int)) );
 
             const dim3 block(32, 8);
             const dim3 grid(divUp(accum.cols - 2, block.x), divUp(accum.rows - 2, block.y));
 
-            cudaSafeCall( cudaFuncSetCacheConfig(buildCentersList, cudaFuncCachePreferL1) );
+#ifdef HIP_TODO
+            cudaSafeCall( hipFuncSetCacheConfig(buildCentersList, hipFuncCachePreferL1) );
+#endif
 
-            buildCentersList<<<grid, block>>>(accum, centers, threshold);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((buildCentersList), dim3(grid), dim3(block), 0, 0, accum, centers, threshold);
+            cudaSafeCall( hipGetLastError() );
 
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
 
             int totalCount;
-            cudaSafeCall( cudaMemcpy(&totalCount, counterPtr, sizeof(int), cudaMemcpyDeviceToHost) );
+            cudaSafeCall( hipMemcpy(&totalCount, counterPtr, sizeof(int), hipMemcpyDeviceToHost) );
 
             return totalCount;
         }
@@ -183,11 +187,11 @@ namespace cv { namespace cuda { namespace device
         {
             int* smem = DynamicSharedMem<int>();
 
-            for (int i = threadIdx.x; i < histSize + 2; i += blockDim.x)
+            for (int i = hipThreadIdx_x; i < histSize + 2; i += hipBlockDim_x)
                 smem[i] = 0;
             __syncthreads();
 
-            unsigned int val = centers[blockIdx.x];
+            unsigned int val = centers[hipBlockIdx_x];
 
             float cx = (val & 0xFFFF);
             float cy = (val >> 16) & 0xFFFF;
@@ -195,7 +199,7 @@ namespace cv { namespace cuda { namespace device
             cx = (cx + 0.5f) * dp;
             cy = (cy + 0.5f) * dp;
 
-            for (int i = threadIdx.x; i < count; i += blockDim.x)
+            for (int i = hipThreadIdx_x; i < count; i += hipBlockDim_x)
             {
                 val = list[i];
 
@@ -213,7 +217,7 @@ namespace cv { namespace cuda { namespace device
 
             __syncthreads();
 
-            for (int i = threadIdx.x; i < histSize; i += blockDim.x)
+            for (int i = hipThreadIdx_x; i < histSize; i += hipBlockDim_x)
             {
                 const int curVotes = smem[i + 1];
 
@@ -230,9 +234,9 @@ namespace cv { namespace cuda { namespace device
                                    float3* circles, int maxCircles, float dp, int minRadius, int maxRadius, int threshold, bool has20)
         {
             void* counterPtr;
-            cudaSafeCall( cudaGetSymbolAddress(&counterPtr, g_counter) );
+            cudaSafeCall( hipGetSymbolAddress(&counterPtr, g_counter) );
 
-            cudaSafeCall( cudaMemset(counterPtr, 0, sizeof(int)) );
+            cudaSafeCall( hipMemset(counterPtr, 0, sizeof(int)) );
 
             const dim3 block(has20 ? 1024 : 512);
             const dim3 grid(centersCount);
@@ -240,13 +244,13 @@ namespace cv { namespace cuda { namespace device
             const int histSize = maxRadius - minRadius + 1;
             size_t smemSize = (histSize + 2) * sizeof(int);
 
-            circlesAccumRadius<<<grid, block, smemSize>>>(centers, list, count, circles, maxCircles, dp, minRadius, maxRadius, histSize, threshold);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((circlesAccumRadius), dim3(grid), dim3(block), smemSize, 0, centers, list, count, circles, maxCircles, dp, minRadius, maxRadius, histSize, threshold);
+            cudaSafeCall( hipGetLastError() );
 
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
 
             int totalCount;
-            cudaSafeCall( cudaMemcpy(&totalCount, counterPtr, sizeof(int), cudaMemcpyDeviceToHost) );
+            cudaSafeCall( hipMemcpy(&totalCount, counterPtr, sizeof(int), hipMemcpyDeviceToHost) );
 
             totalCount = ::min(totalCount, maxCircles);
 

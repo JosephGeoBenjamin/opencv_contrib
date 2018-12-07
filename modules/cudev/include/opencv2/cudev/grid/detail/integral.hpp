@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -67,21 +68,21 @@ namespace integral_detail
 
         __syncthreads();
 
-        D* dst_row = dst.row(blockIdx.x);
+        D* dst_row = dst.row(hipBlockIdx_x);
 
         int numBuckets = divUp(cols, NUM_SCAN_THREADS);
         int offsetX = 0;
 
         while (numBuckets--)
         {
-            const int curElemOffs = offsetX + threadIdx.x;
+            const int curElemOffs = offsetX + hipThreadIdx_x;
 
             D curElem = 0.0f;
 
             if (curElemOffs < cols)
-                curElem = src(blockIdx.x, curElemOffs);
+                curElem = src(hipBlockIdx_x, curElemOffs);
 
-            const D curScanElem = blockScanInclusive<NUM_SCAN_THREADS>(curElem, smem, threadIdx.x);
+            const D curScanElem = blockScanInclusive<NUM_SCAN_THREADS>(curElem, smem, hipThreadIdx_x);
 
             if (curElemOffs < cols)
                 dst_row[curElemOffs] = carryElem + curScanElem;
@@ -90,7 +91,7 @@ namespace integral_detail
 
             __syncthreads();
 
-            if (threadIdx.x == NUM_SCAN_THREADS - 1)
+            if (hipThreadIdx_x == NUM_SCAN_THREADS - 1)
             {
                 carryElem += curScanElem;
             }
@@ -109,22 +110,22 @@ namespace integral_detail
 
         __syncthreads();
 
-        const T* src_row = src.row(blockIdx.x);
-        D* dst_row = dst.row(blockIdx.x);
+        const T* src_row = src.row(hipBlockIdx_x);
+        D* dst_row = dst.row(hipBlockIdx_x);
 
         int numBuckets = divUp(cols, NUM_SCAN_THREADS);
         int offsetX = 0;
 
         while (numBuckets--)
         {
-            const int curElemOffs = offsetX + threadIdx.x;
+            const int curElemOffs = offsetX + hipThreadIdx_x;
 
             D curElem = 0.0f;
 
             if (curElemOffs < cols)
                 curElem = src_row[curElemOffs];
 
-            const D curScanElem = blockScanInclusive<NUM_SCAN_THREADS>(curElem, smem, threadIdx.x);
+            const D curScanElem = blockScanInclusive<NUM_SCAN_THREADS>(curElem, smem, hipThreadIdx_x);
 
             if (curElemOffs < cols)
                 dst_row[curElemOffs] = carryElem + curScanElem;
@@ -133,7 +134,7 @@ namespace integral_detail
 
             __syncthreads();
 
-            if (threadIdx.x == NUM_SCAN_THREADS - 1)
+            if (hipThreadIdx_x == NUM_SCAN_THREADS - 1)
             {
                 carryElem += curScanElem;
             }
@@ -143,15 +144,15 @@ namespace integral_detail
     }
 
     template <class SrcPtr, typename D>
-    __host__ void horizontal_pass(const SrcPtr& src, const GlobPtr<D>& dst, int rows, int cols, cudaStream_t stream)
+    __host__ void horizontal_pass(const SrcPtr& src, const GlobPtr<D>& dst, int rows, int cols, hipStream_t stream)
     {
         const int NUM_SCAN_THREADS = 256;
 
         const dim3 block(NUM_SCAN_THREADS);
         const dim3 grid(rows);
 
-        horizontal_pass<NUM_SCAN_THREADS><<<grid, block, 0, stream>>>(src, dst, cols);
-        CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+        hipLaunchKernelGGL((horizontal_pass<NUM_SCAN_THREADS>), dim3(grid), dim3(block), 0, stream, src, dst, cols);
+        CV_CUDEV_SAFE_CALL( hipGetLastError() );
     }
 
     // horisontal_pass_8u_shfl
@@ -171,11 +172,11 @@ namespace integral_detail
     #if CV_CUDEV_ARCH >= 300
         __shared__ int sums[128];
 
-        const int id = threadIdx.x;
+        const int id = hipThreadIdx_x;
         const int lane_id = id % warpSize;
         const int warp_id = id / warpSize;
 
-        const uint4 data = img(blockIdx.x, id);
+        const uint4 data = img(hipBlockIdx_x, id);
 
         const uchar4 a = int_to_uchar4(data.x);
         const uchar4 b = int_to_uchar4(data.y);
@@ -235,7 +236,7 @@ namespace integral_detail
         // The results are uniformly added back to the warps.
         // last thread in the warp holding sum of the warp
         // places that in shared
-        if (threadIdx.x % warpSize == warpSize - 1)
+        if (hipThreadIdx_x % warpSize == warpSize - 1)
             sums[warp_id] = result[15];
 
         __syncthreads();
@@ -321,40 +322,40 @@ namespace integral_detail
         result[14] = shfl_xor(result[14], 3, 32);
         result[15] = shfl_xor(result[15], 3, 32);
 
-        uint4* integral_row = integral.row(blockIdx.x);
+        uint4* integral_row = integral.row(hipBlockIdx_x);
         uint4 output;
 
         ///////
 
-        if (threadIdx.x % 4 == 0)
+        if (hipThreadIdx_x % 4 == 0)
             output = make_uint4(result[0], result[1], result[2], result[3]);
 
-        if (threadIdx.x % 4 == 1)
+        if (hipThreadIdx_x % 4 == 1)
             output = make_uint4(result[4], result[5], result[6], result[7]);
 
-        if (threadIdx.x % 4 == 2)
+        if (hipThreadIdx_x % 4 == 2)
             output = make_uint4(result[8], result[9], result[10], result[11]);
 
-        if (threadIdx.x % 4 == 3)
+        if (hipThreadIdx_x % 4 == 3)
             output = make_uint4(result[12], result[13], result[14], result[15]);
 
-        integral_row[threadIdx.x % 4 + (threadIdx.x / 4) * 16] = output;
+        integral_row[hipThreadIdx_x % 4 + (hipThreadIdx_x / 4) * 16] = output;
 
         ///////
 
-        if (threadIdx.x % 4 == 2)
+        if (hipThreadIdx_x % 4 == 2)
             output = make_uint4(result[0], result[1], result[2], result[3]);
 
-        if (threadIdx.x % 4 == 3)
+        if (hipThreadIdx_x % 4 == 3)
             output = make_uint4(result[4], result[5], result[6], result[7]);
 
-        if (threadIdx.x % 4 == 0)
+        if (hipThreadIdx_x % 4 == 0)
             output = make_uint4(result[8], result[9], result[10], result[11]);
 
-        if (threadIdx.x % 4 == 1)
+        if (hipThreadIdx_x % 4 == 1)
             output = make_uint4(result[12], result[13], result[14], result[15]);
 
-        integral_row[(threadIdx.x + 2) % 4 + (threadIdx.x / 4) * 16 + 8] = output;
+        integral_row[(hipThreadIdx_x + 2) % 4 + (hipThreadIdx_x / 4) * 16 + 8] = output;
 
         // continuning from the above example,
         // this use of shfl_xor() places the y0..y3 and w0..w3 data
@@ -364,39 +365,39 @@ namespace integral_detail
         for (int i = 0; i < 16; ++i)
             result[i] = shfl_xor(result[i], 1, 32);
 
-        if (threadIdx.x % 4 == 0)
+        if (hipThreadIdx_x % 4 == 0)
             output = make_uint4(result[0], result[1], result[2], result[3]);
 
-        if (threadIdx.x % 4 == 1)
+        if (hipThreadIdx_x % 4 == 1)
             output = make_uint4(result[4], result[5], result[6], result[7]);
 
-        if (threadIdx.x % 4 == 2)
+        if (hipThreadIdx_x % 4 == 2)
             output = make_uint4(result[8], result[9], result[10], result[11]);
 
-        if (threadIdx.x % 4 == 3)
+        if (hipThreadIdx_x % 4 == 3)
             output = make_uint4(result[12], result[13], result[14], result[15]);
 
-        integral_row[threadIdx.x % 4 + (threadIdx.x / 4) * 16 + 4] = output;
+        integral_row[hipThreadIdx_x % 4 + (hipThreadIdx_x / 4) * 16 + 4] = output;
 
         ///////
 
-        if (threadIdx.x % 4 == 2)
+        if (hipThreadIdx_x % 4 == 2)
             output = make_uint4(result[0], result[1], result[2], result[3]);
 
-        if (threadIdx.x % 4 == 3)
+        if (hipThreadIdx_x % 4 == 3)
             output = make_uint4(result[4], result[5], result[6], result[7]);
 
-        if (threadIdx.x % 4 == 0)
+        if (hipThreadIdx_x % 4 == 0)
             output = make_uint4(result[8], result[9], result[10], result[11]);
 
-        if (threadIdx.x % 4 == 1)
+        if (hipThreadIdx_x % 4 == 1)
             output = make_uint4(result[12], result[13], result[14], result[15]);
 
-        integral_row[(threadIdx.x + 2) % 4 + (threadIdx.x / 4) * 16 + 12] = output;
+        integral_row[(hipThreadIdx_x + 2) % 4 + (hipThreadIdx_x / 4) * 16 + 12] = output;
     #endif
     }
 
-    __host__ static void horisontal_pass_8u_shfl(const GlobPtr<uchar> src, GlobPtr<uint> integral, int rows, int cols, cudaStream_t stream)
+    __host__ static void horisontal_pass_8u_shfl(const GlobPtr<uchar> src, GlobPtr<uint> integral, int rows, int cols, hipStream_t stream)
     {
         // each thread handles 16 values, use 1 block/row
         // save, because step is actually can't be less 512 bytes
@@ -405,13 +406,15 @@ namespace integral_detail
         // launch 1 block / row
         const int grid = rows;
 
-        CV_CUDEV_SAFE_CALL( cudaFuncSetCacheConfig(horisontal_pass_8u_shfl_kernel, cudaFuncCachePreferL1) );
+#ifdef HIP_TODO
+        CV_CUDEV_SAFE_CALL( hipFuncSetCacheConfig(horisontal_pass_8u_shfl_kernel, hipFuncCachePreferL1) );
+#endif  // HIP_TODO
 
         GlobPtr<uint4> src4 = globPtr((uint4*) src.data, src.step);
         GlobPtr<uint4> integral4 = globPtr((uint4*) integral.data, integral.step);
 
-        horisontal_pass_8u_shfl_kernel<<<grid, block, 0, stream>>>(src4, integral4);
-        CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+        hipLaunchKernelGGL((horisontal_pass_8u_shfl_kernel), dim3(grid), dim3(block), 0, stream, src4, integral4);
+        CV_CUDEV_SAFE_CALL( hipGetLastError() );
     }
 
     // vertical
@@ -422,16 +425,16 @@ namespace integral_detail
     #if CV_CUDEV_ARCH >= 300
         __shared__ T sums[32][9];
 
-        const int tidx = blockIdx.x * blockDim.x + threadIdx.x;
+        const int tidx = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
         const int lane_id = tidx % 8;
 
-        sums[threadIdx.x][threadIdx.y] = 0;
+        sums[hipThreadIdx_x][hipThreadIdx_y] = 0;
         __syncthreads();
 
         T stepSum = 0;
 
-        int numBuckets = divUp(rows, blockDim.y);
-        int y = threadIdx.y;
+        int numBuckets = divUp(rows, hipBlockDim_y);
+        int y = hipThreadIdx_y;
 
         while (numBuckets--)
         {
@@ -439,15 +442,15 @@ namespace integral_detail
 
             T sum = (tidx < cols) && (y < rows) ? *p : 0;
 
-            sums[threadIdx.x][threadIdx.y] = sum;
+            sums[hipThreadIdx_x][hipThreadIdx_y] = sum;
             __syncthreads();
 
             // place into SMEM
             // shfl scan reduce the SMEM, reformating so the column
             // sums are computed in a warp
             // then read out properly
-            const int j = threadIdx.x % 8;
-            const int k = threadIdx.x / 8 + threadIdx.y * 4;
+            const int j = hipThreadIdx_x % 8;
+            const int k = hipThreadIdx_x / 8 + hipThreadIdx_y * 4;
 
             T partial_sum = sums[k][j];
 
@@ -462,11 +465,11 @@ namespace integral_detail
             sums[k][j] = partial_sum;
             __syncthreads();
 
-            if (threadIdx.y > 0)
-                sum += sums[threadIdx.x][threadIdx.y - 1];
+            if (hipThreadIdx_y > 0)
+                sum += sums[hipThreadIdx_x][hipThreadIdx_y - 1];
 
             sum += stepSum;
-            stepSum += sums[threadIdx.x][blockDim.y - 1];
+            stepSum += sums[hipThreadIdx_x][hipBlockDim_y - 1];
 
             __syncthreads();
 
@@ -475,44 +478,44 @@ namespace integral_detail
                 *p = sum;
             }
 
-            y += blockDim.y;
+            y += hipBlockDim_y;
         }
     #else
         __shared__ T smem[32][32];
         __shared__ T prevVals[32];
 
-        volatile T* smem_row = &smem[0][0] + 64 * threadIdx.y;
+        volatile T* smem_row = &smem[0][0] + 64 * hipThreadIdx_y;
 
-        if (threadIdx.y == 0)
-            prevVals[threadIdx.x] = 0;
+        if (hipThreadIdx_y == 0)
+            prevVals[hipThreadIdx_x] = 0;
 
         __syncthreads();
 
-        const int x = blockIdx.x * blockDim.x + threadIdx.x;
+        const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
 
         int numBuckets = divUp(rows, 8 * 4);
         int offsetY = 0;
 
         while (numBuckets--)
         {
-            const int curRowOffs = offsetY + threadIdx.y;
+            const int curRowOffs = offsetY + hipThreadIdx_y;
 
             T curElems[4];
             T temp[4];
 
             // load patch
 
-            smem[threadIdx.y +  0][threadIdx.x] = 0.0f;
-            smem[threadIdx.y +  8][threadIdx.x] = 0.0f;
-            smem[threadIdx.y + 16][threadIdx.x] = 0.0f;
-            smem[threadIdx.y + 24][threadIdx.x] = 0.0f;
+            smem[hipThreadIdx_y +  0][hipThreadIdx_x] = 0.0f;
+            smem[hipThreadIdx_y +  8][hipThreadIdx_x] = 0.0f;
+            smem[hipThreadIdx_y + 16][hipThreadIdx_x] = 0.0f;
+            smem[hipThreadIdx_y + 24][hipThreadIdx_x] = 0.0f;
 
             if (x < cols)
             {
                 for (int i = 0; i < 4; ++i)
                 {
                     if (curRowOffs + i * 8 < rows)
-                        smem[threadIdx.y + i * 8][threadIdx.x] = integral(curRowOffs + i * 8, x);
+                        smem[hipThreadIdx_y + i * 8][hipThreadIdx_x] = integral(curRowOffs + i * 8, x);
                 }
             }
 
@@ -520,37 +523,37 @@ namespace integral_detail
 
             // reduce
 
-            curElems[0] = smem[threadIdx.x][threadIdx.y     ];
-            curElems[1] = smem[threadIdx.x][threadIdx.y +  8];
-            curElems[2] = smem[threadIdx.x][threadIdx.y + 16];
-            curElems[3] = smem[threadIdx.x][threadIdx.y + 24];
+            curElems[0] = smem[hipThreadIdx_x][hipThreadIdx_y     ];
+            curElems[1] = smem[hipThreadIdx_x][hipThreadIdx_y +  8];
+            curElems[2] = smem[hipThreadIdx_x][hipThreadIdx_y + 16];
+            curElems[3] = smem[hipThreadIdx_x][hipThreadIdx_y + 24];
 
             __syncthreads();
 
-            temp[0] = curElems[0] = warpScanInclusive(curElems[0], smem_row, threadIdx.x);
-            temp[1] = curElems[1] = warpScanInclusive(curElems[1], smem_row, threadIdx.x);
-            temp[2] = curElems[2] = warpScanInclusive(curElems[2], smem_row, threadIdx.x);
-            temp[3] = curElems[3] = warpScanInclusive(curElems[3], smem_row, threadIdx.x);
+            temp[0] = curElems[0] = warpScanInclusive(curElems[0], smem_row, hipThreadIdx_x);
+            temp[1] = curElems[1] = warpScanInclusive(curElems[1], smem_row, hipThreadIdx_x);
+            temp[2] = curElems[2] = warpScanInclusive(curElems[2], smem_row, hipThreadIdx_x);
+            temp[3] = curElems[3] = warpScanInclusive(curElems[3], smem_row, hipThreadIdx_x);
 
-            curElems[0] += prevVals[threadIdx.y     ];
-            curElems[1] += prevVals[threadIdx.y +  8];
-            curElems[2] += prevVals[threadIdx.y + 16];
-            curElems[3] += prevVals[threadIdx.y + 24];
+            curElems[0] += prevVals[hipThreadIdx_y     ];
+            curElems[1] += prevVals[hipThreadIdx_y +  8];
+            curElems[2] += prevVals[hipThreadIdx_y + 16];
+            curElems[3] += prevVals[hipThreadIdx_y + 24];
 
             __syncthreads();
 
-            if (threadIdx.x == 31)
+            if (hipThreadIdx_x == 31)
             {
-                prevVals[threadIdx.y     ] += temp[0];
-                prevVals[threadIdx.y +  8] += temp[1];
-                prevVals[threadIdx.y + 16] += temp[2];
-                prevVals[threadIdx.y + 24] += temp[3];
+                prevVals[hipThreadIdx_y     ] += temp[0];
+                prevVals[hipThreadIdx_y +  8] += temp[1];
+                prevVals[hipThreadIdx_y + 16] += temp[2];
+                prevVals[hipThreadIdx_y + 24] += temp[3];
             }
 
-            smem[threadIdx.y     ][threadIdx.x] = curElems[0];
-            smem[threadIdx.y +  8][threadIdx.x] = curElems[1];
-            smem[threadIdx.y + 16][threadIdx.x] = curElems[2];
-            smem[threadIdx.y + 24][threadIdx.x] = curElems[3];
+            smem[hipThreadIdx_y     ][hipThreadIdx_x] = curElems[0];
+            smem[hipThreadIdx_y +  8][hipThreadIdx_x] = curElems[1];
+            smem[hipThreadIdx_y + 16][hipThreadIdx_x] = curElems[2];
+            smem[hipThreadIdx_y + 24][hipThreadIdx_x] = curElems[3];
 
             __syncthreads();
 
@@ -562,7 +565,7 @@ namespace integral_detail
                 for (int i = 0; i < 4; ++i)
                 {
                     if (curRowOffs + i * 8 < rows)
-                        integral(curRowOffs + i * 8, x) = smem[threadIdx.x][threadIdx.y + i * 8];
+                        integral(curRowOffs + i * 8, x) = smem[hipThreadIdx_x][hipThreadIdx_y + i * 8];
                 }
             }
 
@@ -574,28 +577,28 @@ namespace integral_detail
     }
 
     template <typename T>
-    __host__ void vertical_pass(const GlobPtr<T>& integral, int rows, int cols, cudaStream_t stream)
+    __host__ void vertical_pass(const GlobPtr<T>& integral, int rows, int cols, hipStream_t stream)
     {
         const dim3 block(32, 8);
         const dim3 grid(divUp(cols, block.x));
 
-        vertical_pass<<<grid, block, 0, stream>>>(integral, rows, cols);
-        CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+        hipLaunchKernelGGL((vertical_pass), dim3(grid), dim3(block), 0, stream, integral, rows, cols);
+        CV_CUDEV_SAFE_CALL( hipGetLastError() );
     }
 
     // integral
 
     template <class SrcPtr, typename D>
-    __host__ void integral(const SrcPtr& src, const GlobPtr<D>& dst, int rows, int cols, cudaStream_t stream)
+    __host__ void integral(const SrcPtr& src, const GlobPtr<D>& dst, int rows, int cols, hipStream_t stream)
     {
         horizontal_pass(src, dst, rows, cols, stream);
         vertical_pass(dst, rows, cols, stream);
 
         if (stream == 0)
-            CV_CUDEV_SAFE_CALL( cudaDeviceSynchronize() );
+            CV_CUDEV_SAFE_CALL( hipDeviceSynchronize() );
     }
 
-    __host__ static void integral(const GlobPtr<uchar>& src, const GlobPtr<uint>& dst, int rows, int cols, cudaStream_t stream)
+    __host__ static void integral(const GlobPtr<uchar>& src, const GlobPtr<uint>& dst, int rows, int cols, hipStream_t stream)
     {
         if (deviceSupports(FEATURE_SET_COMPUTE_30)
             && (cols % 64 == 0)
@@ -612,10 +615,10 @@ namespace integral_detail
         vertical_pass(dst, rows, cols, stream);
 
         if (stream == 0)
-            CV_CUDEV_SAFE_CALL( cudaDeviceSynchronize() );
+            CV_CUDEV_SAFE_CALL( hipDeviceSynchronize() );
     }
 
-    __host__ __forceinline__ void integral(const GlobPtr<uchar>& src, const GlobPtr<int>& dst, int rows, int cols, cudaStream_t stream)
+    __host__ __forceinline__ void integral(const GlobPtr<uchar>& src, const GlobPtr<int>& dst, int rows, int cols, hipStream_t stream)
     {
         GlobPtr<uint> dstui = globPtr((uint*) dst.data, dst.step);
         integral(src, dstui, rows, cols, stream);

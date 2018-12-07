@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -60,17 +61,17 @@ namespace clahe
     {
         __shared__ int smem[512];
 
-        const int tx = blockIdx.x;
-        const int ty = blockIdx.y;
-        const unsigned int tid = threadIdx.y * blockDim.x + threadIdx.x;
+        const int tx = hipBlockIdx_x;
+        const int ty = hipBlockIdx_y;
+        const unsigned int tid = hipThreadIdx_y * hipBlockDim_x + hipThreadIdx_x;
 
         smem[tid] = 0;
         __syncthreads();
 
-        for (int i = threadIdx.y; i < tileSize.y; i += blockDim.y)
+        for (int i = hipThreadIdx_y; i < tileSize.y; i += hipBlockDim_y)
         {
             const uchar* srcPtr = src.ptr(ty * tileSize.y + i) + tx * tileSize.x;
-            for (int j = threadIdx.x; j < tileSize.x; j += blockDim.x)
+            for (int j = hipThreadIdx_x; j < tileSize.x; j += hipBlockDim_x)
             {
                 const int data = srcPtr[j];
                 Emulation::smem::atomicAdd(&smem[data], 1);
@@ -121,23 +122,23 @@ namespace clahe
         lut(ty * tilesX + tx, tid) = saturate_cast<uchar>(__float2int_rn(lutScale * lutVal));
     }
 
-    void calcLut(PtrStepSzb src, PtrStepb lut, int tilesX, int tilesY, int2 tileSize, int clipLimit, float lutScale, cudaStream_t stream)
+    void calcLut(PtrStepSzb src, PtrStepb lut, int tilesX, int tilesY, int2 tileSize, int clipLimit, float lutScale, hipStream_t stream)
     {
         const dim3 block(32, 8);
         const dim3 grid(tilesX, tilesY);
 
-        calcLutKernel<<<grid, block, 0, stream>>>(src, lut, tileSize, tilesX, clipLimit, lutScale);
+        hipLaunchKernelGGL((calcLutKernel), dim3(grid), dim3(block), 0, stream, src, lut, tileSize, tilesX, clipLimit, lutScale);
 
-        cudaSafeCall( cudaGetLastError() );
+        cudaSafeCall( hipGetLastError() );
 
         if (stream == 0)
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
     }
 
     __global__ void transformKernel(const PtrStepSzb src, PtrStepb dst, const PtrStepb lut, const int2 tileSize, const int tilesX, const int tilesY)
     {
-        const int x = blockIdx.x * blockDim.x + threadIdx.x;
-        const int y = blockIdx.y * blockDim.y + threadIdx.y;
+        const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+        const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
         if (x >= src.cols || y >= src.rows)
             return;
@@ -168,18 +169,20 @@ namespace clahe
         dst(y, x) = saturate_cast<uchar>(res);
     }
 
-    void transform(PtrStepSzb src, PtrStepSzb dst, PtrStepb lut, int tilesX, int tilesY, int2 tileSize, cudaStream_t stream)
+    void transform(PtrStepSzb src, PtrStepSzb dst, PtrStepb lut, int tilesX, int tilesY, int2 tileSize, hipStream_t stream)
     {
         const dim3 block(32, 8);
         const dim3 grid(divUp(src.cols, block.x), divUp(src.rows, block.y));
 
-        cudaSafeCall( cudaFuncSetCacheConfig(transformKernel, cudaFuncCachePreferL1) );
+#ifdef HIP_TODO
+        cudaSafeCall( hipFuncSetCacheConfig(transformKernel, hipFuncCachePreferL1) );
+#endif
 
-        transformKernel<<<grid, block, 0, stream>>>(src, dst, lut, tileSize, tilesX, tilesY);
-        cudaSafeCall( cudaGetLastError() );
+        hipLaunchKernelGGL((transformKernel), dim3(grid), dim3(block), 0, stream, src, dst, lut, tileSize, tilesX, tilesY);
+        cudaSafeCall( hipGetLastError() );
 
         if (stream == 0)
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
     }
 }
 

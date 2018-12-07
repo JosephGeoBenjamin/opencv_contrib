@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -60,7 +61,7 @@ namespace cv { namespace cuda { namespace device
 
         __global__ void linesAccumGlobal(const unsigned int* list, const int count, PtrStepi accum, const float irho, const float theta, const int numrho)
         {
-            const int n = blockIdx.x;
+            const int n = hipBlockIdx_x;
             const float ang = n * theta;
 
             float sinVal;
@@ -72,7 +73,7 @@ namespace cv { namespace cuda { namespace device
             const int shift = (numrho - 1) / 2;
 
             int* accumRow = accum.ptr(n + 1);
-            for (int i = threadIdx.x; i < count; i += blockDim.x)
+            for (int i = hipThreadIdx_x; i < count; i += hipBlockDim_x)
             {
                 const unsigned int val = list[i];
 
@@ -90,12 +91,12 @@ namespace cv { namespace cuda { namespace device
         {
             int* smem = DynamicSharedMem<int>();
 
-            for (int i = threadIdx.x; i < numrho + 1; i += blockDim.x)
+            for (int i = hipThreadIdx_x; i < numrho + 1; i += hipBlockDim_x)
                 smem[i] = 0;
 
             __syncthreads();
 
-            const int n = blockIdx.x;
+            const int n = hipBlockIdx_x;
             const float ang = n * theta;
 
             float sinVal;
@@ -106,7 +107,7 @@ namespace cv { namespace cuda { namespace device
 
             const int shift = (numrho - 1) / 2;
 
-            for (int i = threadIdx.x; i < count; i += blockDim.x)
+            for (int i = hipThreadIdx_x; i < count; i += hipBlockDim_x)
             {
                 const unsigned int val = list[i];
 
@@ -122,7 +123,7 @@ namespace cv { namespace cuda { namespace device
             __syncthreads();
 
             int* accumRow = accum.ptr(n + 1);
-            for (int i = threadIdx.x; i < numrho + 1; i += blockDim.x)
+            for (int i = hipThreadIdx_x; i < numrho + 1; i += hipBlockDim_x)
                 accumRow[i] = smem[i];
         }
 
@@ -134,13 +135,13 @@ namespace cv { namespace cuda { namespace device
             size_t smemSize = (accum.cols - 1) * sizeof(int);
 
             if (smemSize < sharedMemPerBlock - 1000)
-                linesAccumShared<<<grid, block, smemSize>>>(list, count, accum, 1.0f / rho, theta, accum.cols - 2);
+                hipLaunchKernelGGL((linesAccumShared), dim3(grid), dim3(block), smemSize, 0, list, count, accum, 1.0f / rho, theta, accum.cols - 2);
             else
-                linesAccumGlobal<<<grid, block>>>(list, count, accum, 1.0f / rho, theta, accum.cols - 2);
+                hipLaunchKernelGGL((linesAccumGlobal), dim3(grid), dim3(block), 0, 0, list, count, accum, 1.0f / rho, theta, accum.cols - 2);
 
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
         }
 
         ////////////////////////////////////////////////////////////////////////
@@ -148,8 +149,8 @@ namespace cv { namespace cuda { namespace device
 
         __global__ void linesGetResult(const PtrStepSzi accum, float2* out, int* votes, const int maxSize, const float rho, const float theta, const int threshold, const int numrho)
         {
-            const int r = blockIdx.x * blockDim.x + threadIdx.x;
-            const int n = blockIdx.y * blockDim.y + threadIdx.y;
+            const int r = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int n = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (r >= accum.cols - 2 || n >= accum.rows - 2)
                 return;
@@ -177,22 +178,26 @@ namespace cv { namespace cuda { namespace device
         int linesGetResult_gpu(PtrStepSzi accum, float2* out, int* votes, int maxSize, float rho, float theta, int threshold, bool doSort)
         {
             void* counterPtr;
-            cudaSafeCall( cudaGetSymbolAddress(&counterPtr, g_counter) );
+#ifdef HIP_TODO
+            cudaSafeCall( hipGetSymbolAddress(&counterPtr, g_counter) );
+#endif
 
-            cudaSafeCall( cudaMemset(counterPtr, 0, sizeof(int)) );
+            cudaSafeCall( hipMemset(counterPtr, 0, sizeof(int)) );
 
             const dim3 block(32, 8);
             const dim3 grid(divUp(accum.cols - 2, block.x), divUp(accum.rows - 2, block.y));
 
-            cudaSafeCall( cudaFuncSetCacheConfig(linesGetResult, cudaFuncCachePreferL1) );
+#ifdef HIP_TODO
+            cudaSafeCall( hipFuncSetCacheConfig(linesGetResult, hipFuncCachePreferL1) );
+#endif
 
-            linesGetResult<<<grid, block>>>(accum, out, votes, maxSize, rho, theta, threshold, accum.cols - 2);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((linesGetResult), dim3(grid), dim3(block), 0, 0, accum, out, votes, maxSize, rho, theta, threshold, accum.cols - 2);
+            cudaSafeCall( hipGetLastError() );
 
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
 
             int totalCount;
-            cudaSafeCall( cudaMemcpy(&totalCount, counterPtr, sizeof(int), cudaMemcpyDeviceToHost) );
+            cudaSafeCall( hipMemcpy(&totalCount, counterPtr, sizeof(int), hipMemcpyDeviceToHost) );
 
             totalCount = ::min(totalCount, maxSize);
 

@@ -58,14 +58,14 @@ namespace
 {
     template <typename T> struct CvCudevTextureRef
     {
-        typedef texture<T, cudaTextureType2D, cudaReadModeElementType> TexRef;
+        typedef texture<T, hipTextureType2D, hipReadModeElementType> TexRef;
 
         static TexRef ref;
 
         __host__ static void bind(const cv::cudev::GlobPtrSz<T>& mat,
                                   bool normalizedCoords = false,
-                                  cudaTextureFilterMode filterMode = cudaFilterModePoint,
-                                  cudaTextureAddressMode addressMode = cudaAddressModeClamp)
+                                  hipTextureFilterMode filterMode = hipFilterModePoint,
+                                  hipTextureAddressMode addressMode = hipAddressModeClamp)
         {
             ref.normalized = normalizedCoords;
             ref.filterMode = filterMode;
@@ -73,14 +73,14 @@ namespace
             ref.addressMode[1] = addressMode;
             ref.addressMode[2] = addressMode;
 
-            cudaChannelFormatDesc desc = cudaCreateChannelDesc<T>();
+            hipChannelFormatDesc desc = hipCreateChannelDesc<T>();
 
-            CV_CUDEV_SAFE_CALL( cudaBindTexture2D(0, &ref, mat.data, &desc, mat.cols, mat.rows, mat.step) );
+            CV_CUDEV_SAFE_CALL( hipBindTexture2D(0, &ref, mat.data, &desc, mat.cols, mat.rows, mat.step) );
         }
 
         __host__ static void unbind()
         {
-            cudaUnbindTexture(ref);
+            hipUnbindTexture(ref);
         }
     };
 
@@ -102,7 +102,7 @@ template <typename T> struct TexturePtr
     typedef T     value_type;
     typedef float index_type;
 
-    cudaTextureObject_t texObj;
+    hipTextureObject_t texObj;
 
     __device__ __forceinline__ T operator ()(float y, float x) const
     {
@@ -123,8 +123,8 @@ template <typename T> struct Texture : TexturePtr<T>
 
     __host__ explicit Texture(const GlobPtrSz<T>& mat,
                               bool normalizedCoords = false,
-                              cudaTextureFilterMode filterMode = cudaFilterModePoint,
-                              cudaTextureAddressMode addressMode = cudaAddressModeClamp)
+                              hipTextureFilterMode filterMode = hipFilterModePoint,
+                              hipTextureAddressMode addressMode = hipAddressModeClamp)
     {
         cc30 = deviceSupports(FEATURE_SET_COMPUTE_30);
 
@@ -134,25 +134,25 @@ template <typename T> struct Texture : TexturePtr<T>
         if (cc30)
         {
             // Use the texture object
-            cudaResourceDesc texRes;
+            hipResourceDesc texRes;
             std::memset(&texRes, 0, sizeof(texRes));
-            texRes.resType = cudaResourceTypePitch2D;
+            texRes.resType = hipResourceTypePitch2D;
             texRes.res.pitch2D.devPtr = mat.data;
             texRes.res.pitch2D.height = mat.rows;
             texRes.res.pitch2D.width = mat.cols;
             texRes.res.pitch2D.pitchInBytes = mat.step;
-            texRes.res.pitch2D.desc = cudaCreateChannelDesc<T>();
+            texRes.res.pitch2D.desc = hipCreateChannelDesc<T>();
 
-            cudaTextureDesc texDescr;
+            hipTextureDesc texDescr;
             std::memset(&texDescr, 0, sizeof(texDescr));
             texDescr.normalizedCoords = normalizedCoords;
             texDescr.filterMode = filterMode;
             texDescr.addressMode[0] = addressMode;
             texDescr.addressMode[1] = addressMode;
             texDescr.addressMode[2] = addressMode;
-            texDescr.readMode = cudaReadModeElementType;
+            texDescr.readMode = hipReadModeElementType;
 
-            CV_CUDEV_SAFE_CALL( cudaCreateTextureObject(&this->texObj, &texRes, &texDescr, 0) );
+            CV_CUDEV_SAFE_CALL( hipCreateTextureObject(&this->texObj, &texRes, &texDescr, 0) );
         }
         else
         {
@@ -166,7 +166,7 @@ template <typename T> struct Texture : TexturePtr<T>
         if (cc30)
         {
             // Use the texture object
-            cudaDestroyTextureObject(this->texObj);
+            hipDestroyTextureObject(this->texObj);
         }
         else
         {
@@ -187,7 +187,7 @@ template <typename T> struct TexturePtr
     typedef T     value_type;
     typedef float index_type;
 
-    cudaTextureObject_t texObj;
+    hipTextureObject_t texObj;
 
     __device__ __forceinline__ T operator ()(float y, float x) const
     {
@@ -208,8 +208,8 @@ template <typename T> struct Texture : TexturePtr<T>
 
     __host__ explicit Texture(const GlobPtrSz<T>& mat,
                               bool normalizedCoords = false,
-                              cudaTextureFilterMode filterMode = cudaFilterModePoint,
-                              cudaTextureAddressMode addressMode = cudaAddressModeClamp)
+                              hipTextureFilterMode filterMode = hipFilterModePoint,
+                              hipTextureAddressMode addressMode = hipAddressModeClamp)
     {
         CV_Assert( deviceSupports(FEATURE_SET_COMPUTE_30) );
 
@@ -217,31 +217,31 @@ template <typename T> struct Texture : TexturePtr<T>
         cols = mat.cols;
 
         // Use the texture object
-        cudaResourceDesc texRes;
+        hipResourceDesc texRes;
         std::memset(&texRes, 0, sizeof(texRes));
-        texRes.resType = cudaResourceTypePitch2D;
+        texRes.resType = hipResourceTypePitch2D;
         texRes.res.pitch2D.devPtr = mat.data;
         texRes.res.pitch2D.height = mat.rows;
         texRes.res.pitch2D.width = mat.cols;
         texRes.res.pitch2D.pitchInBytes = mat.step;
-        texRes.res.pitch2D.desc = cudaCreateChannelDesc<T>();
+        texRes.res.pitch2D.desc = hipCreateChannelDesc<T>();
 
-        cudaTextureDesc texDescr;
+        hipTextureDesc texDescr;
         std::memset(&texDescr, 0, sizeof(texDescr));
         texDescr.normalizedCoords = normalizedCoords;
         texDescr.filterMode = filterMode;
         texDescr.addressMode[0] = addressMode;
         texDescr.addressMode[1] = addressMode;
         texDescr.addressMode[2] = addressMode;
-        texDescr.readMode = cudaReadModeElementType;
+        texDescr.readMode = hipReadModeElementType;
 
-        CV_CUDEV_SAFE_CALL( cudaCreateTextureObject(&this->texObj, &texRes, &texDescr, 0) );
+        CV_CUDEV_SAFE_CALL( hipCreateTextureObject(&this->texObj, &texRes, &texDescr, 0) );
     }
 
     __host__ ~Texture()
     {
         // Use the texture object
-        cudaDestroyTextureObject(this->texObj);
+        hipDestroyTextureObject(this->texObj);
     }
 };
 

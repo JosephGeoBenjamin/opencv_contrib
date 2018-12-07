@@ -343,8 +343,8 @@ namespace
         oldPosBuf_.resize(posCount_);
         oldVoteBuf_.resize(posCount_);
 
-        cudaSafeCall( cudaMemcpy(&oldPosBuf_[0], outBuf_.ptr(0), posCount_ * sizeof(float4), cudaMemcpyDeviceToHost) );
-        cudaSafeCall( cudaMemcpy(&oldVoteBuf_[0], outBuf_.ptr(1), posCount_ * sizeof(int3), cudaMemcpyDeviceToHost) );
+        cudaSafeCall( hipMemcpy(&oldPosBuf_[0], outBuf_.ptr(0), posCount_ * sizeof(float4), hipMemcpyDeviceToHost) );
+        cudaSafeCall( hipMemcpy(&oldVoteBuf_[0], outBuf_.ptr(1), posCount_ * sizeof(int3), hipMemcpyDeviceToHost) );
 
         indexies_.resize(posCount_);
         for (int i = 0; i < posCount_; ++i)
@@ -417,8 +417,8 @@ namespace
         }
 
         posCount_ = static_cast<int>(newPosBuf_.size());
-        cudaSafeCall( cudaMemcpy(outBuf_.ptr(0), &newPosBuf_[0], posCount_ * sizeof(float4), cudaMemcpyHostToDevice) );
-        cudaSafeCall( cudaMemcpy(outBuf_.ptr(1), &newVoteBuf_[0], posCount_ * sizeof(int3), cudaMemcpyHostToDevice) );
+        cudaSafeCall( hipMemcpy(outBuf_.ptr(0), &newPosBuf_[0], posCount_ * sizeof(float4), hipMemcpyHostToDevice) );
+        cudaSafeCall( hipMemcpy(outBuf_.ptr(1), &newVoteBuf_[0], posCount_ * sizeof(int3), hipMemcpyHostToDevice) );
     }
 
     void GeneralizedHoughBase::convertTo(OutputArray positions, OutputArray votes)
@@ -714,7 +714,7 @@ namespace
             true, templCenter_);
 
         h_buf_.resize(templFeatures_.sizes.cols);
-        cudaSafeCall( cudaMemcpy(&h_buf_[0], templFeatures_.sizes.data, h_buf_.size() * sizeof(int), cudaMemcpyDeviceToHost) );
+        cudaSafeCall( hipMemcpy(&h_buf_[0], templFeatures_.sizes.data, h_buf_.size() * sizeof(int), hipMemcpyDeviceToHost) );
         templFeatures_.maxSize = *std::max_element(h_buf_.begin(), h_buf_.end());
     }
 
@@ -824,7 +824,7 @@ namespace
         hist_.setTo(Scalar::all(0));
         Guil_Full_calcOHist_gpu(templFeatures_.sizes.ptr<int>(), imageFeatures_.sizes.ptr<int>(0), hist_.ptr<int>(),
                                 (float)minAngle_, (float)maxAngle_, (float)angleStep_, angleRange, levels_, templFeatures_.maxSize);
-        cudaSafeCall( cudaMemcpy(&h_buf_[0], hist_.data, h_buf_.size() * sizeof(int), cudaMemcpyDeviceToHost) );
+        cudaSafeCall( hipMemcpy(&h_buf_[0], hist_.data, h_buf_.size() * sizeof(int), hipMemcpyDeviceToHost) );
 
         angles_.clear();
 
@@ -849,7 +849,7 @@ namespace
         Guil_Full_calcSHist_gpu(templFeatures_.sizes.ptr<int>(), imageFeatures_.sizes.ptr<int>(0), hist_.ptr<int>(),
                                 (float)angle, (float)angleEpsilon_, (float)minScale_, (float)maxScale_,
                                 (float)iScaleStep, scaleRange, levels_, templFeatures_.maxSize);
-        cudaSafeCall( cudaMemcpy(&h_buf_[0], hist_.data, h_buf_.size() * sizeof(int), cudaMemcpyDeviceToHost) );
+        cudaSafeCall( hipMemcpy(&h_buf_[0], hist_.data, h_buf_.size() * sizeof(int), hipMemcpyDeviceToHost) );
 
         scales_.clear();
 

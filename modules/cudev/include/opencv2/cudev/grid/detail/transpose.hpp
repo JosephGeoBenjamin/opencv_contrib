@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -65,20 +66,20 @@ namespace transpose_detail
         int blockIdx_x, blockIdx_y;
 
         // do diagonal reordering
-        if (gridDim.x == gridDim.y)
+        if (hipGridDim_x == hipGridDim_y)
         {
-            blockIdx_y = blockIdx.x;
-            blockIdx_x = (blockIdx.x + blockIdx.y) % gridDim.x;
+            blockIdx_y = hipBlockIdx_x;
+            blockIdx_x = (hipBlockIdx_x + hipBlockIdx_y) % hipGridDim_x;
         }
         else
         {
-            int bid = blockIdx.x + gridDim.x * blockIdx.y;
-            blockIdx_y = bid % gridDim.y;
-            blockIdx_x = ((bid / gridDim.y) + blockIdx_y) % gridDim.x;
+            int bid = hipBlockIdx_x + hipGridDim_x * hipBlockIdx_y;
+            blockIdx_y = bid % hipGridDim_y;
+            blockIdx_x = ((bid / hipGridDim_y) + blockIdx_y) % hipGridDim_x;
         }
 
-        int xIndex = blockIdx_x * TILE_DIM + threadIdx.x;
-        int yIndex = blockIdx_y * TILE_DIM + threadIdx.y;
+        int xIndex = blockIdx_x * TILE_DIM + hipThreadIdx_x;
+        int yIndex = blockIdx_y * TILE_DIM + hipThreadIdx_y;
 
         if (xIndex < cols)
         {
@@ -86,15 +87,15 @@ namespace transpose_detail
             {
                 if (yIndex + i < rows)
                 {
-                    tile[threadIdx.y + i][threadIdx.x] = src(yIndex + i, xIndex);
+                    tile[hipThreadIdx_y + i][hipThreadIdx_x] = src(yIndex + i, xIndex);
                 }
             }
         }
 
         __syncthreads();
 
-        xIndex = blockIdx_y * TILE_DIM + threadIdx.x;
-        yIndex = blockIdx_x * TILE_DIM + threadIdx.y;
+        xIndex = blockIdx_y * TILE_DIM + hipThreadIdx_x;
+        yIndex = blockIdx_x * TILE_DIM + hipThreadIdx_y;
 
         if (xIndex < rows)
         {
@@ -102,23 +103,23 @@ namespace transpose_detail
             {
                 if (yIndex + i < cols)
                 {
-                    dst(yIndex + i, xIndex) = saturate_cast<DstType>(tile[threadIdx.x][threadIdx.y + i]);
+                    dst(yIndex + i, xIndex) = saturate_cast<DstType>(tile[hipThreadIdx_x][hipThreadIdx_y + i]);
                 }
             }
         }
     }
 
     template <class Policy, class SrcPtr, typename DstType>
-    __host__ void transpose(const SrcPtr& src, const GlobPtr<DstType>& dst, int rows, int cols, cudaStream_t stream)
+    __host__ void transpose(const SrcPtr& src, const GlobPtr<DstType>& dst, int rows, int cols, hipStream_t stream)
     {
         const dim3 block(Policy::tile_dim, Policy::block_dim_y);
         const dim3 grid(divUp(cols, block.x), divUp(rows, block.y));
 
-        transpose<Policy::tile_dim, Policy::block_dim_y><<<grid, block, 0, stream>>>(src, dst, rows, cols);
-        CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+        hipLaunchKernelGGL((transpose<Policy::tile_dim, Policy::block_dim_y>), dim3(grid), dim3(block), 0, stream, src, dst, rows, cols);
+        CV_CUDEV_SAFE_CALL( hipGetLastError() );
 
         if (stream == 0)
-            CV_CUDEV_SAFE_CALL( cudaDeviceSynchronize() );
+            CV_CUDEV_SAFE_CALL( hipDeviceSynchronize() );
     }
 }
 

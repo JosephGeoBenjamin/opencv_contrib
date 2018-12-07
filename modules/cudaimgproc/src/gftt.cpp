@@ -55,8 +55,8 @@ namespace cv { namespace cuda { namespace device
 {
     namespace gfft
     {
-        int findCorners_gpu(PtrStepSzf eig, float threshold, PtrStepSzb mask, float2* corners, int max_count, cudaStream_t stream);
-        void sortCorners_gpu(PtrStepSzf eig, float2* corners, int count, cudaStream_t stream);
+        int findCorners_gpu(PtrStepSzf eig, float threshold, PtrStepSzb mask, float2* corners, int max_count, hipStream_t stream);
+        void sortCorners_gpu(PtrStepSzf eig, float2* corners, int count, hipStream_t stream);
     }
 }}}
 
@@ -109,7 +109,7 @@ namespace
 
         double maxVal = 0;
         cuda::minMax(eig_, 0, &maxVal);
-        cudaStream_t stream_ = StreamAccessor::getStream(stream);
+        hipStream_t stream_ = StreamAccessor::getStream(stream);
         ensureSizeIsEnough(1, std::max(1000, static_cast<int>(image.size().area() * 0.05)), CV_32FC2, tmpCorners_);
 
         int total = findCorners_gpu(eig_, static_cast<float>(maxVal * qualityLevel_), mask, tmpCorners_.ptr<float2>(), tmpCorners_.cols, stream_);

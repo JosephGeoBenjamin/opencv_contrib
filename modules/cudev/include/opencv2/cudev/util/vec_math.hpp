@@ -159,6 +159,7 @@ CV_CUDEV_IMPLEMENT_VEC_UNARY_OP(-, int, int)
 CV_CUDEV_IMPLEMENT_VEC_UNARY_OP(-, float, float)
 CV_CUDEV_IMPLEMENT_VEC_UNARY_OP(-, double, double)
 
+#ifdef __HIP_PLATFORM_NVCC__
 CV_CUDEV_IMPLEMENT_VEC_UNARY_OP(!, uchar, uchar)
 CV_CUDEV_IMPLEMENT_VEC_UNARY_OP(!, char, uchar)
 CV_CUDEV_IMPLEMENT_VEC_UNARY_OP(!, ushort, uchar)
@@ -167,7 +168,7 @@ CV_CUDEV_IMPLEMENT_VEC_UNARY_OP(!, int, uchar)
 CV_CUDEV_IMPLEMENT_VEC_UNARY_OP(!, uint, uchar)
 CV_CUDEV_IMPLEMENT_VEC_UNARY_OP(!, float, uchar)
 CV_CUDEV_IMPLEMENT_VEC_UNARY_OP(!, double, uchar)
-
+#endif // __HIP_PLATFORM_NVCC__
 CV_CUDEV_IMPLEMENT_VEC_UNARY_OP(~, uchar, uchar)
 CV_CUDEV_IMPLEMENT_VEC_UNARY_OP(~, char, char)
 CV_CUDEV_IMPLEMENT_VEC_UNARY_OP(~, ushort, ushort)
@@ -198,22 +199,18 @@ CV_CUDEV_IMPLEMENT_VEC_UNARY_OP(~, uint, uint)
     }
 
 namespace vec_math_detail
-{
-    __device__ __forceinline__ schar abs_(schar val)
+{   template<typename T>
+    __device__ __forceinline__ T abs_(T val)
     {
-        return (schar) ::abs((int) val);
+        return (T) ::abs((int) val);
     }
 
-    __device__ __forceinline__ short abs_(short val)
-    {
-        return (short) ::abs((int) val);
-    }
 }
 
 CV_CUDEV_IMPLEMENT_VEC_UNARY_FUNC(abs, /*::abs*/, uchar, uchar)
-CV_CUDEV_IMPLEMENT_VEC_UNARY_FUNC(abs, vec_math_detail::abs_, char, char)
+CV_CUDEV_IMPLEMENT_VEC_UNARY_FUNC(abs, vec_math_detail::abs_<char>, char, char)
 CV_CUDEV_IMPLEMENT_VEC_UNARY_FUNC(abs, /*::abs*/, ushort, ushort)
-CV_CUDEV_IMPLEMENT_VEC_UNARY_FUNC(abs, vec_math_detail::abs_, short, short)
+CV_CUDEV_IMPLEMENT_VEC_UNARY_FUNC(abs, vec_math_detail::abs_<short>, short, short)
 CV_CUDEV_IMPLEMENT_VEC_UNARY_FUNC(abs, ::abs, int, int)
 CV_CUDEV_IMPLEMENT_VEC_UNARY_FUNC(abs, /*::abs*/, uint, uint)
 CV_CUDEV_IMPLEMENT_VEC_UNARY_FUNC(abs, ::fabsf, float, float)

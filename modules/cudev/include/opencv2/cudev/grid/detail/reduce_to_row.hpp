@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -61,7 +62,7 @@ namespace grid_reduce_to_vec_detail
 
         __shared__ work_type smem[BLOCK_SIZE_X * BLOCK_SIZE_Y];
 
-        const int x = blockIdx.x * BLOCK_SIZE_X + threadIdx.x;
+        const int x = hipBlockIdx_x * BLOCK_SIZE_X + hipThreadIdx_x;
 
         work_type myVal = Reductor::initialValue();
 
@@ -69,7 +70,7 @@ namespace grid_reduce_to_vec_detail
 
         if (x < cols)
         {
-            for (int y = threadIdx.y; y < rows; y += BLOCK_SIZE_Y)
+            for (int y = hipThreadIdx_y; y < rows; y += BLOCK_SIZE_Y)
             {
                 if (mask(y, x))
                 {
@@ -78,26 +79,26 @@ namespace grid_reduce_to_vec_detail
             }
         }
 
-        smem[threadIdx.x * BLOCK_SIZE_Y + threadIdx.y] = myVal;
+        smem[hipThreadIdx_x * BLOCK_SIZE_Y + hipThreadIdx_y] = myVal;
 
         __syncthreads();
 
-        volatile work_type* srow = smem + threadIdx.y * BLOCK_SIZE_X;
+        volatile work_type* srow = smem + hipThreadIdx_y * BLOCK_SIZE_X;
 
-        myVal = srow[threadIdx.x];
-        blockReduce<BLOCK_SIZE_X>(srow, myVal, threadIdx.x, op);
+        myVal = srow[hipThreadIdx_x];
+        blockReduce<BLOCK_SIZE_X>(srow, myVal, hipThreadIdx_x, op);
 
-        if (threadIdx.x == 0)
+        if (hipThreadIdx_x == 0)
             srow[0] = myVal;
 
         __syncthreads();
 
-        if (threadIdx.y == 0 && x < cols)
-            dst[x] = saturate_cast<ResType>(Reductor::result(smem[threadIdx.x * BLOCK_SIZE_X], rows));
+        if (hipThreadIdx_y == 0 && x < cols)
+            dst[x] = saturate_cast<ResType>(Reductor::result(smem[hipThreadIdx_x * BLOCK_SIZE_X], rows));
     }
 
     template <class Reductor, class SrcPtr, typename ResType, class MaskPtr>
-    __host__ void reduceToRow(const SrcPtr& src, ResType* dst, const MaskPtr& mask, int rows, int cols, cudaStream_t stream)
+    __host__ void reduceToRow(const SrcPtr& src, ResType* dst, const MaskPtr& mask, int rows, int cols, hipStream_t stream)
     {
         const int BLOCK_SIZE_X = 16;
         const int BLOCK_SIZE_Y = 16;
@@ -105,11 +106,11 @@ namespace grid_reduce_to_vec_detail
         const dim3 block(BLOCK_SIZE_X, BLOCK_SIZE_Y);
         const dim3 grid(divUp(cols, block.x));
 
-        reduceToRow<Reductor, BLOCK_SIZE_X, BLOCK_SIZE_Y><<<grid, block, 0, stream>>>(src, dst, mask, rows, cols);
-        CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+        hipLaunchKernelGGL((reduceToRow<Reductor, BLOCK_SIZE_X, BLOCK_SIZE_Y>), dim3(grid), dim3(block), 0, stream, src, dst, mask, rows, cols);
+        CV_CUDEV_SAFE_CALL( hipGetLastError() );
 
         if (stream == 0)
-            CV_CUDEV_SAFE_CALL( cudaDeviceSynchronize() );
+            CV_CUDEV_SAFE_CALL( hipDeviceSynchronize() );
     }
 }
 

@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -88,8 +89,8 @@ namespace cv { namespace cuda { namespace device
             typedef typename TypeVec<T, cn>::vec_type Type;
             typedef typename TypeVec<float, cn>::vec_type Typef;
 
-            int x = blockDim.x * blockIdx.x + threadIdx.x;
-            int y = blockDim.y * blockIdx.y + threadIdx.y;
+            int x = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
+            int y = hipBlockDim_y * hipBlockIdx_y + hipThreadIdx_y;
 
             if (x < result.cols && y < result.rows)
             {
@@ -108,21 +109,21 @@ namespace cv { namespace cuda { namespace device
         }
 
         template <typename T, int cn>
-        void matchTemplateNaive_CCORR(const PtrStepSzb image, const PtrStepSzb templ, PtrStepSzf result, cudaStream_t stream)
+        void matchTemplateNaive_CCORR(const PtrStepSzb image, const PtrStepSzb templ, PtrStepSzf result, hipStream_t stream)
         {
             const dim3 threads(32, 8);
             const dim3 grid(divUp(result.cols, threads.x), divUp(result.rows, threads.y));
 
-            matchTemplateNaiveKernel_CCORR<T, cn><<<grid, threads, 0, stream>>>(templ.cols, templ.rows, image, templ, result);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((matchTemplateNaiveKernel_CCORR<T, cn>), dim3(grid), dim3(threads), 0, stream, templ.cols, templ.rows, image, templ, result);
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
-        void matchTemplateNaive_CCORR_32F(const PtrStepSzb image, const PtrStepSzb templ, PtrStepSzf result, int cn, cudaStream_t stream)
+        void matchTemplateNaive_CCORR_32F(const PtrStepSzb image, const PtrStepSzb templ, PtrStepSzf result, int cn, hipStream_t stream)
         {
-            typedef void (*caller_t)(const PtrStepSzb image, const PtrStepSzb templ, PtrStepSzf result, cudaStream_t stream);
+            typedef void (*caller_t)(const PtrStepSzb image, const PtrStepSzb templ, PtrStepSzf result, hipStream_t stream);
 
             static const caller_t callers[] =
             {
@@ -133,9 +134,9 @@ namespace cv { namespace cuda { namespace device
         }
 
 
-        void matchTemplateNaive_CCORR_8U(const PtrStepSzb image, const PtrStepSzb templ, PtrStepSzf result, int cn, cudaStream_t stream)
+        void matchTemplateNaive_CCORR_8U(const PtrStepSzb image, const PtrStepSzb templ, PtrStepSzf result, int cn, hipStream_t stream)
         {
-            typedef void (*caller_t)(const PtrStepSzb image, const PtrStepSzb templ, PtrStepSzf result, cudaStream_t stream);
+            typedef void (*caller_t)(const PtrStepSzb image, const PtrStepSzb templ, PtrStepSzf result, hipStream_t stream);
 
             static const caller_t callers[] =
             {
@@ -154,8 +155,8 @@ namespace cv { namespace cuda { namespace device
             typedef typename TypeVec<T, cn>::vec_type Type;
             typedef typename TypeVec<float, cn>::vec_type Typef;
 
-            int x = blockDim.x * blockIdx.x + threadIdx.x;
-            int y = blockDim.y * blockIdx.y + threadIdx.y;
+            int x = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
+            int y = hipBlockDim_y * hipBlockIdx_y + hipThreadIdx_y;
 
             if (x < result.cols && y < result.rows)
             {
@@ -178,21 +179,21 @@ namespace cv { namespace cuda { namespace device
         }
 
         template <typename T, int cn>
-        void matchTemplateNaive_SQDIFF(const PtrStepSzb image, const PtrStepSzb templ, PtrStepSzf result, cudaStream_t stream)
+        void matchTemplateNaive_SQDIFF(const PtrStepSzb image, const PtrStepSzb templ, PtrStepSzf result, hipStream_t stream)
         {
             const dim3 threads(32, 8);
             const dim3 grid(divUp(result.cols, threads.x), divUp(result.rows, threads.y));
 
-            matchTemplateNaiveKernel_SQDIFF<T, cn><<<grid, threads, 0, stream>>>(templ.cols, templ.rows, image, templ, result);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((matchTemplateNaiveKernel_SQDIFF<T, cn>), dim3(grid), dim3(threads), 0, stream, templ.cols, templ.rows, image, templ, result);
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
-        void matchTemplateNaive_SQDIFF_32F(const PtrStepSzb image, const PtrStepSzb templ, PtrStepSzf result, int cn, cudaStream_t stream)
+        void matchTemplateNaive_SQDIFF_32F(const PtrStepSzb image, const PtrStepSzb templ, PtrStepSzf result, int cn, hipStream_t stream)
         {
-            typedef void (*caller_t)(const PtrStepSzb image, const PtrStepSzb templ, PtrStepSzf result, cudaStream_t stream);
+            typedef void (*caller_t)(const PtrStepSzb image, const PtrStepSzb templ, PtrStepSzf result, hipStream_t stream);
 
             static const caller_t callers[] =
             {
@@ -202,9 +203,9 @@ namespace cv { namespace cuda { namespace device
             callers[cn](image, templ, result, stream);
         }
 
-        void matchTemplateNaive_SQDIFF_8U(const PtrStepSzb image, const PtrStepSzb templ, PtrStepSzf result, int cn, cudaStream_t stream)
+        void matchTemplateNaive_SQDIFF_8U(const PtrStepSzb image, const PtrStepSzb templ, PtrStepSzf result, int cn, hipStream_t stream)
         {
-            typedef void (*caller_t)(const PtrStepSzb image, const PtrStepSzb templ, PtrStepSzf result, cudaStream_t stream);
+            typedef void (*caller_t)(const PtrStepSzb image, const PtrStepSzb templ, PtrStepSzf result, hipStream_t stream);
 
             static const caller_t callers[] =
             {
@@ -220,8 +221,8 @@ namespace cv { namespace cuda { namespace device
         template <int cn>
         __global__ void matchTemplatePreparedKernel_SQDIFF_8U(int w, int h, const PtrStep<double> image_sqsum, double templ_sqsum, PtrStepSzf result)
         {
-            const int x = blockIdx.x * blockDim.x + threadIdx.x;
-            const int y = blockIdx.y * blockDim.y + threadIdx.y;
+            const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (x < result.cols && y < result.rows)
             {
@@ -234,22 +235,22 @@ namespace cv { namespace cuda { namespace device
         }
 
         template <int cn>
-        void matchTemplatePrepared_SQDIFF_8U(int w, int h, const PtrStepSz<double> image_sqsum, double templ_sqsum, PtrStepSzf result, cudaStream_t stream)
+        void matchTemplatePrepared_SQDIFF_8U(int w, int h, const PtrStepSz<double> image_sqsum, double templ_sqsum, PtrStepSzf result, hipStream_t stream)
         {
             const dim3 threads(32, 8);
             const dim3 grid(divUp(result.cols, threads.x), divUp(result.rows, threads.y));
 
-            matchTemplatePreparedKernel_SQDIFF_8U<cn><<<grid, threads, 0, stream>>>(w, h, image_sqsum, templ_sqsum, result);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((matchTemplatePreparedKernel_SQDIFF_8U<cn>), dim3(grid), dim3(threads), 0, stream, w, h, image_sqsum, templ_sqsum, result);
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
         void matchTemplatePrepared_SQDIFF_8U(int w, int h, const PtrStepSz<double> image_sqsum, double templ_sqsum, PtrStepSzf result, int cn,
-                                             cudaStream_t stream)
+                                             hipStream_t stream)
         {
-            typedef void (*caller_t)(int w, int h, const PtrStepSz<double> image_sqsum, double templ_sqsum, PtrStepSzf result, cudaStream_t stream);
+            typedef void (*caller_t)(int w, int h, const PtrStepSz<double> image_sqsum, double templ_sqsum, PtrStepSzf result, hipStream_t stream);
 
             static const caller_t callers[] =
             {
@@ -290,8 +291,8 @@ namespace cv { namespace cuda { namespace device
                 int w, int h, const PtrStep<double> image_sqsum,
                 double templ_sqsum, PtrStepSzf result)
         {
-            const int x = blockIdx.x * blockDim.x + threadIdx.x;
-            const int y = blockIdx.y * blockDim.y + threadIdx.y;
+            const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (x < result.cols && y < result.rows)
             {
@@ -306,23 +307,23 @@ namespace cv { namespace cuda { namespace device
 
         template <int cn>
         void matchTemplatePrepared_SQDIFF_NORMED_8U(int w, int h, const PtrStepSz<double> image_sqsum, double templ_sqsum,
-                                                    PtrStepSzf result, cudaStream_t stream)
+                                                    PtrStepSzf result, hipStream_t stream)
         {
             const dim3 threads(32, 8);
             const dim3 grid(divUp(result.cols, threads.x), divUp(result.rows, threads.y));
 
-            matchTemplatePreparedKernel_SQDIFF_NORMED_8U<cn><<<grid, threads, 0, stream>>>(w, h, image_sqsum, templ_sqsum, result);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((matchTemplatePreparedKernel_SQDIFF_NORMED_8U<cn>), dim3(grid), dim3(threads), 0, stream, w, h, image_sqsum, templ_sqsum, result);
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
 
         void matchTemplatePrepared_SQDIFF_NORMED_8U(int w, int h, const PtrStepSz<double> image_sqsum, double templ_sqsum,
-                                                    PtrStepSzf result, int cn, cudaStream_t stream)
+                                                    PtrStepSzf result, int cn, hipStream_t stream)
         {
-            typedef void (*caller_t)(int w, int h, const PtrStepSz<double> image_sqsum, double templ_sqsum, PtrStepSzf result, cudaStream_t stream);
+            typedef void (*caller_t)(int w, int h, const PtrStepSz<double> image_sqsum, double templ_sqsum, PtrStepSzf result, hipStream_t stream);
             static const caller_t callers[] =
             {
                 0, matchTemplatePrepared_SQDIFF_NORMED_8U<1>, matchTemplatePrepared_SQDIFF_NORMED_8U<2>, matchTemplatePrepared_SQDIFF_NORMED_8U<3>, matchTemplatePrepared_SQDIFF_NORMED_8U<4>
@@ -336,8 +337,8 @@ namespace cv { namespace cuda { namespace device
 
         __global__ void matchTemplatePreparedKernel_CCOFF_8U(int w, int h, float templ_sum_scale, const PtrStep<int> image_sum, PtrStepSzf result)
         {
-            const int x = blockIdx.x * blockDim.x + threadIdx.x;
-            const int y = blockIdx.y * blockDim.y + threadIdx.y;
+            const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (x < result.cols && y < result.rows)
             {
@@ -349,16 +350,16 @@ namespace cv { namespace cuda { namespace device
             }
         }
 
-        void matchTemplatePrepared_CCOFF_8U(int w, int h, const PtrStepSz<int> image_sum, int templ_sum, PtrStepSzf result, cudaStream_t stream)
+        void matchTemplatePrepared_CCOFF_8U(int w, int h, const PtrStepSz<int> image_sum, int templ_sum, PtrStepSzf result, hipStream_t stream)
         {
             dim3 threads(32, 8);
             dim3 grid(divUp(result.cols, threads.x), divUp(result.rows, threads.y));
 
-            matchTemplatePreparedKernel_CCOFF_8U<<<grid, threads, 0, stream>>>(w, h, (float)templ_sum / (w * h), image_sum, result);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((matchTemplatePreparedKernel_CCOFF_8U), dim3(grid), dim3(threads), 0, stream, w, h, (float)templ_sum / (w * h), image_sum, result);
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
 
@@ -369,8 +370,8 @@ namespace cv { namespace cuda { namespace device
                 const PtrStep<int> image_sum_g,
                 PtrStepSzf result)
         {
-            const int x = blockIdx.x * blockDim.x + threadIdx.x;
-            const int y = blockIdx.y * blockDim.y + threadIdx.y;
+            const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (x < result.cols && y < result.rows)
             {
@@ -391,18 +392,18 @@ namespace cv { namespace cuda { namespace device
                 const PtrStepSz<int> image_sum_r,
                 const PtrStepSz<int> image_sum_g,
                 int templ_sum_r, int templ_sum_g,
-                PtrStepSzf result, cudaStream_t stream)
+                PtrStepSzf result, hipStream_t stream)
         {
             dim3 threads(32, 8);
             dim3 grid(divUp(result.cols, threads.x), divUp(result.rows, threads.y));
 
-            matchTemplatePreparedKernel_CCOFF_8UC2<<<grid, threads, 0, stream>>>(
+            hipLaunchKernelGGL((matchTemplatePreparedKernel_CCOFF_8UC2), dim3(grid), dim3(threads), 0, stream, 
                     w, h, (float)templ_sum_r / (w * h), (float)templ_sum_g / (w * h),
                     image_sum_r, image_sum_g, result);
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
 
@@ -417,8 +418,8 @@ namespace cv { namespace cuda { namespace device
                 const PtrStep<int> image_sum_b,
                 PtrStepSzf result)
         {
-            const int x = blockIdx.x * blockDim.x + threadIdx.x;
-            const int y = blockIdx.y * blockDim.y + threadIdx.y;
+            const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (x < result.cols && y < result.rows)
             {
@@ -446,21 +447,21 @@ namespace cv { namespace cuda { namespace device
                 int templ_sum_r,
                 int templ_sum_g,
                 int templ_sum_b,
-                PtrStepSzf result, cudaStream_t stream)
+                PtrStepSzf result, hipStream_t stream)
         {
             dim3 threads(32, 8);
             dim3 grid(divUp(result.cols, threads.x), divUp(result.rows, threads.y));
 
-            matchTemplatePreparedKernel_CCOFF_8UC3<<<grid, threads, 0, stream>>>(
+            hipLaunchKernelGGL((matchTemplatePreparedKernel_CCOFF_8UC3), dim3(grid), dim3(threads), 0, stream, 
                     w, h,
                     (float)templ_sum_r / (w * h),
                     (float)templ_sum_g / (w * h),
                     (float)templ_sum_b / (w * h),
                     image_sum_r, image_sum_g, image_sum_b, result);
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
 
@@ -477,8 +478,8 @@ namespace cv { namespace cuda { namespace device
                 const PtrStep<int> image_sum_a,
                 PtrStepSzf result)
         {
-            const int x = blockIdx.x * blockDim.x + threadIdx.x;
-            const int y = blockIdx.y * blockDim.y + threadIdx.y;
+            const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (x < result.cols && y < result.rows)
             {
@@ -512,12 +513,12 @@ namespace cv { namespace cuda { namespace device
                 int templ_sum_g,
                 int templ_sum_b,
                 int templ_sum_a,
-                PtrStepSzf result, cudaStream_t stream)
+                PtrStepSzf result, hipStream_t stream)
         {
             dim3 threads(32, 8);
             dim3 grid(divUp(result.cols, threads.x), divUp(result.rows, threads.y));
 
-            matchTemplatePreparedKernel_CCOFF_8UC4<<<grid, threads, 0, stream>>>(
+            hipLaunchKernelGGL((matchTemplatePreparedKernel_CCOFF_8UC4), dim3(grid), dim3(threads), 0, stream, 
                     w, h,
                     (float)templ_sum_r / (w * h),
                     (float)templ_sum_g / (w * h),
@@ -525,10 +526,10 @@ namespace cv { namespace cuda { namespace device
                     (float)templ_sum_a / (w * h),
                     image_sum_r, image_sum_g, image_sum_b, image_sum_a,
                     result);
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
         //////////////////////////////////////////////////////////////////////
@@ -541,8 +542,8 @@ namespace cv { namespace cuda { namespace device
                 const PtrStep<double> image_sqsum,
                 PtrStepSzf result)
         {
-            const int x = blockIdx.x * blockDim.x + threadIdx.x;
-            const int y = blockIdx.y * blockDim.y + threadIdx.y;
+            const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (x < result.cols && y < result.rows)
             {
@@ -562,7 +563,7 @@ namespace cv { namespace cuda { namespace device
                     int w, int h, const PtrStepSz<int> image_sum,
                     const PtrStepSz<double> image_sqsum,
                     int templ_sum, double templ_sqsum,
-                    PtrStepSzf result, cudaStream_t stream)
+                    PtrStepSzf result, hipStream_t stream)
         {
             dim3 threads(32, 8);
             dim3 grid(divUp(result.cols, threads.x), divUp(result.rows, threads.y));
@@ -571,13 +572,13 @@ namespace cv { namespace cuda { namespace device
             float templ_sum_scale = templ_sum * weight;
             float templ_sqsum_scale = templ_sqsum - weight * templ_sum * templ_sum;
 
-            matchTemplatePreparedKernel_CCOFF_NORMED_8U<<<grid, threads, 0, stream>>>(
+            hipLaunchKernelGGL((matchTemplatePreparedKernel_CCOFF_NORMED_8U), dim3(grid), dim3(threads), 0, stream, 
                     w, h, weight, templ_sum_scale, templ_sqsum_scale,
                     image_sum, image_sqsum, result);
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
 
@@ -590,8 +591,8 @@ namespace cv { namespace cuda { namespace device
                 const PtrStep<int> image_sum_g, const PtrStep<double> image_sqsum_g,
                 PtrStepSzf result)
         {
-            const int x = blockIdx.x * blockDim.x + threadIdx.x;
-            const int y = blockIdx.y * blockDim.y + threadIdx.y;
+            const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (x < result.cols && y < result.rows)
             {
@@ -622,7 +623,7 @@ namespace cv { namespace cuda { namespace device
                     const PtrStepSz<int> image_sum_g, const PtrStepSz<double> image_sqsum_g,
                     int templ_sum_r, double templ_sqsum_r,
                     int templ_sum_g, double templ_sqsum_g,
-                    PtrStepSzf result, cudaStream_t stream)
+                    PtrStepSzf result, hipStream_t stream)
         {
             dim3 threads(32, 8);
             dim3 grid(divUp(result.cols, threads.x), divUp(result.rows, threads.y));
@@ -633,17 +634,17 @@ namespace cv { namespace cuda { namespace device
             float templ_sqsum_scale = templ_sqsum_r - weight * templ_sum_r * templ_sum_r
                                        + templ_sqsum_g - weight * templ_sum_g * templ_sum_g;
 
-            matchTemplatePreparedKernel_CCOFF_NORMED_8UC2<<<grid, threads, 0, stream>>>(
+            hipLaunchKernelGGL((matchTemplatePreparedKernel_CCOFF_NORMED_8UC2), dim3(grid), dim3(threads), 0, stream, 
                     w, h, weight,
                     templ_sum_scale_r, templ_sum_scale_g,
                     templ_sqsum_scale,
                     image_sum_r, image_sqsum_r,
                     image_sum_g, image_sqsum_g,
                     result);
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
 
@@ -657,8 +658,8 @@ namespace cv { namespace cuda { namespace device
                 const PtrStep<int> image_sum_b, const PtrStep<double> image_sqsum_b,
                 PtrStepSzf result)
         {
-            const int x = blockIdx.x * blockDim.x + threadIdx.x;
-            const int y = blockIdx.y * blockDim.y + threadIdx.y;
+            const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (x < result.cols && y < result.rows)
             {
@@ -699,7 +700,7 @@ namespace cv { namespace cuda { namespace device
                     int templ_sum_r, double templ_sqsum_r,
                     int templ_sum_g, double templ_sqsum_g,
                     int templ_sum_b, double templ_sqsum_b,
-                    PtrStepSzf result, cudaStream_t stream)
+                    PtrStepSzf result, hipStream_t stream)
         {
             dim3 threads(32, 8);
             dim3 grid(divUp(result.cols, threads.x), divUp(result.rows, threads.y));
@@ -712,7 +713,7 @@ namespace cv { namespace cuda { namespace device
                                       + templ_sqsum_g - weight * templ_sum_g * templ_sum_g
                                       + templ_sqsum_b - weight * templ_sum_b * templ_sum_b;
 
-            matchTemplatePreparedKernel_CCOFF_NORMED_8UC3<<<grid, threads, 0, stream>>>(
+            hipLaunchKernelGGL((matchTemplatePreparedKernel_CCOFF_NORMED_8UC3), dim3(grid), dim3(threads), 0, stream, 
                     w, h, weight,
                     templ_sum_scale_r, templ_sum_scale_g, templ_sum_scale_b,
                     templ_sqsum_scale,
@@ -720,10 +721,10 @@ namespace cv { namespace cuda { namespace device
                     image_sum_g, image_sqsum_g,
                     image_sum_b, image_sqsum_b,
                     result);
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
 
@@ -738,8 +739,8 @@ namespace cv { namespace cuda { namespace device
                 const PtrStep<int> image_sum_a, const PtrStep<double> image_sqsum_a,
                 PtrStepSzf result)
         {
-            const int x = blockIdx.x * blockDim.x + threadIdx.x;
-            const int y = blockIdx.y * blockDim.y + threadIdx.y;
+            const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (x < result.cols && y < result.rows)
             {
@@ -788,7 +789,7 @@ namespace cv { namespace cuda { namespace device
                     int templ_sum_g, double templ_sqsum_g,
                     int templ_sum_b, double templ_sqsum_b,
                     int templ_sum_a, double templ_sqsum_a,
-                    PtrStepSzf result, cudaStream_t stream)
+                    PtrStepSzf result, hipStream_t stream)
         {
             dim3 threads(32, 8);
             dim3 grid(divUp(result.cols, threads.x), divUp(result.rows, threads.y));
@@ -803,7 +804,7 @@ namespace cv { namespace cuda { namespace device
                                       + templ_sqsum_b - weight * templ_sum_b * templ_sum_b
                                       + templ_sqsum_a - weight * templ_sum_a * templ_sum_a;
 
-            matchTemplatePreparedKernel_CCOFF_NORMED_8UC4<<<grid, threads, 0, stream>>>(
+            hipLaunchKernelGGL((matchTemplatePreparedKernel_CCOFF_NORMED_8UC4), dim3(grid), dim3(threads), 0, stream, 
                     w, h, weight,
                     templ_sum_scale_r, templ_sum_scale_g, templ_sum_scale_b, templ_sum_scale_a,
                     templ_sqsum_scale,
@@ -812,10 +813,10 @@ namespace cv { namespace cuda { namespace device
                     image_sum_b, image_sqsum_b,
                     image_sum_a, image_sqsum_a,
                     result);
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
         //////////////////////////////////////////////////////////////////////
@@ -826,8 +827,8 @@ namespace cv { namespace cuda { namespace device
                 int w, int h, const PtrStep<double> image_sqsum,
                 double templ_sqsum, PtrStepSzf result)
         {
-            const int x = blockIdx.x * blockDim.x + threadIdx.x;
-            const int y = blockIdx.y * blockDim.y + threadIdx.y;
+            const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (x < result.cols && y < result.rows)
             {
@@ -839,7 +840,7 @@ namespace cv { namespace cuda { namespace device
         }
 
         void normalize_8U(int w, int h, const PtrStepSz<double> image_sqsum,
-                          double templ_sqsum, PtrStepSzf result, int cn, cudaStream_t stream)
+                          double templ_sqsum, PtrStepSzf result, int cn, hipStream_t stream)
         {
             dim3 threads(32, 8);
             dim3 grid(divUp(result.cols, threads.x), divUp(result.rows, threads.y));
@@ -847,23 +848,23 @@ namespace cv { namespace cuda { namespace device
             switch (cn)
             {
             case 1:
-                normalizeKernel_8U<1><<<grid, threads, 0, stream>>>(w, h, image_sqsum, templ_sqsum, result);
+                hipLaunchKernelGGL((normalizeKernel_8U<1>), dim3(grid), dim3(threads), 0, stream, w, h, image_sqsum, templ_sqsum, result);
                 break;
             case 2:
-                normalizeKernel_8U<2><<<grid, threads, 0, stream>>>(w, h, image_sqsum, templ_sqsum, result);
+                hipLaunchKernelGGL((normalizeKernel_8U<2>), dim3(grid), dim3(threads), 0, stream, w, h, image_sqsum, templ_sqsum, result);
                 break;
             case 3:
-                normalizeKernel_8U<3><<<grid, threads, 0, stream>>>(w, h, image_sqsum, templ_sqsum, result);
+                hipLaunchKernelGGL((normalizeKernel_8U<3>), dim3(grid), dim3(threads), 0, stream, w, h, image_sqsum, templ_sqsum, result);
                 break;
             case 4:
-                normalizeKernel_8U<4><<<grid, threads, 0, stream>>>(w, h, image_sqsum, templ_sqsum, result);
+                hipLaunchKernelGGL((normalizeKernel_8U<4>), dim3(grid), dim3(threads), 0, stream, w, h, image_sqsum, templ_sqsum, result);
                 break;
             }
 
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
         //////////////////////////////////////////////////////////////////////
@@ -874,8 +875,8 @@ namespace cv { namespace cuda { namespace device
         {
             typedef typename TypeVec<float, cn>::vec_type Typef;
 
-            int x = blockDim.x * blockIdx.x + threadIdx.x;
-            int y = blockDim.y * blockIdx.y + threadIdx.y;
+            int x = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
+            int y = hipBlockDim_y * hipBlockIdx_y + hipThreadIdx_y;
 
             if (x < result.cols && y < result.rows)
             {
@@ -884,7 +885,7 @@ namespace cv { namespace cuda { namespace device
             }
         }
 
-        void extractFirstChannel_32F(const PtrStepSzb image, PtrStepSzf result, int cn, cudaStream_t stream)
+        void extractFirstChannel_32F(const PtrStepSzb image, PtrStepSzf result, int cn, hipStream_t stream)
         {
             dim3 threads(32, 8);
             dim3 grid(divUp(result.cols, threads.x), divUp(result.rows, threads.y));
@@ -892,22 +893,22 @@ namespace cv { namespace cuda { namespace device
             switch (cn)
             {
             case 1:
-                extractFirstChannel_32F<1><<<grid, threads, 0, stream>>>(image, result);
+                hipLaunchKernelGGL((extractFirstChannel_32F<1>), dim3(grid), dim3(threads), 0, stream, image, result);
                 break;
             case 2:
-                extractFirstChannel_32F<2><<<grid, threads, 0, stream>>>(image, result);
+                hipLaunchKernelGGL((extractFirstChannel_32F<2>), dim3(grid), dim3(threads), 0, stream, image, result);
                 break;
             case 3:
-                extractFirstChannel_32F<3><<<grid, threads, 0, stream>>>(image, result);
+                hipLaunchKernelGGL((extractFirstChannel_32F<3>), dim3(grid), dim3(threads), 0, stream, image, result);
                 break;
             case 4:
-                extractFirstChannel_32F<4><<<grid, threads, 0, stream>>>(image, result);
+                hipLaunchKernelGGL((extractFirstChannel_32F<4>), dim3(grid), dim3(threads), 0, stream, image, result);
                 break;
             }
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
     } //namespace match_template
 }}} // namespace cv { namespace cuda { namespace cudev

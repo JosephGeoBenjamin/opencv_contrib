@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -198,8 +199,8 @@ namespace cv { namespace cuda { namespace device
     template <typename D>
     __global__ void Bayer2BGR_8u(const PtrStepSzb src, PtrStep<D> dst, const bool blue_last, const bool start_with_green)
     {
-        const int s_x = blockIdx.x * blockDim.x + threadIdx.x;
-        int s_y = blockIdx.y * blockDim.y + threadIdx.y;
+        const int s_x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+        int s_y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
         if (s_y >= src.rows || (s_x << 2) >= src.cols)
             return;
@@ -209,8 +210,8 @@ namespace cv { namespace cuda { namespace device
         Bayer2BGR<uchar> bayer;
         bayer.apply(src, s_x, s_y, blue_last, start_with_green);
 
-        const int d_x = (blockIdx.x * blockDim.x + threadIdx.x) << 2;
-        const int d_y = blockIdx.y * blockDim.y + threadIdx.y;
+        const int d_x = (hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x) << 2;
+        const int d_y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
         dst(d_y, d_x) = toDst<D>(bayer.res0);
         if (d_x + 1 < src.cols)
@@ -320,8 +321,8 @@ namespace cv { namespace cuda { namespace device
     template <typename D>
     __global__ void Bayer2BGR_16u(const PtrStepSzb src, PtrStep<D> dst, const bool blue_last, const bool start_with_green)
     {
-        const int s_x = blockIdx.x * blockDim.x + threadIdx.x;
-        int s_y = blockIdx.y * blockDim.y + threadIdx.y;
+        const int s_x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+        int s_y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
         if (s_y >= src.rows || (s_x << 1) >= src.cols)
             return;
@@ -331,8 +332,8 @@ namespace cv { namespace cuda { namespace device
         Bayer2BGR<ushort> bayer;
         bayer.apply(src, s_x, s_y, blue_last, start_with_green);
 
-        const int d_x = (blockIdx.x * blockDim.x + threadIdx.x) << 1;
-        const int d_y = blockIdx.y * blockDim.y + threadIdx.y;
+        const int d_x = (hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x) << 1;
+        const int d_y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
         dst(d_y, d_x) = toDst<D>(bayer.res0);
         if (d_x + 1 < src.cols)
@@ -340,46 +341,50 @@ namespace cv { namespace cuda { namespace device
     }
 
     template <int cn>
-    void Bayer2BGR_8u_gpu(PtrStepSzb src, PtrStepSzb dst, bool blue_last, bool start_with_green, cudaStream_t stream)
+    void Bayer2BGR_8u_gpu(PtrStepSzb src, PtrStepSzb dst, bool blue_last, bool start_with_green, hipStream_t stream)
     {
         typedef typename TypeVec<uchar, cn>::vec_type dst_t;
 
         const dim3 block(32, 8);
         const dim3 grid(divUp(src.cols, 4 * block.x), divUp(src.rows, block.y));
 
-        cudaSafeCall( cudaFuncSetCacheConfig(Bayer2BGR_8u<dst_t>, cudaFuncCachePreferL1) );
+#ifdef HIP_TODO
+        cudaSafeCall( hipFuncSetCacheConfig(Bayer2BGR_8u<dst_t>, hipFuncCachePreferL1) );
+#endif
 
-        Bayer2BGR_8u<dst_t><<<grid, block, 0, stream>>>(src, (PtrStepSz<dst_t>)dst, blue_last, start_with_green);
-        cudaSafeCall( cudaGetLastError() );
+        hipLaunchKernelGGL((Bayer2BGR_8u<dst_t>), dim3(grid), dim3(block), 0, stream, src, (PtrStepSz<dst_t>)dst, blue_last, start_with_green);
+        cudaSafeCall( hipGetLastError() );
 
         if (stream == 0)
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
     }
 
     template <int cn>
-    void Bayer2BGR_16u_gpu(PtrStepSzb src, PtrStepSzb dst, bool blue_last, bool start_with_green, cudaStream_t stream)
+    void Bayer2BGR_16u_gpu(PtrStepSzb src, PtrStepSzb dst, bool blue_last, bool start_with_green, hipStream_t stream)
     {
         typedef typename TypeVec<ushort, cn>::vec_type dst_t;
 
         const dim3 block(32, 8);
         const dim3 grid(divUp(src.cols, 2 * block.x), divUp(src.rows, block.y));
 
-        cudaSafeCall( cudaFuncSetCacheConfig(Bayer2BGR_16u<dst_t>, cudaFuncCachePreferL1) );
+#ifdef HIP_TODO
+        cudaSafeCall( hipFuncSetCacheConfig(Bayer2BGR_16u<dst_t>, hipFuncCachePreferL1) );
+#endif
 
-        Bayer2BGR_16u<dst_t><<<grid, block, 0, stream>>>(src, (PtrStepSz<dst_t>)dst, blue_last, start_with_green);
-        cudaSafeCall( cudaGetLastError() );
+        hipLaunchKernelGGL((Bayer2BGR_16u<dst_t>), dim3(grid), dim3(block), 0, stream, src, (PtrStepSz<dst_t>)dst, blue_last, start_with_green);
+        cudaSafeCall( hipGetLastError() );
 
         if (stream == 0)
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
     }
 
-    template void Bayer2BGR_8u_gpu<1>(PtrStepSzb src, PtrStepSzb dst, bool blue_last, bool start_with_green, cudaStream_t stream);
-    template void Bayer2BGR_8u_gpu<3>(PtrStepSzb src, PtrStepSzb dst, bool blue_last, bool start_with_green, cudaStream_t stream);
-    template void Bayer2BGR_8u_gpu<4>(PtrStepSzb src, PtrStepSzb dst, bool blue_last, bool start_with_green, cudaStream_t stream);
+    template void Bayer2BGR_8u_gpu<1>(PtrStepSzb src, PtrStepSzb dst, bool blue_last, bool start_with_green, hipStream_t stream);
+    template void Bayer2BGR_8u_gpu<3>(PtrStepSzb src, PtrStepSzb dst, bool blue_last, bool start_with_green, hipStream_t stream);
+    template void Bayer2BGR_8u_gpu<4>(PtrStepSzb src, PtrStepSzb dst, bool blue_last, bool start_with_green, hipStream_t stream);
 
-    template void Bayer2BGR_16u_gpu<1>(PtrStepSzb src, PtrStepSzb dst, bool blue_last, bool start_with_green, cudaStream_t stream);
-    template void Bayer2BGR_16u_gpu<3>(PtrStepSzb src, PtrStepSzb dst, bool blue_last, bool start_with_green, cudaStream_t stream);
-    template void Bayer2BGR_16u_gpu<4>(PtrStepSzb src, PtrStepSzb dst, bool blue_last, bool start_with_green, cudaStream_t stream);
+    template void Bayer2BGR_16u_gpu<1>(PtrStepSzb src, PtrStepSzb dst, bool blue_last, bool start_with_green, hipStream_t stream);
+    template void Bayer2BGR_16u_gpu<3>(PtrStepSzb src, PtrStepSzb dst, bool blue_last, bool start_with_green, hipStream_t stream);
+    template void Bayer2BGR_16u_gpu<4>(PtrStepSzb src, PtrStepSzb dst, bool blue_last, bool start_with_green, hipStream_t stream);
 
     //////////////////////////////////////////////////////////////
     // Bayer Demosaicing (Malvar, He, and Cutler)
@@ -389,7 +394,7 @@ namespace cv { namespace cuda { namespace device
     //
     // ported to CUDA
 
-    texture<uchar, cudaTextureType2D, cudaReadModeElementType> sourceTex(false, cudaFilterModePoint, cudaAddressModeClamp);
+    texture<uchar, hipTextureType2D, hipReadModeElementType> sourceTex(false, hipFilterModePoint, hipAddressModeClamp);
 
     template <typename DstType>
     __global__ void MHCdemosaic(PtrStepSz<DstType> dst, const int2 sourceOffset, const int2 firstRed)
@@ -401,8 +406,8 @@ namespace cv { namespace cuda { namespace device
         const float   kEx = -1.0f / 8.0f,     kEy = -1.5f / 8.0f,   /*kEz = -1.0f / 8.0f,*/   kEw =  0.5f / 8.0f  ;
         const float   kFx =  2.0f / 8.0f,   /*kFy =  0.0f / 8.0f,*/   kFz =  4.0f / 8.0f    /*kFw =  0.0f / 8.0f*/;
 
-        const int x = blockIdx.x * blockDim.x + threadIdx.x;
-        const int y = blockIdx.y * blockDim.y + threadIdx.y;
+        const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+        const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
         if (x == 0 || x >= dst.cols - 1 || y == 0 || y >= dst.rows - 1)
             return;
@@ -520,7 +525,7 @@ namespace cv { namespace cuda { namespace device
     }
 
     template <int cn>
-    void MHCdemosaic(PtrStepSzb src, int2 sourceOffset, PtrStepSzb dst, int2 firstRed, cudaStream_t stream)
+    void MHCdemosaic(PtrStepSzb src, int2 sourceOffset, PtrStepSzb dst, int2 firstRed, hipStream_t stream)
     {
         typedef typename TypeVec<uchar, cn>::vec_type dst_t;
 
@@ -529,16 +534,16 @@ namespace cv { namespace cuda { namespace device
 
         bindTexture(&sourceTex, src);
 
-        MHCdemosaic<dst_t><<<grid, block, 0, stream>>>((PtrStepSz<dst_t>)dst, sourceOffset, firstRed);
-        cudaSafeCall( cudaGetLastError() );
+        hipLaunchKernelGGL((MHCdemosaic<dst_t>), dim3(grid), dim3(block), 0, stream, (PtrStepSz<dst_t>)dst, sourceOffset, firstRed);
+        cudaSafeCall( hipGetLastError() );
 
         if (stream == 0)
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
     }
 
-    template void MHCdemosaic<1>(PtrStepSzb src, int2 sourceOffset, PtrStepSzb dst, int2 firstRed, cudaStream_t stream);
-    template void MHCdemosaic<3>(PtrStepSzb src, int2 sourceOffset, PtrStepSzb dst, int2 firstRed, cudaStream_t stream);
-    template void MHCdemosaic<4>(PtrStepSzb src, int2 sourceOffset, PtrStepSzb dst, int2 firstRed, cudaStream_t stream);
+    template void MHCdemosaic<1>(PtrStepSzb src, int2 sourceOffset, PtrStepSzb dst, int2 firstRed, hipStream_t stream);
+    template void MHCdemosaic<3>(PtrStepSzb src, int2 sourceOffset, PtrStepSzb dst, int2 firstRed, hipStream_t stream);
+    template void MHCdemosaic<4>(PtrStepSzb src, int2 sourceOffset, PtrStepSzb dst, int2 firstRed, hipStream_t stream);
 }}}
 
 #endif /* CUDA_DISABLER */

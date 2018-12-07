@@ -218,7 +218,7 @@ namespace
             ushort2* oldBuf = oldBuf_.data();
             ushort2* newBuf = newBuf_.data();
 
-            cudaSafeCall( cudaMemcpy(oldBuf, centers, centersCount * sizeof(ushort2), cudaMemcpyDeviceToHost) );
+            cudaSafeCall( hipMemcpy(oldBuf, centers, centersCount * sizeof(ushort2), hipMemcpyDeviceToHost) );
 
             const int cellSize = cvRound(minDist_);
             const int gridWidth = (src.cols + cellSize - 1) / cellSize;
@@ -290,7 +290,7 @@ namespace
                 }
             }
 
-            cudaSafeCall( cudaMemcpy(centers, newBuf, newCount * sizeof(unsigned int), cudaMemcpyHostToDevice) );
+            cudaSafeCall( hipMemcpy(centers, newBuf, newCount * sizeof(unsigned int), hipMemcpyHostToDevice) );
             centersCount = newCount;
         }
 

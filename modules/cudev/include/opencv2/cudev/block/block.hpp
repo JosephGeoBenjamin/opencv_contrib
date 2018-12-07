@@ -57,17 +57,17 @@ struct Block
 {
     __device__ __forceinline__ static uint blockId()
     {
-        return (blockIdx.z * gridDim.y + blockIdx.y) * gridDim.x + blockIdx.x;
+        return (hipBlockIdx_z * hipGridDim_y + hipBlockIdx_y) * hipGridDim_x + hipBlockIdx_x;
     }
 
     __device__ __forceinline__ static uint blockSize()
     {
-        return blockDim.x * blockDim.y * blockDim.z;
+        return hipBlockDim_x * hipBlockDim_y * hipBlockDim_z;
     }
 
     __device__ __forceinline__ static uint threadLineId()
     {
-        return (threadIdx.z * blockDim.y + threadIdx.y) * blockDim.x + threadIdx.x;
+        return (hipThreadIdx_z * hipBlockDim_y + hipThreadIdx_y) * hipBlockDim_x + hipThreadIdx_x;
     }
 };
 
