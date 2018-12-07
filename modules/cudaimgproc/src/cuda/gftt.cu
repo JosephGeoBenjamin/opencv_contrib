@@ -53,7 +53,7 @@ namespace cv { namespace cuda { namespace device
 {
     namespace gfft
     {
-        texture<float, cudaTextureType2D, hipReadModeElementType> eigTex(0, hipFilterModePoint, hipAddressModeClamp);
+        texture<float, hipTextureType2D, hipReadModeElementType> eigTex(0, hipFilterModePoint, hipAddressModeClamp);
 
         __device__ int g_counter = 0;
 

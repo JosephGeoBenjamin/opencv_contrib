@@ -52,7 +52,8 @@ namespace cv { namespace cuda { namespace device
     {
         __device__ int g_counter;
 
-        texture<uchar, cudaTextureType2D, hipReadModeElementType> tex_mask(false, hipFilterModePoint, hipAddressModeClamp);
+
+        texture<uchar, hipTextureType2D, hipReadModeElementType> tex_mask(false, hipFilterModePoint, hipAddressModeClamp);
 
         __global__ void houghLinesProbabilistic(const PtrStepSzi accum,
                                                 int4* out, const int maxSize,
@@ -219,7 +220,9 @@ namespace cv { namespace cuda { namespace device
         int houghLinesProbabilistic_gpu(PtrStepSzb mask, PtrStepSzi accum, int4* out, int maxSize, float rho, float theta, int lineGap, int lineLength)
         {
             void* counterPtr;
+#ifdef  HIP_TO_DO
             cudaSafeCall( hipGetSymbolAddress(&counterPtr, g_counter) );
+#endif
 
             cudaSafeCall( hipMemset(counterPtr, 0, sizeof(int)) );
 

@@ -91,7 +91,8 @@ namespace cv { namespace cuda { namespace device
 
 namespace canny
 {
-    texture<uchar, cudaTextureType2D, hipReadModeElementType> tex_src(false, hipFilterModePoint, hipAddressModeClamp);
+
+    texture<uchar, hipTextureType2D, hipReadModeElementType> tex_src(false, hipFilterModePoint, hipAddressModeClamp);
     struct SrcTex
     {
         int xoff;
@@ -108,8 +109,8 @@ namespace canny
     {
         int xoff;
         int yoff;
-        cudaTextureObject_t tex_src_object;
-        __host__ SrcTexObject(int _xoff, int _yoff, cudaTextureObject_t _tex_src_object) : xoff(_xoff), yoff(_yoff), tex_src_object(_tex_src_object) { }
+        hipTextureObject_t tex_src_object;
+        __host__ SrcTexObject(int _xoff, int _yoff, hipTextureObject_t _tex_src_object) : xoff(_xoff), yoff(_yoff), tex_src_object(_tex_src_object) { }
 
         __device__ __forceinline__ int operator ()(int y, int x) const
         {
@@ -163,23 +164,23 @@ namespace canny
 
         if (cc30)
         {
-            cudaResourceDesc resDesc;
+            hipResourceDesc resDesc;
             memset(&resDesc, 0, sizeof(resDesc));
-            resDesc.resType = cudaResourceTypePitch2D;
+            resDesc.resType = hipResourceTypePitch2D;
             resDesc.res.pitch2D.devPtr = srcWhole.ptr();
             resDesc.res.pitch2D.height = srcWhole.rows;
             resDesc.res.pitch2D.width = srcWhole.cols;
             resDesc.res.pitch2D.pitchInBytes = srcWhole.step;
             resDesc.res.pitch2D.desc = hipCreateChannelDesc<uchar>();
 
-            cudaTextureDesc texDesc;
+            hipTextureDesc texDesc;
             memset(&texDesc, 0, sizeof(texDesc));
             texDesc.addressMode[0] = hipAddressModeClamp;
             texDesc.addressMode[1] = hipAddressModeClamp;
             texDesc.addressMode[2] = hipAddressModeClamp;
 
-            cudaTextureObject_t tex = 0;
-            cudaCreateTextureObject(&tex, &resDesc, &texDesc, NULL);
+            hipTextureObject_t tex = 0;
+            hipCreateTextureObject(&tex, &resDesc, &texDesc, NULL);
 
             SrcTexObject src(xoff, yoff, tex);
 

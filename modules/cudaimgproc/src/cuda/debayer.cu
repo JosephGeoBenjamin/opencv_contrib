@@ -394,7 +394,7 @@ namespace cv { namespace cuda { namespace device
     //
     // ported to CUDA
 
-    texture<uchar, cudaTextureType2D, hipReadModeElementType> sourceTex(false, hipFilterModePoint, hipAddressModeClamp);
+    texture<uchar, hipTextureType2D, hipReadModeElementType> sourceTex(false, hipFilterModePoint, hipAddressModeClamp);
 
     template <typename DstType>
     __global__ void MHCdemosaic(PtrStepSz<DstType> dst, const int2 sourceOffset, const int2 firstRed)
