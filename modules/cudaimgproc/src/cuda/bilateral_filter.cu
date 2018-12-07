@@ -138,8 +138,9 @@ namespace cv { namespace cuda { namespace device
 
 #ifdef HIP_TODO
             cudaSafeCall( hipFuncSetCacheConfig (bilateral_kernel<T, B<T> >, hipFuncCachePreferL1) );
-#endif
             hipLaunchKernelGGL((bilateral_kernel<T, B>), dim3(grid), dim3(block), 0, stream, src, (PtrStepSz<unsigned char>)dst, b, kernel_size, sigma_spatial2_inv_half, sigma_color2_inv_half);
+#endif //HIP_TODO
+
             cudaSafeCall ( hipGetLastError () );
 
             if (stream == 0)
