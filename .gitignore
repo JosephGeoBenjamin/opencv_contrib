@@ -10,3 +10,6 @@ tags
 tegra/
 *.i
 .download*
+*.prehip
+log
+*.log
