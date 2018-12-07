@@ -51,6 +51,10 @@
 #include <hip/hip_fp16.h>
 #endif
 
+#ifdef __HIP_PLATFORM_HCC__
+#include <hip/hip_fp16.h>
+#endif
+
 namespace cv { namespace cudev {
 
 //! @addtogroup cudev
@@ -65,6 +69,7 @@ template <typename T> __device__ __forceinline__ T saturate_cast(int v) { return
 template <typename T> __device__ __forceinline__ T saturate_cast(float v) { return T(v); }
 template <typename T> __device__ __forceinline__ T saturate_cast(double v) { return T(v); }
 
+#ifdef __HIP_PLATFORM_NVCC__
 template <> __device__ __forceinline__ uchar saturate_cast<uchar>(schar v)
 {
     uint res = 0;
@@ -260,6 +265,7 @@ template <> __device__ __forceinline__ uint saturate_cast<uint>(int v)
     asm("cvt.sat.u32.s32 %0, %1;" : "=r"(res) : "r"(v));
     return res;
 }
+#endif //__HIP_PLATFORM_NVCC__
 template <> __device__ __forceinline__ uint saturate_cast<uint>(float v)
 {
     return __float2uint_rn(v);

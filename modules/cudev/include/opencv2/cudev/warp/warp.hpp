@@ -64,13 +64,17 @@ struct Warp
     __device__ __forceinline__ static uint laneId()
     {
         uint ret;
+#ifdef __HIP_PLATFORM_NVCC__
         asm("mov.u32 %0, %%laneid;" : "=r"(ret));
+#else
+        // HIP_TODO
+#endif
         return ret;
     }
 
     __device__ __forceinline__ static uint warpId()
     {
-        const uint tid = (threadIdx.z * blockDim.y + threadIdx.y) * blockDim.x + threadIdx.x;
+        const uint tid = (hipThreadIdx_z * hipBlockDim_y + hipThreadIdx_y) * hipBlockDim_x + hipThreadIdx_x;
         return tid / WARP_SIZE;
     }
 };
