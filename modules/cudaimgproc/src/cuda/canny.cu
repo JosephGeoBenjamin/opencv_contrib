@@ -187,12 +187,16 @@ namespace canny
             if (L2Grad)
             {
                 L2 norm;
-                hipLaunchKernelGGL((calcMagnitudeKernel), dim3(grid), dim3(block), 0, stream, src, dx, dy, mag, norm);
+                #ifdef HIP_TO_DO
+                hipLaunchKernelGGL((calcMagnitudeKernel), dim3(grid), dim3(block), 0, stream, (const SrcTex)src, dx, dy, mag, norm);
+                #endif //HIP_TO_DO
             }
             else
             {
                 L1 norm;
-                hipLaunchKernelGGL((calcMagnitudeKernel), dim3(grid), dim3(block), 0, stream, src, dx, dy, mag, norm);
+                #ifdef HIP_TO_DO
+                hipLaunchKernelGGL((calcMagnitudeKernel), dim3(grid), dim3(block), 0, stream, (const SrcTexObject)src, dx, dy, mag, norm);
+                #endif //HIP_TO_DO
             }
 
             cudaSafeCall( hipGetLastError() );
@@ -202,7 +206,7 @@ namespace canny
             else
                 cudaSafeCall( hipStreamSynchronize(stream) );
 
-            cudaSafeCall( cudaDestroyTextureObject(tex) );
+            cudaSafeCall( hipDestroyTextureObject(tex) );
         }
         else
         {
@@ -212,12 +216,16 @@ namespace canny
             if (L2Grad)
             {
                 L2 norm;
-                hipLaunchKernelGGL((calcMagnitudeKernel), dim3(grid), dim3(block), 0, stream, src, dx, dy, mag, norm);
+                #ifdef HIP_TO_DO
+                hipLaunchKernelGGL((calcMagnitudeKernel), dim3(grid), dim3(block), 0, stream, (const SrcTex)src, dx, dy, mag, norm);
+                #endif //HIP_TO_DO
             }
             else
             {
                 L1 norm;
-                hipLaunchKernelGGL((calcMagnitudeKernel), dim3(grid), dim3(block), 0, stream, src, dx, dy, mag, norm);
+                #ifdef HIP_TO_DO
+                hipLaunchKernelGGL((calcMagnitudeKernel), dim3(grid), dim3(block), 0, stream, (const SrcTexObject)src, dx, dy, mag, norm);
+                #endif //HIP_TO_DO
             }
 
             cudaSafeCall( hipGetLastError() );
@@ -246,7 +254,8 @@ namespace canny
 
 namespace canny
 {
-    texture<float, cudaTextureType2D, hipReadModeElementType> tex_mag(false, hipFilterModePoint, hipAddressModeClamp);
+
+    texture<float, hipTextureType2D, hipReadModeElementType> tex_mag(false, hipFilterModePoint, hipAddressModeClamp);
     __global__ void calcMapKernel(const PtrStepSzi dx, const PtrStepi dy, PtrStepi map, const float low_thresh, const float high_thresh)
     {
         const int CANNY_SHIFT = 15;
@@ -299,7 +308,7 @@ namespace canny
         map(y, x) = edge_type;
     }
 
-    __global__ void calcMapKernel(const PtrStepSzi dx, const PtrStepi dy, PtrStepi map, const float low_thresh, const float high_thresh, cudaTextureObject_t tex_mag)
+    __global__ void calcMapKernel(const PtrStepSzi dx, const PtrStepi dy, PtrStepi map, const float low_thresh, const float high_thresh, hipTextureObject_t tex_mag)
     {
         const int CANNY_SHIFT = 15;
         const int TG22 = (int)(0.4142135623730950488016887242097*(1<<CANNY_SHIFT) + 0.5);
@@ -359,39 +368,43 @@ namespace canny
         if (deviceSupports(FEATURE_SET_COMPUTE_30))
         {
             // Use the texture object
-            cudaResourceDesc resDesc;
+            hipResourceDesc resDesc;
             memset(&resDesc, 0, sizeof(resDesc));
-            resDesc.resType = cudaResourceTypePitch2D;
+            resDesc.resType = hipResourceTypePitch2D;
             resDesc.res.pitch2D.devPtr = mag.ptr();
             resDesc.res.pitch2D.height = mag.rows;
             resDesc.res.pitch2D.width = mag.cols;
             resDesc.res.pitch2D.pitchInBytes = mag.step;
             resDesc.res.pitch2D.desc = hipCreateChannelDesc<float>();
 
-            cudaTextureDesc texDesc;
+            hipTextureDesc texDesc;
             memset(&texDesc, 0, sizeof(texDesc));
             texDesc.addressMode[0] = hipAddressModeClamp;
             texDesc.addressMode[1] = hipAddressModeClamp;
             texDesc.addressMode[2] = hipAddressModeClamp;
 
-            cudaTextureObject_t tex=0;
-            cudaCreateTextureObject(&tex, &resDesc, &texDesc, NULL);
-            hipLaunchKernelGGL((calcMapKernel), dim3(grid), dim3(block), 0, stream, dx, dy, map, low_thresh, high_thresh, tex);
+            hipTextureObject_t tex=0;
+            hipCreateTextureObject(&tex, &resDesc, &texDesc, NULL);
+            #ifdef HIP_TO_DO
+            hipLaunchKernelGGL((calcMapKernel), dim3(grid), dim3(block), 0, stream, (const PtrStepSzi)dx, (const PtrStepSzi)dy, map, (const float)low_thresh, (const float)high_thresh, tex);
             cudaSafeCall( hipGetLastError() );
+            #endif //HIP_TO_DO
 
             if (stream == NULL)
                 cudaSafeCall( hipDeviceSynchronize() );
             else
                 cudaSafeCall( hipStreamSynchronize(stream) );
 
-            cudaSafeCall( cudaDestroyTextureObject(tex) );
+            cudaSafeCall( hipDestroyTextureObject(tex) );
         }
         else
         {
             // Use the texture reference
             bindTexture(&tex_mag, mag);
-            hipLaunchKernelGGL((calcMapKernel), dim3(grid), dim3(block), 0, stream, dx, dy, map, low_thresh, high_thresh);
+            #ifdef HIP_TO_DO
+            hipLaunchKernelGGL((calcMapKernel), dim3(grid), dim3(block), 0, stream, (const PtrStepSzi)dx, (const PtrStepSzi)dy, map, (const float)low_thresh, (const float)high_thresh);
             cudaSafeCall( hipGetLastError() );
+            #endif //HIP_TO_DO
 
             if (stream == NULL)
                 cudaSafeCall( hipDeviceSynchronize() );
