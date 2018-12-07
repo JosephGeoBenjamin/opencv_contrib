@@ -174,7 +174,9 @@ namespace clahe
         const dim3 block(32, 8);
         const dim3 grid(divUp(src.cols, block.x), divUp(src.rows, block.y));
 
+#ifdef HIP_TODO
         cudaSafeCall( hipFuncSetCacheConfig(transformKernel, hipFuncCachePreferL1) );
+#endif
 
         hipLaunchKernelGGL((transformKernel), dim3(grid), dim3(block), 0, stream, src, dst, lut, tileSize, tilesX, tilesY);
         cudaSafeCall( hipGetLastError() );

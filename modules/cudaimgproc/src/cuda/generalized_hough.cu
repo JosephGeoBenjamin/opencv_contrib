@@ -149,7 +149,9 @@ namespace cv { namespace cuda { namespace device
             const dim3 block(32, 4);
             const dim3 grid(divUp(edges.cols, block.x * PIXELS_PER_THREAD), divUp(edges.rows, block.y));
 
+#ifdef HIP_TODO
             cudaSafeCall( hipFuncSetCacheConfig(buildEdgePointList<T, PIXELS_PER_THREAD>, hipFuncCachePreferShared) );
+#endif
 
             hipLaunchKernelGGL((buildEdgePointList<T, PIXELS_PER_THREAD>), dim3(grid), dim3(block), 0, 0, edges, (PtrStepSz<T>) dx, (PtrStepSz<T>) dy, coordList, thetaList);
             cudaSafeCall( hipGetLastError() );
@@ -293,7 +295,9 @@ namespace cv { namespace cuda { namespace device
             const dim3 block(32, 8);
             const dim3 grid(divUp(hist.cols - 2, block.x), divUp(hist.rows - 2, block.y));
 
+#ifdef HIP_TODO
             cudaSafeCall( hipFuncSetCacheConfig(Ballard_Pos_findPosInHist, hipFuncCachePreferL1) );
+#endif
 
             hipLaunchKernelGGL((Ballard_Pos_findPosInHist), dim3(grid), dim3(block), 0, 0, hist, out, votes, maxSize, dp, threshold);
             cudaSafeCall( hipGetLastError() );
@@ -751,7 +755,9 @@ namespace cv { namespace cuda { namespace device
             const float sinVal = ::sinf(angle);
             const float cosVal = ::cosf(angle);
 
+#ifdef HIP_TODO
             cudaSafeCall( hipFuncSetCacheConfig(Guil_Full_calcPHist, hipFuncCachePreferL1) );
+#endif
 
             hipLaunchKernelGGL((Guil_Full_calcPHist), dim3(grid), dim3(block), 0, 0, templSizes, imageSizes, PHist,
                                                  angle, sinVal, cosVal, angleEpsilon, scale,
@@ -801,7 +807,9 @@ namespace cv { namespace cuda { namespace device
             const dim3 block(32, 8);
             const dim3 grid(divUp(hist.cols - 2, block.x), divUp(hist.rows - 2, block.y));
 
+#ifdef HIP_TODO
             cudaSafeCall( hipFuncSetCacheConfig(Guil_Full_findPosInHist, hipFuncCachePreferL1) );
+#endif
 
             hipLaunchKernelGGL((Guil_Full_findPosInHist), dim3(grid), dim3(block), 0, 0, hist, out, votes, maxSize,
                                                      angle, angleVotes, scale, scaleVotes,

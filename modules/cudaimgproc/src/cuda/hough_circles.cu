@@ -116,8 +116,9 @@ namespace cv { namespace cuda { namespace device
         {
             const dim3 block(256);
             const dim3 grid(divUp(count, block.x));
-
+#ifdef HIP_TODO
             cudaSafeCall( hipFuncSetCacheConfig(circlesAccumCenters, hipFuncCachePreferL1) );
+#endif
 
             hipLaunchKernelGGL((circlesAccumCenters), dim3(grid), dim3(block), 0, 0, list, count, dx, dy, accum, accum.cols - 2, accum.rows - 2, minRadius, maxRadius, idp);
             cudaSafeCall( hipGetLastError() );
@@ -162,7 +163,9 @@ namespace cv { namespace cuda { namespace device
             const dim3 block(32, 8);
             const dim3 grid(divUp(accum.cols - 2, block.x), divUp(accum.rows - 2, block.y));
 
+#ifdef HIP_TODO
             cudaSafeCall( hipFuncSetCacheConfig(buildCentersList, hipFuncCachePreferL1) );
+#endif
 
             hipLaunchKernelGGL((buildCentersList), dim3(grid), dim3(block), 0, 0, accum, centers, threshold);
             cudaSafeCall( hipGetLastError() );

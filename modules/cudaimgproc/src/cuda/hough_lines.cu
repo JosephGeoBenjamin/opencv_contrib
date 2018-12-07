@@ -185,7 +185,9 @@ namespace cv { namespace cuda { namespace device
             const dim3 block(32, 8);
             const dim3 grid(divUp(accum.cols - 2, block.x), divUp(accum.rows - 2, block.y));
 
+#ifdef HIP_TODO
             cudaSafeCall( hipFuncSetCacheConfig(linesGetResult, hipFuncCachePreferL1) );
+#endif
 
             hipLaunchKernelGGL((linesGetResult), dim3(grid), dim3(block), 0, 0, accum, out, votes, maxSize, rho, theta, threshold, accum.cols - 2);
             cudaSafeCall( hipGetLastError() );

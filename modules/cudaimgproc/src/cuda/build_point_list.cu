@@ -120,8 +120,9 @@ namespace cv { namespace cuda { namespace device
 
             const dim3 block(32, 4);
             const dim3 grid(divUp(src.cols, block.x * PIXELS_PER_THREAD), divUp(src.rows, block.y));
-
+#ifdef HIP_TO_DO
             cudaSafeCall( hipFuncSetCacheConfig(buildPointList<PIXELS_PER_THREAD>, hipFuncCachePreferShared) );
+#endif
 
             hipLaunchKernelGGL((buildPointList<PIXELS_PER_THREAD>), dim3(grid), dim3(block), 0, 0, src, list);
             cudaSafeCall( hipGetLastError() );

@@ -348,7 +348,9 @@ namespace cv { namespace cuda { namespace device
         const dim3 block(32, 8);
         const dim3 grid(divUp(src.cols, 4 * block.x), divUp(src.rows, block.y));
 
+#ifdef HIP_TODO
         cudaSafeCall( hipFuncSetCacheConfig(Bayer2BGR_8u<dst_t>, hipFuncCachePreferL1) );
+#endif
 
         hipLaunchKernelGGL((Bayer2BGR_8u<dst_t>), dim3(grid), dim3(block), 0, stream, src, (PtrStepSz<dst_t>)dst, blue_last, start_with_green);
         cudaSafeCall( hipGetLastError() );
@@ -365,7 +367,9 @@ namespace cv { namespace cuda { namespace device
         const dim3 block(32, 8);
         const dim3 grid(divUp(src.cols, 2 * block.x), divUp(src.rows, block.y));
 
+#ifdef HIP_TODO
         cudaSafeCall( hipFuncSetCacheConfig(Bayer2BGR_16u<dst_t>, hipFuncCachePreferL1) );
+#endif
 
         hipLaunchKernelGGL((Bayer2BGR_16u<dst_t>), dim3(grid), dim3(block), 0, stream, src, (PtrStepSz<dst_t>)dst, blue_last, start_with_green);
         cudaSafeCall( hipGetLastError() );
