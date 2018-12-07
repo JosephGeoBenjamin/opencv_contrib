@@ -65,17 +65,17 @@ namespace grid_minmaxloc_detail
         __shared__ uint sMinLoc[BLOCK_SIZE];
         __shared__ uint sMaxLoc[BLOCK_SIZE];
 
-        const int x0 = blockIdx.x * blockDim.x * patch_x + threadIdx.x;
-        const int y0 = blockIdx.y * blockDim.y * patch_y + threadIdx.y;
+        const int x0 = hipBlockIdx_x * hipBlockDim_x * patch_x + hipThreadIdx_x;
+        const int y0 = hipBlockIdx_y * hipBlockDim_y * patch_y + hipThreadIdx_y;
 
         ResType myMin = numeric_limits<ResType>::max();
         ResType myMax = -numeric_limits<ResType>::max();
         int myMinLoc = -1;
         int myMaxLoc = -1;
 
-        for (int i = 0, y = y0; i < patch_y && y < rows; ++i, y += blockDim.y)
+        for (int i = 0, y = y0; i < patch_y && y < rows; ++i, y += hipBlockDim_y)
         {
-            for (int j = 0, x = x0; j < patch_x && x < cols; ++j, x += blockDim.x)
+            for (int j = 0, x = x0; j < patch_x && x < cols; ++j, x += hipBlockDim_x)
             {
                 if (mask(y, x))
                 {
@@ -96,14 +96,14 @@ namespace grid_minmaxloc_detail
             }
         }
 
-        const int tid = threadIdx.y * blockDim.x + threadIdx.x;
+        const int tid = hipThreadIdx_y * hipBlockDim_x + hipThreadIdx_x;
 
         blockReduceKeyVal<BLOCK_SIZE>(smem_tuple(sMinVal, sMaxVal), tie(myMin, myMax),
                                       smem_tuple(sMinLoc, sMaxLoc), tie(myMinLoc, myMaxLoc),
                                       tid,
                                       make_tuple(less<ResType>(), greater<ResType>()));
 
-        const int bid = blockIdx.y * gridDim.x + blockIdx.x;
+        const int bid = hipBlockIdx_y * hipGridDim_x + hipBlockIdx_x;
 
         if (tid == 0)
         {
@@ -122,7 +122,7 @@ namespace grid_minmaxloc_detail
         __shared__ int sMinLoc[BLOCK_SIZE];
         __shared__ int sMaxLoc[BLOCK_SIZE];
 
-        const int idx = ::min(threadIdx.x, count - 1);
+        const int idx = ::min(hipThreadIdx_x, count - 1);
 
         T myMin = minMal[idx];
         T myMax = maxVal[idx];
@@ -131,10 +131,10 @@ namespace grid_minmaxloc_detail
 
         blockReduceKeyVal<BLOCK_SIZE>(smem_tuple(sMinVal, sMaxVal), tie(myMin, myMax),
                                       smem_tuple(sMinLoc, sMaxLoc), tie(myMinLoc, myMaxLoc),
-                                      threadIdx.x,
+                                      hipThreadIdx_x,
                                       make_tuple(less<T>(), greater<T>()));
 
-        if (threadIdx.x == 0)
+        if (hipThreadIdx_x == 0)
         {
             minMal[0] = myMin;
             maxVal[0] = myMax;

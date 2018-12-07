@@ -70,11 +70,11 @@ namespace cv { namespace cuda { namespace device
             __shared__ int s_sizes[4];
             __shared__ int s_globStart[4];
 
-            const int x = blockIdx.x * blockDim.x * PIXELS_PER_THREAD + threadIdx.x;
-            const int y = blockIdx.y * blockDim.y + threadIdx.y;
+            const int x = hipBlockIdx_x * hipBlockDim_x * PIXELS_PER_THREAD + hipThreadIdx_x;
+            const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
-            if (threadIdx.x == 0)
-                s_sizes[threadIdx.y] = 0;
+            if (hipThreadIdx_x == 0)
+                s_sizes[hipThreadIdx_y] = 0;
             __syncthreads();
 
             if (y < edges.rows)
@@ -84,7 +84,7 @@ namespace cv { namespace cuda { namespace device
                 const T* dxRow = dx.ptr(y);
                 const T* dyRow = dy.ptr(y);
 
-                for (int i = 0, xx = x; i < PIXELS_PER_THREAD && xx < edges.cols; ++i, xx += blockDim.x)
+                for (int i = 0, xx = x; i < PIXELS_PER_THREAD && xx < edges.cols; ++i, xx += hipBlockDim_x)
                 {
                     const T dxVal = dxRow[xx];
                     const T dyVal = dyRow[xx];
@@ -97,10 +97,10 @@ namespace cv { namespace cuda { namespace device
                         if (theta < 0)
                             theta += 2.0f * CV_PI_F;
 
-                        const int qidx = Emulation::smem::atomicAdd(&s_sizes[threadIdx.y], 1);
+                        const int qidx = Emulation::smem::atomicAdd(&s_sizes[hipThreadIdx_y], 1);
 
-                        s_coordLists[threadIdx.y][qidx] = coord;
-                        s_thetaLists[threadIdx.y][qidx] = theta;
+                        s_coordLists[hipThreadIdx_y][qidx] = coord;
+                        s_thetaLists[hipThreadIdx_y][qidx] = theta;
                     }
                 }
             }
@@ -108,11 +108,11 @@ namespace cv { namespace cuda { namespace device
             __syncthreads();
 
             // let one thread reserve the space required in the global list
-            if (threadIdx.x == 0 && threadIdx.y == 0)
+            if (hipThreadIdx_x == 0 && hipThreadIdx_y == 0)
             {
                 // find how many items are stored in each list
                 int totalSize = 0;
-                for (int i = 0; i < blockDim.y; ++i)
+                for (int i = 0; i < hipBlockDim_y; ++i)
                 {
                     s_globStart[i] = totalSize;
                     totalSize += s_sizes[i];
@@ -120,19 +120,19 @@ namespace cv { namespace cuda { namespace device
 
                 // calculate the offset in the global list
                 const int globalOffset = atomicAdd(&g_counter, totalSize);
-                for (int i = 0; i < blockDim.y; ++i)
+                for (int i = 0; i < hipBlockDim_y; ++i)
                     s_globStart[i] += globalOffset;
             }
 
             __syncthreads();
 
             // copy local queues to global queue
-            const int qsize = s_sizes[threadIdx.y];
-            int gidx = s_globStart[threadIdx.y] + threadIdx.x;
-            for(int i = threadIdx.x; i < qsize; i += blockDim.x, gidx += blockDim.x)
+            const int qsize = s_sizes[hipThreadIdx_y];
+            int gidx = s_globStart[hipThreadIdx_y] + hipThreadIdx_x;
+            for(int i = hipThreadIdx_x; i < qsize; i += hipBlockDim_x, gidx += hipBlockDim_x)
             {
-                coordList[gidx] = s_coordLists[threadIdx.y][i];
-                thetaList[gidx] = s_thetaLists[threadIdx.y][i];
+                coordList[gidx] = s_coordLists[hipThreadIdx_y][i];
+                thetaList[gidx] = s_thetaLists[hipThreadIdx_y][i];
             }
         }
 
@@ -170,7 +170,7 @@ namespace cv { namespace cuda { namespace device
                                     PtrStep<short2> r_table, int* r_sizes, int maxSize,
                                     const short2 templCenter, const float thetaScale)
         {
-            const int tid = blockIdx.x * blockDim.x + threadIdx.x;
+            const int tid = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
 
             if (tid >= pointsCount)
                 return;
@@ -211,7 +211,7 @@ namespace cv { namespace cuda { namespace device
                                              PtrStepSzi hist,
                                              const float idp, const float thetaScale)
         {
-            const int tid = blockIdx.x * blockDim.x + threadIdx.x;
+            const int tid = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
 
             if (tid >= pointsCount)
                 return;
@@ -259,8 +259,8 @@ namespace cv { namespace cuda { namespace device
         __global__ void Ballard_Pos_findPosInHist(const PtrStepSzi hist, float4* out, int3* votes,
                                                   const int maxSize, const float dp, const int threshold)
         {
-            const int x = blockIdx.x * blockDim.x + threadIdx.x;
-            const int y = blockIdx.y * blockDim.y + threadIdx.y;
+            const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (x >= hist.cols - 2 || y >= hist.rows - 2)
                 return;
@@ -466,13 +466,13 @@ namespace cv { namespace cuda { namespace device
                                                    const float xi, const float angleEpsilon, const float alphaScale,
                                                    const float2 center, const float maxDist)
         {
-            const float p1_theta = thetaList[blockIdx.x];
-            const unsigned int coord1 = coordList[blockIdx.x];
+            const float p1_theta = thetaList[hipBlockIdx_x];
+            const unsigned int coord1 = coordList[hipBlockIdx_x];
             float2 p1_pos;
             p1_pos.x = (coord1 & 0xFFFF);
             p1_pos.y = (coord1 >> 16) & 0xFFFF;
 
-            for (int i = threadIdx.x; i < pointsCount; i += blockDim.x)
+            for (int i = hipThreadIdx_x; i < pointsCount; i += hipBlockDim_x)
             {
                 const float p2_theta = thetaList[i];
                 const unsigned int coord2 = coordList[i];
@@ -567,12 +567,12 @@ namespace cv { namespace cuda { namespace device
                                             const float minAngle, const float maxAngle, const float iAngleStep, const int angleRange)
         {
             HIP_DYNAMIC_SHARED( int, s_OHist)
-            for (int i = threadIdx.x; i <= angleRange; i += blockDim.x)
+            for (int i = hipThreadIdx_x; i <= angleRange; i += hipBlockDim_x)
                 s_OHist[i] = 0;
             __syncthreads();
 
-            const int tIdx = blockIdx.x;
-            const int level = blockIdx.y;
+            const int tIdx = hipBlockIdx_x;
+            const int level = hipBlockIdx_y;
 
             const int tSize = templSizes[level];
 
@@ -582,7 +582,7 @@ namespace cv { namespace cuda { namespace device
 
                 const float t_p1_theta = TemplFeatureTable::p1_theta(level)[tIdx];
 
-                for (int i = threadIdx.x; i < imSize; i += blockDim.x)
+                for (int i = hipThreadIdx_x; i < imSize; i += hipBlockDim_x)
                 {
                     const float im_p1_theta = ImageFeatureTable::p1_theta(level)[i];
 
@@ -597,7 +597,7 @@ namespace cv { namespace cuda { namespace device
             }
             __syncthreads();
 
-            for (int i = threadIdx.x; i <= angleRange; i += blockDim.x)
+            for (int i = hipThreadIdx_x; i <= angleRange; i += hipBlockDim_x)
                 ::atomicAdd(OHist + i, s_OHist[i]);
         }
 
@@ -626,12 +626,12 @@ namespace cv { namespace cuda { namespace device
                                             const float minScale, const float maxScale, const float iScaleStep, const int scaleRange)
         {
             HIP_DYNAMIC_SHARED( int, s_SHist)
-            for (int i = threadIdx.x; i <= scaleRange; i += blockDim.x)
+            for (int i = hipThreadIdx_x; i <= scaleRange; i += hipBlockDim_x)
                 s_SHist[i] = 0;
             __syncthreads();
 
-            const int tIdx = blockIdx.x;
-            const int level = blockIdx.y;
+            const int tIdx = hipBlockIdx_x;
+            const int level = hipBlockIdx_y;
 
             const int tSize = templSizes[level];
 
@@ -642,7 +642,7 @@ namespace cv { namespace cuda { namespace device
                 const float t_p1_theta = TemplFeatureTable::p1_theta(level)[tIdx] + angle;
                 const float t_d12 = TemplFeatureTable::d12(level)[tIdx] + angle;
 
-                for (int i = threadIdx.x; i < imSize; i += blockDim.x)
+                for (int i = hipThreadIdx_x; i < imSize; i += hipBlockDim_x)
                 {
                     const float im_p1_theta = ImageFeatureTable::p1_theta(level)[i];
                     const float im_d12 = ImageFeatureTable::d12(level)[i];
@@ -661,7 +661,7 @@ namespace cv { namespace cuda { namespace device
             }
             __syncthreads();
 
-            for (int i = threadIdx.x; i <= scaleRange; i += blockDim.x)
+            for (int i = hipThreadIdx_x; i <= scaleRange; i += hipBlockDim_x)
                 ::atomicAdd(SHist + i, s_SHist[i]);
         }
 
@@ -690,8 +690,8 @@ namespace cv { namespace cuda { namespace device
                                             const float angle, const float sinVal, const float cosVal, const float angleEpsilon, const float scale,
                                             const float idp)
         {
-            const int tIdx = blockIdx.x;
-            const int level = blockIdx.y;
+            const int tIdx = hipBlockIdx_x;
+            const int level = hipBlockIdx_y;
 
             const int tSize = templSizes[level];
 
@@ -710,7 +710,7 @@ namespace cv { namespace cuda { namespace device
                 r1 = make_float2(cosVal * r1.x - sinVal * r1.y, sinVal * r1.x + cosVal * r1.y);
                 r2 = make_float2(cosVal * r2.x - sinVal * r2.y, sinVal * r2.x + cosVal * r2.y);
 
-                for (int i = threadIdx.x; i < imSize; i += blockDim.x)
+                for (int i = hipThreadIdx_x; i < imSize; i += hipBlockDim_x)
                 {
                     const float im_p1_theta = ImageFeatureTable::p1_theta(level)[i];
 
@@ -765,8 +765,8 @@ namespace cv { namespace cuda { namespace device
                                                 const float angle, const int angleVotes, const float scale, const int scaleVotes,
                                                 const float dp, const int threshold)
         {
-            const int x = blockIdx.x * blockDim.x + threadIdx.x;
-            const int y = blockIdx.y * blockDim.y + threadIdx.y;
+            const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (x >= hist.cols - 2 || y >= hist.rows - 2)
                 return;

@@ -66,7 +66,7 @@ namespace cv { namespace cuda { namespace device
             const int SHIFT = 10;
             const int ONE = 1 << SHIFT;
 
-            const int tid = blockIdx.x * blockDim.x + threadIdx.x;
+            const int tid = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
 
             if (tid >= count)
                 return;
@@ -130,8 +130,8 @@ namespace cv { namespace cuda { namespace device
 
         __global__ void buildCentersList(const PtrStepSzi accum, unsigned int* centers, const int threshold)
         {
-            const int x = blockIdx.x * blockDim.x + threadIdx.x;
-            const int y = blockIdx.y * blockDim.y + threadIdx.y;
+            const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (x < accum.cols - 2 && y < accum.rows - 2)
             {
@@ -184,11 +184,11 @@ namespace cv { namespace cuda { namespace device
         {
             int* smem = DynamicSharedMem<int>();
 
-            for (int i = threadIdx.x; i < histSize + 2; i += blockDim.x)
+            for (int i = hipThreadIdx_x; i < histSize + 2; i += hipBlockDim_x)
                 smem[i] = 0;
             __syncthreads();
 
-            unsigned int val = centers[blockIdx.x];
+            unsigned int val = centers[hipBlockIdx_x];
 
             float cx = (val & 0xFFFF);
             float cy = (val >> 16) & 0xFFFF;
@@ -196,7 +196,7 @@ namespace cv { namespace cuda { namespace device
             cx = (cx + 0.5f) * dp;
             cy = (cy + 0.5f) * dp;
 
-            for (int i = threadIdx.x; i < count; i += blockDim.x)
+            for (int i = hipThreadIdx_x; i < count; i += hipBlockDim_x)
             {
                 val = list[i];
 
@@ -214,7 +214,7 @@ namespace cv { namespace cuda { namespace device
 
             __syncthreads();
 
-            for (int i = threadIdx.x; i < histSize; i += blockDim.x)
+            for (int i = hipThreadIdx_x; i < histSize; i += hipBlockDim_x)
             {
                 const int curVotes = smem[i + 1];
 

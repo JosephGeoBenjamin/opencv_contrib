@@ -115,7 +115,9 @@ void cv::cuda::equalizeHist(InputArray _src, OutputArray _dst, Stream& _stream)
     GpuMat dst = _dst.getGpuMat();
 
     int intBufSize;
+    #ifdef NPP_ENABLE
     nppSafeCall( nppsIntegralGetBufferSize_32s(256, &intBufSize) );
+    #endif //NPP_ENABLE
 
     size_t bufSize = intBufSize + 2 * 256 * sizeof(int);
 
@@ -129,9 +131,11 @@ void cv::cuda::equalizeHist(InputArray _src, OutputArray _dst, Stream& _stream)
     cuda::calcHist(src, hist, _stream);
 
     hipStream_t stream = StreamAccessor::getStream(_stream);
-    NppStreamHandler h(stream);
 
+    #ifdef NPP_ENABLE
+    NppStreamHandler h(stream);
     nppSafeCall( nppsIntegral_32s(hist.ptr<Npp32s>(), lut.ptr<Npp32s>(), 256, intBuf.ptr<Npp8u>()) );
+    #endif //NPP_ENABLE
 
     hist::equalizeHist(src, dst, lut.ptr<int>(), stream);
 }
@@ -268,6 +272,7 @@ cv::Ptr<cv::cuda::CLAHE> cv::cuda::createCLAHE(double clipLimit, cv::Size tileGr
 ////////////////////////////////////////////////////////////////////////
 // NPP Histogram
 
+#ifdef NPP_ENABLE
 namespace
 {
     typedef NppStatus (*get_buf_size_c1_t)(NppiSize oSizeROI, int nLevels, int* hpBufferSize);
@@ -464,6 +469,7 @@ namespace
         }
     };
 }
+#endif //NPP_ENABLE
 
 void cv::cuda::evenLevels(OutputArray _levels, int nLevels, int lowerLevel, int upperLevel, Stream& stream)
 {
@@ -477,7 +483,9 @@ void cv::cuda::evenLevels(OutputArray _levels, int nLevels, int lowerLevel, int 
     else
         host_levels = _levels.getMat();
 
+#ifdef NPP_ENABLE
     nppSafeCall( nppiEvenLevelsHost_32s(host_levels.ptr<Npp32s>(), nLevels, lowerLevel, upperLevel) );
+#endif //NPP_ENABLE
 
     if (kind == _InputArray::CUDA_GPU_MAT)
         _levels.getGpuMatRef().upload(host_levels, stream);
@@ -500,6 +508,7 @@ namespace
 
 void cv::cuda::histEven(InputArray _src, OutputArray hist, int histSize, int lowerLevel, int upperLevel, Stream& stream)
 {
+    #ifdef NPP_ENABLE
     typedef void (*hist_t)(const GpuMat& src, OutputArray hist, int levels, int lowerLevel, int upperLevel, Stream& stream);
     static const hist_t hist_callers[] =
     {
@@ -520,10 +529,13 @@ void cv::cuda::histEven(InputArray _src, OutputArray hist, int histSize, int low
     CV_Assert( src.type() == CV_8UC1 || src.type() == CV_16UC1 || src.type() == CV_16SC1 );
 
     hist_callers[src.depth()](src, hist, histSize, lowerLevel, upperLevel, stream);
+    #endif //NPP_ENABLE
+
 }
 
 void cv::cuda::histEven(InputArray _src, GpuMat hist[4], int histSize[4], int lowerLevel[4], int upperLevel[4], Stream& stream)
 {
+    #ifdef NPP_ENABLE
     typedef void (*hist_t)(const GpuMat& src, GpuMat hist[4], int levels[4], int lowerLevel[4], int upperLevel[4], Stream& stream);
     static const hist_t hist_callers[] =
     {
@@ -538,10 +550,12 @@ void cv::cuda::histEven(InputArray _src, GpuMat hist[4], int histSize[4], int lo
     CV_Assert( src.type() == CV_8UC4 || src.type() == CV_16UC4 || src.type() == CV_16SC4 );
 
     hist_callers[src.depth()](src, hist, histSize, lowerLevel, upperLevel, stream);
+    #endif //NPP_ENABLE
 }
 
 void cv::cuda::histRange(InputArray _src, OutputArray hist, InputArray _levels, Stream& stream)
 {
+    #ifdef NPP_ENABLE
     typedef void (*hist_t)(const GpuMat& src, OutputArray hist, const GpuMat& levels, Stream& stream);
     static const hist_t hist_callers[] =
     {
@@ -559,10 +573,12 @@ void cv::cuda::histRange(InputArray _src, OutputArray hist, InputArray _levels, 
     CV_Assert( src.type() == CV_8UC1 || src.type() == CV_16UC1 || src.type() == CV_16SC1 || src.type() == CV_32FC1 );
 
     hist_callers[src.depth()](src, hist, levels, stream);
+    #endif //NPP_ENABLE
 }
 
 void cv::cuda::histRange(InputArray _src, GpuMat hist[4], const GpuMat levels[4], Stream& stream)
 {
+    #ifdef NPP_ENABLE
     typedef void (*hist_t)(const GpuMat& src, GpuMat hist[4], const GpuMat levels[4], Stream& stream);
     static const hist_t hist_callers[] =
     {
@@ -579,6 +595,7 @@ void cv::cuda::histRange(InputArray _src, GpuMat hist[4], const GpuMat levels[4]
     CV_Assert( src.type() == CV_8UC4 || src.type() == CV_16UC4 || src.type() == CV_16SC4 || src.type() == CV_32FC4 );
 
     hist_callers[src.depth()](src, hist, levels, stream);
+    #endif //NPP_ENABLE
 }
 
 #endif /* !defined (HAVE_HIP) */

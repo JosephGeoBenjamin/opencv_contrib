@@ -60,8 +60,9 @@ namespace cv { namespace cuda { namespace device
                                                 const int lineGap, const int lineLength,
                                                 const int rows, const int cols)
         {
-            const int r = blockIdx.x * blockDim.x + threadIdx.x;
-            const int n = blockIdx.y * blockDim.y + threadIdx.y;
+
+            const int r = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int n = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (r >= accum.cols - 2 || n >= accum.rows - 2)
                 return;

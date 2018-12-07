@@ -59,24 +59,24 @@ namespace cv { namespace cuda { namespace device
             __shared__ int s_qsize[4];
             __shared__ int s_globStart[4];
 
-            const int x = blockIdx.x * blockDim.x * PIXELS_PER_THREAD + threadIdx.x;
-            const int y = blockIdx.y * blockDim.y + threadIdx.y;
+            const int x = hipBlockIdx_x * hipBlockDim_x * PIXELS_PER_THREAD + hipThreadIdx_x;
+            const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
-            if (threadIdx.x == 0)
-                s_qsize[threadIdx.y] = 0;
+            if (hipThreadIdx_x == 0)
+                s_qsize[hipThreadIdx_y] = 0;
             __syncthreads();
 
             if (y < src.rows)
             {
                 // fill the queue
                 const uchar* srcRow = src.ptr(y);
-                for (int i = 0, xx = x; i < PIXELS_PER_THREAD && xx < src.cols; ++i, xx += blockDim.x)
+                for (int i = 0, xx = x; i < PIXELS_PER_THREAD && xx < src.cols; ++i, xx += hipBlockDim_x)
                 {
                     if (srcRow[xx])
                     {
                         const unsigned int val = (y << 16) | xx;
-                        const int qidx = Emulation::smem::atomicAdd(&s_qsize[threadIdx.y], 1);
-                        s_queues[threadIdx.y][qidx] = val;
+                        const int qidx = Emulation::smem::atomicAdd(&s_qsize[hipThreadIdx_y], 1);
+                        s_queues[hipThreadIdx_y][qidx] = val;
                     }
                 }
             }
@@ -84,11 +84,11 @@ namespace cv { namespace cuda { namespace device
             __syncthreads();
 
             // let one thread reserve the space required in the global list
-            if (threadIdx.x == 0 && threadIdx.y == 0)
+            if (hipThreadIdx_x == 0 && hipThreadIdx_y == 0)
             {
                 // find how many items are stored in each list
                 int totalSize = 0;
-                for (int i = 0; i < blockDim.y; ++i)
+                for (int i = 0; i < hipBlockDim_y; ++i)
                 {
                     s_globStart[i] = totalSize;
                     totalSize += s_qsize[i];
@@ -96,17 +96,17 @@ namespace cv { namespace cuda { namespace device
 
                 // calculate the offset in the global list
                 const int globalOffset = atomicAdd(&g_counter, totalSize);
-                for (int i = 0; i < blockDim.y; ++i)
+                for (int i = 0; i < hipBlockDim_y; ++i)
                     s_globStart[i] += globalOffset;
             }
 
             __syncthreads();
 
             // copy local queues to global queue
-            const int qsize = s_qsize[threadIdx.y];
-            int gidx = s_globStart[threadIdx.y] + threadIdx.x;
-            for(int i = threadIdx.x; i < qsize; i += blockDim.x, gidx += blockDim.x)
-                list[gidx] = s_queues[threadIdx.y][i];
+            const int qsize = s_qsize[hipThreadIdx_y];
+            int gidx = s_globStart[hipThreadIdx_y] + hipThreadIdx_x;
+            for(int i = hipThreadIdx_x; i < qsize; i += hipBlockDim_x, gidx += hipBlockDim_x)
+                list[gidx] = s_queues[hipThreadIdx_y][i];
         }
 
         int buildPointList_gpu(PtrStepSzb src, unsigned int* list)

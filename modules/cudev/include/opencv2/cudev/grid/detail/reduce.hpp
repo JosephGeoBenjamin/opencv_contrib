@@ -392,14 +392,14 @@ namespace grid_reduce_detail
     template <class Reductor, int BLOCK_SIZE, int PATCH_X, int PATCH_Y, class SrcPtr, typename ResType, class MaskPtr>
     __global__ void reduce(const SrcPtr src, ResType* result, const MaskPtr mask, const int rows, const int cols)
     {
-        const int x0 = blockIdx.x * blockDim.x * PATCH_X + threadIdx.x;
-        const int y0 = blockIdx.y * blockDim.y * PATCH_Y + threadIdx.y;
+        const int x0 = hipBlockIdx_x * hipBlockDim_x * PATCH_X + hipThreadIdx_x;
+        const int y0 = hipBlockIdx_y * hipBlockDim_y * PATCH_Y + hipThreadIdx_y;
 
         Reductor reductor;
 
-        for (int i = 0, y = y0; i < PATCH_Y && y < rows; ++i, y += blockDim.y)
+        for (int i = 0, y = y0; i < PATCH_Y && y < rows; ++i, y += hipBlockDim_y)
         {
-            for (int j = 0, x = x0; j < PATCH_X && x < cols; ++j, x += blockDim.x)
+            for (int j = 0, x = x0; j < PATCH_X && x < cols; ++j, x += hipBlockDim_x)
             {
                 if (mask(y, x))
                 {
@@ -408,7 +408,7 @@ namespace grid_reduce_detail
             }
         }
 
-        const int tid = threadIdx.y * blockDim.x + threadIdx.x;
+        const int tid = hipThreadIdx_y * hipBlockDim_x + hipThreadIdx_x;
 
         reductor.template reduceGrid<BLOCK_SIZE>(result, tid);
     }

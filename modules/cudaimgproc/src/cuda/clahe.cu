@@ -61,17 +61,17 @@ namespace clahe
     {
         __shared__ int smem[512];
 
-        const int tx = blockIdx.x;
-        const int ty = blockIdx.y;
-        const unsigned int tid = threadIdx.y * blockDim.x + threadIdx.x;
+        const int tx = hipBlockIdx_x;
+        const int ty = hipBlockIdx_y;
+        const unsigned int tid = hipThreadIdx_y * hipBlockDim_x + hipThreadIdx_x;
 
         smem[tid] = 0;
         __syncthreads();
 
-        for (int i = threadIdx.y; i < tileSize.y; i += blockDim.y)
+        for (int i = hipThreadIdx_y; i < tileSize.y; i += hipBlockDim_y)
         {
             const uchar* srcPtr = src.ptr(ty * tileSize.y + i) + tx * tileSize.x;
-            for (int j = threadIdx.x; j < tileSize.x; j += blockDim.x)
+            for (int j = hipThreadIdx_x; j < tileSize.x; j += hipBlockDim_x)
             {
                 const int data = srcPtr[j];
                 Emulation::smem::atomicAdd(&smem[data], 1);
@@ -137,8 +137,8 @@ namespace clahe
 
     __global__ void transformKernel(const PtrStepSzb src, PtrStepb dst, const PtrStepb lut, const int2 tileSize, const int tilesX, const int tilesY)
     {
-        const int x = blockIdx.x * blockDim.x + threadIdx.x;
-        const int y = blockIdx.y * blockDim.y + threadIdx.y;
+        const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+        const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
         if (x >= src.cols || y >= src.rows)
             return;

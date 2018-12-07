@@ -60,8 +60,8 @@ namespace grid_histogram_detail
     #if CV_CUDEV_ARCH >= 120
         __shared__ ResType smem[BIN_COUNT];
 
-        const int y = blockIdx.x * blockDim.y + threadIdx.y;
-        const int tid = threadIdx.y * blockDim.x + threadIdx.x;
+        const int y = hipBlockIdx_x * hipBlockDim_y + hipThreadIdx_y;
+        const int tid = hipThreadIdx_y * hipBlockDim_x + hipThreadIdx_x;
 
         for (int i = tid; i < BIN_COUNT; i += BLOCK_SIZE)
             smem[i] = 0;
@@ -70,7 +70,7 @@ namespace grid_histogram_detail
 
         if (y < rows)
         {
-            for (int x = threadIdx.x; x < cols; x += blockDim.x)
+            for (int x = hipThreadIdx_x; x < cols; x += hipBlockDim_x)
             {
                 if (mask(y, x))
                 {

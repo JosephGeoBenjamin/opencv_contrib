@@ -61,7 +61,7 @@ namespace cv { namespace cuda { namespace device
 
         __global__ void linesAccumGlobal(const unsigned int* list, const int count, PtrStepi accum, const float irho, const float theta, const int numrho)
         {
-            const int n = blockIdx.x;
+            const int n = hipBlockIdx_x;
             const float ang = n * theta;
 
             float sinVal;
@@ -73,7 +73,7 @@ namespace cv { namespace cuda { namespace device
             const int shift = (numrho - 1) / 2;
 
             int* accumRow = accum.ptr(n + 1);
-            for (int i = threadIdx.x; i < count; i += blockDim.x)
+            for (int i = hipThreadIdx_x; i < count; i += hipBlockDim_x)
             {
                 const unsigned int val = list[i];
 
@@ -91,12 +91,12 @@ namespace cv { namespace cuda { namespace device
         {
             int* smem = DynamicSharedMem<int>();
 
-            for (int i = threadIdx.x; i < numrho + 1; i += blockDim.x)
+            for (int i = hipThreadIdx_x; i < numrho + 1; i += hipBlockDim_x)
                 smem[i] = 0;
 
             __syncthreads();
 
-            const int n = blockIdx.x;
+            const int n = hipBlockIdx_x;
             const float ang = n * theta;
 
             float sinVal;
@@ -107,7 +107,7 @@ namespace cv { namespace cuda { namespace device
 
             const int shift = (numrho - 1) / 2;
 
-            for (int i = threadIdx.x; i < count; i += blockDim.x)
+            for (int i = hipThreadIdx_x; i < count; i += hipBlockDim_x)
             {
                 const unsigned int val = list[i];
 
@@ -123,7 +123,7 @@ namespace cv { namespace cuda { namespace device
             __syncthreads();
 
             int* accumRow = accum.ptr(n + 1);
-            for (int i = threadIdx.x; i < numrho + 1; i += blockDim.x)
+            for (int i = hipThreadIdx_x; i < numrho + 1; i += hipBlockDim_x)
                 accumRow[i] = smem[i];
         }
 
@@ -149,8 +149,8 @@ namespace cv { namespace cuda { namespace device
 
         __global__ void linesGetResult(const PtrStepSzi accum, float2* out, int* votes, const int maxSize, const float rho, const float theta, const int threshold, const int numrho)
         {
-            const int r = blockIdx.x * blockDim.x + threadIdx.x;
-            const int n = blockIdx.y * blockDim.y + threadIdx.y;
+            const int r = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int n = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (r >= accum.cols - 2 || n >= accum.rows - 2)
                 return;

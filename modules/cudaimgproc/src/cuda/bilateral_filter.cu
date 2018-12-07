@@ -72,8 +72,8 @@ namespace cv { namespace cuda { namespace device
         {
             typedef typename TypeVec<float, VecTraits<T>::cn>::vec_type value_type;
 
-            int x = threadIdx.x + blockIdx.x * blockDim.x;
-            int y = threadIdx.y + blockIdx.y * blockDim.y;
+            int x = hipThreadIdx_x + hipBlockIdx_x * hipBlockDim_x;
+            int y = hipThreadIdx_y + hipBlockIdx_y * hipBlockDim_y;
 
             if (x >= src.cols || y >= src.rows)
                 return;

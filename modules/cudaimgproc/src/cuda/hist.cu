@@ -57,8 +57,8 @@ namespace hist
     {
         __shared__ int shist[256];
 
-        const int y = blockIdx.x * blockDim.y + threadIdx.y;
-        const int tid = threadIdx.y * blockDim.x + threadIdx.x;
+        const int y = hipBlockIdx_x * hipBlockDim_y + hipThreadIdx_y;
+        const int tid = hipThreadIdx_y * hipBlockDim_x + hipThreadIdx_x;
 
         shist[tid] = 0;
         __syncthreads();
@@ -68,7 +68,7 @@ namespace hist
             const unsigned int* rowPtr = (const unsigned int*) (src + y * step);
 
             const int cols_4 = cols / 4;
-            for (int x = threadIdx.x; x < cols_4; x += blockDim.x)
+            for (int x = hipThreadIdx_x; x < cols_4; x += hipBlockDim_x)
             {
                 unsigned int data = rowPtr[x];
 
@@ -78,7 +78,7 @@ namespace hist
                 Emulation::smem::atomicAdd(&shist[(data >> 24) & 0xFFU], 1);
             }
 
-            if (cols % 4 != 0 && threadIdx.x == 0)
+            if (cols % 4 != 0 && hipThreadIdx_x == 0)
             {
                 for (int x = cols_4 * 4; x < cols; ++x)
                 {
@@ -111,8 +111,8 @@ namespace hist
     {
         __shared__ int shist[256];
 
-        const int y = blockIdx.x * blockDim.y + threadIdx.y;
-        const int tid = threadIdx.y * blockDim.x + threadIdx.x;
+        const int y = hipBlockIdx_x * hipBlockDim_y + hipThreadIdx_y;
+        const int tid = hipThreadIdx_y * hipBlockDim_x + hipThreadIdx_x;
 
         shist[tid] = 0;
         __syncthreads();
@@ -123,7 +123,7 @@ namespace hist
             const unsigned int* maskRowPtr = (const unsigned int*) (mask + y * maskStep);
 
             const int cols_4 = cols / 4;
-            for (int x = threadIdx.x; x < cols_4; x += blockDim.x)
+            for (int x = hipThreadIdx_x; x < cols_4; x += hipBlockDim_x)
             {
                 unsigned int data = rowPtr[x];
                 unsigned int m = maskRowPtr[x];
@@ -141,7 +141,7 @@ namespace hist
                     Emulation::smem::atomicAdd(&shist[(data >> 24) & 0xFFU], 1);
             }
 
-            if (cols % 4 != 0 && threadIdx.x == 0)
+            if (cols % 4 != 0 && hipThreadIdx_x == 0)
             {
                 for (int x = cols_4 * 4; x < cols; ++x)
                 {
@@ -166,7 +166,7 @@ namespace hist
         const dim3 block(32, 8);
         const dim3 grid(divUp(src.rows, block.y));
 
-        hipLaunchKernelGGL((histogram256Kernel), dim3(grid), dim3(block), 0, stream, src.data, src.cols, src.rows, src.step, mask.data, mask.step, hist);
+        hipLaunchKernelGGL((histogram256Kernel), dim3(grid), dim3(block), 0, stream, (const uchar*)src.data, (int)src.cols, (int)src.rows, (size_t)src.step, (const uchar*)mask.data, (size_t)mask.step, (int*)hist);
         cudaSafeCall( hipGetLastError() );
 
         if (stream == 0)
@@ -192,8 +192,8 @@ namespace hist
     {
         HIP_DYNAMIC_SHARED( int, shist)
 
-        const int y = blockIdx.x * blockDim.y + threadIdx.y;
-        const int tid = threadIdx.y * blockDim.x + threadIdx.x;
+        const int y = hipBlockIdx_x * hipBlockDim_y + hipThreadIdx_y;
+        const int tid = hipThreadIdx_y * hipBlockDim_x + hipThreadIdx_x;
 
         if (tid < binCount)
             shist[tid] = 0;
@@ -206,7 +206,7 @@ namespace hist
             const uint* rowPtr4 = (uint*) rowPtr;
 
             const int cols_4 = cols / 4;
-            for (int x = threadIdx.x; x < cols_4; x += blockDim.x)
+            for (int x = hipThreadIdx_x; x < cols_4; x += hipBlockDim_x)
             {
                 const uint data = rowPtr4[x];
 
@@ -216,7 +216,7 @@ namespace hist
                 histEvenInc(shist, (data >> 24) & 0xFFU, binSize, lowerLevel, upperLevel);
             }
 
-            if (cols % 4 != 0 && threadIdx.x == 0)
+            if (cols % 4 != 0 && hipThreadIdx_x == 0)
             {
                 for (int x = cols_4 * 4; x < cols; ++x)
                 {
@@ -246,7 +246,7 @@ namespace hist
 
         const size_t smem_size = binCount * sizeof(int);
 
-        hipLaunchKernelGGL((histEven8u), dim3(grid), dim3(block), smem_size, stream, src.data, src.step, src.rows, src.cols, hist, binCount, binSize, lowerLevel, upperLevel);
+        hipLaunchKernelGGL((histEven8u), dim3(grid), dim3(block), smem_size, stream, (const uchar*)src.data, (const size_t)src.step, (const int)src.rows,(const int)src.cols,(int*) hist, (const int)binCount,(const int) binSize, (const int)lowerLevel, (const int)upperLevel);
         cudaSafeCall( hipGetLastError() );
 
         if (stream == 0)

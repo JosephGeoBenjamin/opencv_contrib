@@ -59,8 +59,8 @@ namespace cv { namespace cuda { namespace device
 
         template <class Mask> __global__ void findCorners(float threshold, const Mask mask, float2* corners, int max_count, int rows, int cols)
         {
-            const int j = blockIdx.x * blockDim.x + threadIdx.x;
-            const int i = blockIdx.y * blockDim.y + threadIdx.y;
+            const int j = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int i = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (i > 0 && i < rows - 1 && j > 0 && j < cols - 1 && mask(i, j))
             {

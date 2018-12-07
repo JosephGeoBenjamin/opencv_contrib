@@ -53,8 +53,8 @@ namespace cv { namespace cuda { namespace device
         __global__ void blendLinearKernel(int rows, int cols, int cn, const PtrStep<T> img1, const PtrStep<T> img2,
                                           const PtrStepf weights1, const PtrStepf weights2, PtrStep<T> result)
         {
-            int x = blockIdx.x * blockDim.x + threadIdx.x;
-            int y = blockIdx.y * blockDim.y + threadIdx.y;
+            int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (y < rows && x < cols)
             {
@@ -87,8 +87,8 @@ namespace cv { namespace cuda { namespace device
         __global__ void blendLinearKernel8UC4(int rows, int cols, const PtrStepb img1, const PtrStepb img2,
                                               const PtrStepf weights1, const PtrStepf weights2, PtrStepb result)
         {
-            int x = blockIdx.x * blockDim.x + threadIdx.x;
-            int y = blockIdx.y * blockDim.y + threadIdx.y;
+            int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (y < rows && x < cols)
             {

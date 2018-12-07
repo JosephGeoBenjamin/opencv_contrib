@@ -121,8 +121,8 @@ namespace canny
     template <class Norm> __global__
     void calcMagnitudeKernel(const SrcTex src, PtrStepi dx, PtrStepi dy, PtrStepSzf mag, const Norm norm)
     {
-        const int x = blockIdx.x * blockDim.x + threadIdx.x;
-        const int y = blockIdx.y * blockDim.y + threadIdx.y;
+        const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+        const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
         if (y >= mag.rows || x >= mag.cols)
             return;
@@ -139,8 +139,8 @@ namespace canny
     template <class Norm> __global__
     void calcMagnitudeKernel(const SrcTexObject src, PtrStepi dx, PtrStepi dy, PtrStepSzf mag, const Norm norm)
     {
-        const int x = blockIdx.x * blockDim.x + threadIdx.x;
-        const int y = blockIdx.y * blockDim.y + threadIdx.y;
+        const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+        const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
         if (y >= mag.rows || x >= mag.cols)
             return;
@@ -251,8 +251,8 @@ namespace canny
         const int CANNY_SHIFT = 15;
         const int TG22 = (int)(0.4142135623730950488016887242097*(1<<CANNY_SHIFT) + 0.5);
 
-        const int x = blockIdx.x * blockDim.x + threadIdx.x;
-        const int y = blockIdx.y * blockDim.y + threadIdx.y;
+        const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+        const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
         if (x == 0 || x >= dx.cols - 1 || y == 0 || y >= dx.rows - 1)
             return;
@@ -303,8 +303,8 @@ namespace canny
         const int CANNY_SHIFT = 15;
         const int TG22 = (int)(0.4142135623730950488016887242097*(1<<CANNY_SHIFT) + 0.5);
 
-        const int x = blockIdx.x * blockDim.x + threadIdx.x;
-        const int y = blockIdx.y * blockDim.y + threadIdx.y;
+        const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+        const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
         if (x == 0 || x >= dx.cols - 1 || y == 0 || y >= dx.rows - 1)
             return;
@@ -411,26 +411,26 @@ namespace canny
     {
         __shared__ volatile int smem[18][18];
 
-        const int x = blockIdx.x * blockDim.x + threadIdx.x;
-        const int y = blockIdx.y * blockDim.y + threadIdx.y;
+        const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+        const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
-        smem[threadIdx.y + 1][threadIdx.x + 1] = checkIdx(y, x, map.rows, map.cols) ? map(y, x) : 0;
-        if (threadIdx.y == 0)
-            smem[0][threadIdx.x + 1] = checkIdx(y - 1, x, map.rows, map.cols) ? map(y - 1, x) : 0;
-        if (threadIdx.y == blockDim.y - 1)
-            smem[blockDim.y + 1][threadIdx.x + 1] = checkIdx(y + 1, x, map.rows, map.cols) ? map(y + 1, x) : 0;
-        if (threadIdx.x == 0)
-            smem[threadIdx.y + 1][0] = checkIdx(y, x - 1, map.rows, map.cols) ? map(y, x - 1) : 0;
-        if (threadIdx.x == blockDim.x - 1)
-            smem[threadIdx.y + 1][blockDim.x + 1] = checkIdx(y, x + 1, map.rows, map.cols) ? map(y, x + 1) : 0;
-        if (threadIdx.x == 0 && threadIdx.y == 0)
+        smem[hipThreadIdx_y + 1][hipThreadIdx_x + 1] = checkIdx(y, x, map.rows, map.cols) ? map(y, x) : 0;
+        if (hipThreadIdx_y == 0)
+            smem[0][hipThreadIdx_x + 1] = checkIdx(y - 1, x, map.rows, map.cols) ? map(y - 1, x) : 0;
+        if (hipThreadIdx_y == hipBlockDim_y - 1)
+            smem[hipBlockDim_y + 1][hipThreadIdx_x + 1] = checkIdx(y + 1, x, map.rows, map.cols) ? map(y + 1, x) : 0;
+        if (hipThreadIdx_x == 0)
+            smem[hipThreadIdx_y + 1][0] = checkIdx(y, x - 1, map.rows, map.cols) ? map(y, x - 1) : 0;
+        if (hipThreadIdx_x == hipBlockDim_x - 1)
+            smem[hipThreadIdx_y + 1][hipBlockDim_x + 1] = checkIdx(y, x + 1, map.rows, map.cols) ? map(y, x + 1) : 0;
+        if (hipThreadIdx_x == 0 && hipThreadIdx_y == 0)
             smem[0][0] = checkIdx(y - 1, x - 1, map.rows, map.cols) ? map(y - 1, x - 1) : 0;
-        if (threadIdx.x == blockDim.x - 1 && threadIdx.y == 0)
-            smem[0][blockDim.x + 1] = checkIdx(y - 1, x + 1, map.rows, map.cols) ? map(y - 1, x + 1) : 0;
-        if (threadIdx.x == 0 && threadIdx.y == blockDim.y - 1)
-            smem[blockDim.y + 1][0] = checkIdx(y + 1, x - 1, map.rows, map.cols) ? map(y + 1, x - 1) : 0;
-        if (threadIdx.x == blockDim.x - 1 && threadIdx.y == blockDim.y - 1)
-            smem[blockDim.y + 1][blockDim.x + 1] = checkIdx(y + 1, x + 1, map.rows, map.cols) ? map(y + 1, x + 1) : 0;
+        if (hipThreadIdx_x == hipBlockDim_x - 1 && hipThreadIdx_y == 0)
+            smem[0][hipBlockDim_x + 1] = checkIdx(y - 1, x + 1, map.rows, map.cols) ? map(y - 1, x + 1) : 0;
+        if (hipThreadIdx_x == 0 && hipThreadIdx_y == hipBlockDim_y - 1)
+            smem[hipBlockDim_y + 1][0] = checkIdx(y + 1, x - 1, map.rows, map.cols) ? map(y + 1, x - 1) : 0;
+        if (hipThreadIdx_x == hipBlockDim_x - 1 && hipThreadIdx_y == hipBlockDim_y - 1)
+            smem[hipBlockDim_y + 1][hipBlockDim_x + 1] = checkIdx(y + 1, x + 1, map.rows, map.cols) ? map(y + 1, x + 1) : 0;
 
         __syncthreads();
 
@@ -444,29 +444,29 @@ namespace canny
         {
             n = 0;
 
-            if (smem[threadIdx.y + 1][threadIdx.x + 1] == 1)
+            if (smem[hipThreadIdx_y + 1][hipThreadIdx_x + 1] == 1)
             {
-                n += smem[threadIdx.y    ][threadIdx.x    ] == 2;
-                n += smem[threadIdx.y    ][threadIdx.x + 1] == 2;
-                n += smem[threadIdx.y    ][threadIdx.x + 2] == 2;
+                n += smem[hipThreadIdx_y    ][hipThreadIdx_x    ] == 2;
+                n += smem[hipThreadIdx_y    ][hipThreadIdx_x + 1] == 2;
+                n += smem[hipThreadIdx_y    ][hipThreadIdx_x + 2] == 2;
 
-                n += smem[threadIdx.y + 1][threadIdx.x    ] == 2;
-                n += smem[threadIdx.y + 1][threadIdx.x + 2] == 2;
+                n += smem[hipThreadIdx_y + 1][hipThreadIdx_x    ] == 2;
+                n += smem[hipThreadIdx_y + 1][hipThreadIdx_x + 2] == 2;
 
-                n += smem[threadIdx.y + 2][threadIdx.x    ] == 2;
-                n += smem[threadIdx.y + 2][threadIdx.x + 1] == 2;
-                n += smem[threadIdx.y + 2][threadIdx.x + 2] == 2;
+                n += smem[hipThreadIdx_y + 2][hipThreadIdx_x    ] == 2;
+                n += smem[hipThreadIdx_y + 2][hipThreadIdx_x + 1] == 2;
+                n += smem[hipThreadIdx_y + 2][hipThreadIdx_x + 2] == 2;
             }
 
             __syncthreads();
 
             if (n > 0)
-                smem[threadIdx.y + 1][threadIdx.x + 1] = 2;
+                smem[hipThreadIdx_y + 1][hipThreadIdx_x + 1] = 2;
 
             __syncthreads();
         }
 
-        const int e = smem[threadIdx.y + 1][threadIdx.x + 1];
+        const int e = smem[hipThreadIdx_y + 1][hipThreadIdx_x + 1];
 
         map(y, x) = e;
 
@@ -474,16 +474,16 @@ namespace canny
 
         if (e == 2)
         {
-            n += smem[threadIdx.y    ][threadIdx.x    ] == 1;
-            n += smem[threadIdx.y    ][threadIdx.x + 1] == 1;
-            n += smem[threadIdx.y    ][threadIdx.x + 2] == 1;
+            n += smem[hipThreadIdx_y    ][hipThreadIdx_x    ] == 1;
+            n += smem[hipThreadIdx_y    ][hipThreadIdx_x + 1] == 1;
+            n += smem[hipThreadIdx_y    ][hipThreadIdx_x + 2] == 1;
 
-            n += smem[threadIdx.y + 1][threadIdx.x    ] == 1;
-            n += smem[threadIdx.y + 1][threadIdx.x + 2] == 1;
+            n += smem[hipThreadIdx_y + 1][hipThreadIdx_x    ] == 1;
+            n += smem[hipThreadIdx_y + 1][hipThreadIdx_x + 2] == 1;
 
-            n += smem[threadIdx.y + 2][threadIdx.x    ] == 1;
-            n += smem[threadIdx.y + 2][threadIdx.x + 1] == 1;
-            n += smem[threadIdx.y + 2][threadIdx.x + 2] == 1;
+            n += smem[hipThreadIdx_y + 2][hipThreadIdx_x    ] == 1;
+            n += smem[hipThreadIdx_y + 2][hipThreadIdx_x + 1] == 1;
+            n += smem[hipThreadIdx_y + 2][hipThreadIdx_x + 2] == 1;
         }
 
         if (n > 0)
@@ -523,22 +523,22 @@ namespace canny
         __shared__ int s_ind;
         __shared__ short2 s_st[stack_size];
 
-        if (threadIdx.x == 0)
+        if (hipThreadIdx_x == 0)
             s_counter = 0;
 
         __syncthreads();
 
-        int ind = blockIdx.y * gridDim.x + blockIdx.x;
+        int ind = hipBlockIdx_y * hipGridDim_x + hipBlockIdx_x;
 
         if (ind >= count)
             return;
 
         short2 pos = st1[ind];
 
-        if (threadIdx.x < 8)
+        if (hipThreadIdx_x < 8)
         {
-            pos.x += c_dx[threadIdx.x];
-            pos.y += c_dy[threadIdx.x];
+            pos.x += c_dx[hipThreadIdx_x];
+            pos.y += c_dy[hipThreadIdx_x];
 
             if (pos.x > 0 && pos.x < map.cols - 1 && pos.y > 0 && pos.y < map.rows - 1 && map(pos.y, pos.x) == 1)
             {
@@ -552,25 +552,25 @@ namespace canny
 
         __syncthreads();
 
-        while (s_counter > 0 && s_counter <= stack_size - blockDim.x)
+        while (s_counter > 0 && s_counter <= stack_size - hipBlockDim_x)
         {
-            const int subTaskIdx = threadIdx.x >> 3;
-            const int portion = ::min(s_counter, blockDim.x >> 3);
+            const int subTaskIdx = hipThreadIdx_x >> 3;
+            const int portion = ::min(s_counter, hipBlockDim_x >> 3);
 
             if (subTaskIdx < portion)
                 pos = s_st[s_counter - 1 - subTaskIdx];
 
             __syncthreads();
 
-            if (threadIdx.x == 0)
+            if (hipThreadIdx_x == 0)
                 s_counter -= portion;
 
             __syncthreads();
 
             if (subTaskIdx < portion)
             {
-                pos.x += c_dx[threadIdx.x & 7];
-                pos.y += c_dy[threadIdx.x & 7];
+                pos.x += c_dx[hipThreadIdx_x & 7];
+                pos.y += c_dy[hipThreadIdx_x & 7];
 
                 if (pos.x > 0 && pos.x < map.cols - 1 && pos.y > 0 && pos.y < map.rows - 1 && map(pos.y, pos.x) == 1)
                 {
@@ -587,7 +587,7 @@ namespace canny
 
         if (s_counter > 0)
         {
-            if (threadIdx.x == 0)
+            if (hipThreadIdx_x == 0)
             {
                 s_ind = ::atomicAdd(d_counter, s_counter);
 
@@ -599,7 +599,7 @@ namespace canny
 
             ind = s_ind;
 
-            for (int i = threadIdx.x; i < s_counter; i += blockDim.x)
+            for (int i = hipThreadIdx_x; i < s_counter; i += hipBlockDim_x)
                 st2[ind + i] = s_st[i];
         }
     }

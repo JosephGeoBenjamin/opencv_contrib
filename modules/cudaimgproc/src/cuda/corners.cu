@@ -64,8 +64,8 @@ namespace cv { namespace cuda { namespace device
 
         __global__ void cornerHarris_kernel(const int block_size, const float k, PtrStepSzf dst)
         {
-            const int x = blockIdx.x * blockDim.x + threadIdx.x;
-            const int y = blockIdx.y * blockDim.y + threadIdx.y;
+            const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (x < dst.cols && y < dst.rows)
             {
@@ -98,8 +98,8 @@ namespace cv { namespace cuda { namespace device
         template <typename BR, typename BC>
         __global__ void cornerHarris_kernel(const int block_size, const float k, PtrStepSzf dst, const BR border_row, const BC border_col)
         {
-            const int x = blockIdx.x * blockDim.x + threadIdx.x;
-            const int y = blockIdx.y * blockDim.y + threadIdx.y;
+            const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (x < dst.cols && y < dst.rows)
             {
@@ -169,8 +169,8 @@ namespace cv { namespace cuda { namespace device
 
         __global__ void cornerMinEigenVal_kernel(const int block_size, PtrStepSzf dst)
         {
-            const int x = blockIdx.x * blockDim.x + threadIdx.x;
-            const int y = blockIdx.y * blockDim.y + threadIdx.y;
+            const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (x < dst.cols && y < dst.rows)
             {
@@ -207,8 +207,8 @@ namespace cv { namespace cuda { namespace device
         template <typename BR, typename BC>
         __global__ void cornerMinEigenVal_kernel(const int block_size, PtrStepSzf dst, const BR border_row, const BC border_col)
         {
-            const int x = blockIdx.x * blockDim.x + threadIdx.x;
-            const int y = blockIdx.y * blockDim.y + threadIdx.y;
+            const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (x < dst.cols && y < dst.rows)
             {

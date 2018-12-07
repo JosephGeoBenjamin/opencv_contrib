@@ -1824,6 +1824,7 @@ namespace
         _dst.create(src.size(), src.type());
         GpuMat dst = _dst.getGpuMat();
 
+        #ifdef NPP_ENABLE
         hipStream_t stream = StreamAccessor::getStream(_stream);
         NppStreamHandler h(stream);
 
@@ -1838,6 +1839,7 @@ namespace
 
         if (stream == 0)
             cudaSafeCall( hipDeviceSynchronize() );
+        #endif //NPP_ENABLE
     #endif
     }
 
@@ -2189,6 +2191,8 @@ void cv::cuda::demosaicing(InputArray _src, OutputArray _dst, int code, int dcn,
 
 void cv::cuda::swapChannels(InputOutputArray _image, const int dstOrder[4], Stream& _stream)
 {
+
+    #ifdef NPP_ENABLE
     GpuMat image = _image.getGpuMat();
 
     CV_Assert( image.type() == CV_8UC4 );
@@ -2204,6 +2208,8 @@ void cv::cuda::swapChannels(InputOutputArray _image, const int dstOrder[4], Stre
 
     if (stream == 0)
         cudaSafeCall( hipDeviceSynchronize() );
+    #endif //NPP_ENABLE
+
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -2212,12 +2218,14 @@ void cv::cuda::swapChannels(InputOutputArray _image, const int dstOrder[4], Stre
 void cv::cuda::gammaCorrection(InputArray _src, OutputArray _dst, bool forward, Stream& stream)
 {
 #if (CUDA_VERSION < 5000)
-    CV_UNUSED(_src);
-    CV_UNUSED(_dst);
-    CV_UNUSED(forward);
-    CV_UNUSED(stream);
+    (void) _src;
+    (void) _dst;
+    (void) forward;
+    (void) stream;
     CV_Error(Error::StsNotImplemented, "This function works only with CUDA 5.0 or higher");
 #else
+
+    #ifdef NPP_ENABLE
     typedef NppStatus (*func_t)(const Npp8u* pSrc, int nSrcStep, Npp8u* pDst, int nDstStep, NppiSize oSizeROI);
     typedef NppStatus (*func_inplace_t)(Npp8u* pSrcDst, int nSrcDstStep, NppiSize oSizeROI);
 
@@ -2249,6 +2257,7 @@ void cv::cuda::gammaCorrection(InputArray _src, OutputArray _dst, bool forward, 
         funcs_inplace[forward][src.channels()](dst.ptr<Npp8u>(), static_cast<int>(src.step), oSizeROI);
     else
         funcs[forward][src.channels()](src.ptr<Npp8u>(), static_cast<int>(src.step), dst.ptr<Npp8u>(), static_cast<int>(dst.step), oSizeROI);
+    #endif //NPP_ENABLE
 
 #endif
 }
@@ -2256,6 +2265,7 @@ void cv::cuda::gammaCorrection(InputArray _src, OutputArray _dst, bool forward, 
 ////////////////////////////////////////////////////////////////////////
 // alphaComp
 
+#ifdef NPP_ENABLE
 namespace
 {
     template <int DEPTH> struct NppAlphaCompFunc
@@ -2285,9 +2295,12 @@ namespace
         }
     };
 }
+#endif //NPP_ENABLE
 
 void cv::cuda::alphaComp(InputArray _img1, InputArray _img2, OutputArray _dst, int alpha_op, Stream& stream)
 {
+
+    #ifdef NPP_ENABLE
     static const NppiAlphaOp npp_alpha_ops[] = {
         NPPI_OP_ALPHA_OVER,
         NPPI_OP_ALPHA_IN,
@@ -2327,6 +2340,8 @@ void cv::cuda::alphaComp(InputArray _img1, InputArray _img2, OutputArray _dst, i
     const func_t func = funcs[img1.depth()];
 
     func(img1, img2, dst, npp_alpha_ops[alpha_op], StreamAccessor::getStream(stream));
+    #endif //NPP_ENABLE
+
 }
 
 #endif /* !defined (HAVE_HIP) */

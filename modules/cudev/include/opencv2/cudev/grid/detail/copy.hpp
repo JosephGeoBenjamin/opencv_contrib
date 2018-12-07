@@ -60,8 +60,8 @@ namespace grid_copy_detail
     template <class SrcPtr, typename DstType, class MaskPtr>
     __global__ void copy(const SrcPtr src, GlobPtr<DstType> dst, const MaskPtr mask, const int rows, const int cols)
     {
-        const int x = blockIdx.x * blockDim.x + threadIdx.x;
-        const int y = blockIdx.y * blockDim.y + threadIdx.y;
+        const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+        const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
         if (x >= cols || y >= rows || !mask(y, x))
             return;
@@ -105,8 +105,8 @@ namespace grid_copy_detail
     template <class SrcPtrTuple, class DstPtrTuple, class MaskPtr>
     __global__ void copy_tuple(const SrcPtrTuple src, DstPtrTuple dst, const MaskPtr mask, const int rows, const int cols)
     {
-        const int x = blockIdx.x * blockDim.x + threadIdx.x;
-        const int y = blockIdx.y * blockDim.y + threadIdx.y;
+        const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+        const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
         if (x >= cols || y >= rows || !mask(y, x))
             return;

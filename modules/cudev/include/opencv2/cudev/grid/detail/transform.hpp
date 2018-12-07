@@ -159,8 +159,8 @@ namespace grid_transform_detail
     template <class SrcPtr, typename DstType, class UnOp, class MaskPtr>
     __global__ void transformSimple(const SrcPtr src, GlobPtr<DstType> dst, const UnOp op, const MaskPtr mask, const int rows, const int cols)
     {
-        const int x = blockIdx.x * blockDim.x + threadIdx.x;
-        const int y = blockIdx.y * blockDim.y + threadIdx.y;
+        const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+        const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
         if (x >= cols || y >= rows || !mask(y, x))
             return;
@@ -171,8 +171,8 @@ namespace grid_transform_detail
     template <class SrcPtr1, class SrcPtr2, typename DstType, class BinOp, class MaskPtr>
     __global__ void transformSimple(const SrcPtr1 src1, const SrcPtr2 src2, GlobPtr<DstType> dst, const BinOp op, const MaskPtr mask, const int rows, const int cols)
     {
-        const int x = blockIdx.x * blockDim.x + threadIdx.x;
-        const int y = blockIdx.y * blockDim.y + threadIdx.y;
+        const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+        const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
         if (x >= cols || y >= rows || !mask(y, x))
             return;
@@ -188,8 +188,8 @@ namespace grid_transform_detail
         typedef typename MakeVec<SrcType, SHIFT>::type read_type;
         typedef typename MakeVec<DstType, SHIFT>::type write_type;
 
-        const int x = blockIdx.x * blockDim.x + threadIdx.x;
-        const int y = blockIdx.y * blockDim.y + threadIdx.y;
+        const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+        const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
         const int x_shifted = x * SHIFT;
 
         if (y < rows)
@@ -221,8 +221,8 @@ namespace grid_transform_detail
         typedef typename MakeVec<SrcType2, SHIFT>::type read_type2;
         typedef typename MakeVec<DstType, SHIFT>::type write_type;
 
-        const int x = blockIdx.x * blockDim.x + threadIdx.x;
-        const int y = blockIdx.y * blockDim.y + threadIdx.y;
+        const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+        const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
         const int x_shifted = x * SHIFT;
 
         if (y < rows)
@@ -388,8 +388,8 @@ namespace grid_transform_detail
     template <class SrcPtr, class DstPtrTuple, class OpTuple, class MaskPtr>
     __global__ void transform_tuple(const SrcPtr src, DstPtrTuple dst, const OpTuple op, const MaskPtr mask, const int rows, const int cols)
     {
-        const int x = blockIdx.x * blockDim.x + threadIdx.x;
-        const int y = blockIdx.y * blockDim.y + threadIdx.y;
+        const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+        const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
         if (x >= cols || y >= rows || !mask(y, x))
             return;

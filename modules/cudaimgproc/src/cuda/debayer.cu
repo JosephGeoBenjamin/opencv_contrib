@@ -199,8 +199,8 @@ namespace cv { namespace cuda { namespace device
     template <typename D>
     __global__ void Bayer2BGR_8u(const PtrStepSzb src, PtrStep<D> dst, const bool blue_last, const bool start_with_green)
     {
-        const int s_x = blockIdx.x * blockDim.x + threadIdx.x;
-        int s_y = blockIdx.y * blockDim.y + threadIdx.y;
+        const int s_x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+        int s_y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
         if (s_y >= src.rows || (s_x << 2) >= src.cols)
             return;
@@ -210,8 +210,8 @@ namespace cv { namespace cuda { namespace device
         Bayer2BGR<uchar> bayer;
         bayer.apply(src, s_x, s_y, blue_last, start_with_green);
 
-        const int d_x = (blockIdx.x * blockDim.x + threadIdx.x) << 2;
-        const int d_y = blockIdx.y * blockDim.y + threadIdx.y;
+        const int d_x = (hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x) << 2;
+        const int d_y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
         dst(d_y, d_x) = toDst<D>(bayer.res0);
         if (d_x + 1 < src.cols)
@@ -321,8 +321,8 @@ namespace cv { namespace cuda { namespace device
     template <typename D>
     __global__ void Bayer2BGR_16u(const PtrStepSzb src, PtrStep<D> dst, const bool blue_last, const bool start_with_green)
     {
-        const int s_x = blockIdx.x * blockDim.x + threadIdx.x;
-        int s_y = blockIdx.y * blockDim.y + threadIdx.y;
+        const int s_x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+        int s_y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
         if (s_y >= src.rows || (s_x << 1) >= src.cols)
             return;
@@ -332,8 +332,8 @@ namespace cv { namespace cuda { namespace device
         Bayer2BGR<ushort> bayer;
         bayer.apply(src, s_x, s_y, blue_last, start_with_green);
 
-        const int d_x = (blockIdx.x * blockDim.x + threadIdx.x) << 1;
-        const int d_y = blockIdx.y * blockDim.y + threadIdx.y;
+        const int d_x = (hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x) << 1;
+        const int d_y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
         dst(d_y, d_x) = toDst<D>(bayer.res0);
         if (d_x + 1 < src.cols)
@@ -402,8 +402,8 @@ namespace cv { namespace cuda { namespace device
         const float   kEx = -1.0f / 8.0f,     kEy = -1.5f / 8.0f,   /*kEz = -1.0f / 8.0f,*/   kEw =  0.5f / 8.0f  ;
         const float   kFx =  2.0f / 8.0f,   /*kFy =  0.0f / 8.0f,*/   kFz =  4.0f / 8.0f    /*kFw =  0.0f / 8.0f*/;
 
-        const int x = blockIdx.x * blockDim.x + threadIdx.x;
-        const int y = blockIdx.y * blockDim.y + threadIdx.y;
+        const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+        const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
         if (x == 0 || x >= dst.cols - 1 || y == 0 || y >= dst.rows - 1)
             return;
