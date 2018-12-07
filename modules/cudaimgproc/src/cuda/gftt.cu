@@ -95,8 +95,10 @@ namespace cv { namespace cuda { namespace device
         int findCorners_gpu(PtrStepSzf eig, float threshold, PtrStepSzb mask, float2* corners, int max_count, hipStream_t stream)
         {
             void* counter_ptr;
-            cudaSafeCall( hipGetSymbolAddress(&counter_ptr, g_counter) );
 
+#ifdef HIP_TODO
+            cudaSafeCall( hipGetSymbolAddress((void **)&counter_ptr, (const void *)g_counter) );
+#endif
             cudaSafeCall( hipMemsetAsync(counter_ptr, 0, sizeof(int), stream) );
 
             bindTexture(&eigTex, eig);

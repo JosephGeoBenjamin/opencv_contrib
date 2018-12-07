@@ -289,7 +289,7 @@ namespace hist
         if (stream == 0)
             cudaSafeCall( hipMemcpyToSymbol(c_lut, lut, 256 * sizeof(int), 0, hipMemcpyDeviceToDevice) );
         else
-            cudaSafeCall( cudaMemcpyToSymbolAsync(c_lut, lut, 256 * sizeof(int), 0, hipMemcpyDeviceToDevice, stream) );
+            cudaSafeCall( hipMemcpyToSymbolAsync(c_lut, lut, 256 * sizeof(int), 0, hipMemcpyDeviceToDevice, stream) );
 
         const float scale = 255.0f / (src.cols * src.rows);
 
