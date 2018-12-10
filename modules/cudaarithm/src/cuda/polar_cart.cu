@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -193,7 +194,7 @@ namespace
     }
 
     template <typename T>
-    void polarToCartImpl(const GpuMat& mag, const GpuMat& angle, GpuMat& x, GpuMat& y, bool angleInDegrees, cudaStream_t& stream)
+    void polarToCartImpl(const GpuMat& mag, const GpuMat& angle, GpuMat& x, GpuMat& y, bool angleInDegrees, hipStream_t& stream)
     {
         GpuMat_<T> xc(x.reshape(1));
         GpuMat_<T> yc(y.reshape(1));
@@ -214,7 +215,7 @@ namespace
 
 void cv::cuda::polarToCart(InputArray _mag, InputArray _angle, OutputArray _x, OutputArray _y, bool angleInDegrees, Stream& _stream)
 {
-    typedef void(*func_t)(const GpuMat& mag, const GpuMat& angle, GpuMat& x, GpuMat& y, bool angleInDegrees, cudaStream_t& stream);
+    typedef void(*func_t)(const GpuMat& mag, const GpuMat& angle, GpuMat& x, GpuMat& y, bool angleInDegrees, hipStream_t& stream);
     static const func_t funcs[7] = { 0, 0, 0, 0, 0, polarToCartImpl<float>, polarToCartImpl<double> };
 
     GpuMat mag = getInputMat(_mag, _stream);
@@ -226,15 +227,15 @@ void cv::cuda::polarToCart(InputArray _mag, InputArray _angle, OutputArray _x, O
     GpuMat x = getOutputMat(_x, angle.size(), CV_MAKETYPE(angle.depth(), 1), _stream);
     GpuMat y = getOutputMat(_y, angle.size(), CV_MAKETYPE(angle.depth(), 1), _stream);
 
-    cudaStream_t stream = StreamAccessor::getStream(_stream);
+    hipStream_t stream = StreamAccessor::getStream(_stream);
     funcs[angle.depth()](mag, angle, x, y, angleInDegrees, stream);
-    CV_CUDEV_SAFE_CALL( cudaGetLastError() );
+    CV_CUDEV_SAFE_CALL( hipGetLastError() );
 
     syncOutput(x, _x, _stream);
     syncOutput(y, _y, _stream);
 
     if (stream == 0)
-        CV_CUDEV_SAFE_CALL( cudaDeviceSynchronize() );
+        CV_CUDEV_SAFE_CALL( hipDeviceSynchronize() );
 }
 
 #endif

@@ -203,7 +203,7 @@ void cv::cuda::rectStdDev(InputArray _src, InputArray _sqr, OutputArray _dst, Re
     nppRect.x = rect.x;
     nppRect.y = rect.y;
 
-    cudaStream_t stream = StreamAccessor::getStream(_stream);
+    hipStream_t stream = StreamAccessor::getStream(_stream);
 
     NppStreamHandler h(stream);
 
@@ -211,7 +211,7 @@ void cv::cuda::rectStdDev(InputArray _src, InputArray _sqr, OutputArray _dst, Re
                 dst.ptr<Npp32f>(), static_cast<int>(dst.step), sz, nppRect) );
 
     if (stream == 0)
-        cudaSafeCall( cudaDeviceSynchronize() );
+        cudaSafeCall( hipDeviceSynchronize() );
 
     syncOutput(dst, _dst, _stream);
 }

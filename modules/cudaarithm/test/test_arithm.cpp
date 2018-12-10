@@ -49,7 +49,7 @@ namespace opencv_test { namespace {
 //////////////////////////////////////////////////////////////////////////////
 // GEMM
 
-#ifdef HAVE_CUBLAS
+#ifdef HAVE_HIPBLAS
 
 CV_FLAGS(GemmFlags, 0, cv::GEMM_1_T, cv::GEMM_2_T, cv::GEMM_3_T);
 #define ALL_GEMM_FLAGS testing::Values(GemmFlags(0), GemmFlags(cv::GEMM_1_T), GemmFlags(cv::GEMM_2_T), GemmFlags(cv::GEMM_3_T), GemmFlags(cv::GEMM_1_T | cv::GEMM_2_T), GemmFlags(cv::GEMM_1_T | cv::GEMM_3_T), GemmFlags(cv::GEMM_1_T | cv::GEMM_2_T | cv::GEMM_3_T))
@@ -426,7 +426,7 @@ INSTANTIATE_TEST_CASE_P(CUDA_Arithm, Convolve, testing::Combine(
     testing::Values(KSize(3), KSize(7), KSize(11), KSize(17), KSize(19), KSize(23), KSize(45)),
     testing::Values(Ccorr(false), Ccorr(true))));
 
-#endif // HAVE_CUBLAS
+#endif // HAVE_HIPBLAS
 
 }} // namespace
 

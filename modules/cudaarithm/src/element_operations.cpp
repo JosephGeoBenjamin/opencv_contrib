@@ -348,7 +348,7 @@ namespace
     {
         typedef typename NPPTypeTraits<DEPTH>::npp_type npp_type;
 
-        static void call(const GpuMat& src, Scalar_<Npp32u> sc, GpuMat& dst, cudaStream_t stream)
+        static void call(const GpuMat& src, Scalar_<Npp32u> sc, GpuMat& dst, hipStream_t stream)
         {
             NppStreamHandler h(stream);
 
@@ -359,14 +359,14 @@ namespace
             nppSafeCall( func(src.ptr<npp_type>(), static_cast<int>(src.step), sc.val, dst.ptr<npp_type>(), static_cast<int>(dst.step), oSizeROI) );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
     };
     template <int DEPTH, typename NppShiftFunc<DEPTH, 1>::func_t func> struct NppShift<DEPTH, 1, func>
     {
         typedef typename NPPTypeTraits<DEPTH>::npp_type npp_type;
 
-        static void call(const GpuMat& src, Scalar_<Npp32u> sc, GpuMat& dst, cudaStream_t stream)
+        static void call(const GpuMat& src, Scalar_<Npp32u> sc, GpuMat& dst, hipStream_t stream)
         {
             NppStreamHandler h(stream);
 
@@ -377,14 +377,14 @@ namespace
             nppSafeCall( func(src.ptr<npp_type>(), static_cast<int>(src.step), sc.val[0], dst.ptr<npp_type>(), static_cast<int>(dst.step), oSizeROI) );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
     };
 }
 
 void cv::cuda::rshift(InputArray _src, Scalar_<int> val, OutputArray _dst, Stream& stream)
 {
-    typedef void (*func_t)(const GpuMat& src, Scalar_<Npp32u> sc, GpuMat& dst, cudaStream_t stream);
+    typedef void (*func_t)(const GpuMat& src, Scalar_<Npp32u> sc, GpuMat& dst, hipStream_t stream);
     static const func_t funcs[5][4] =
     {
         {NppShift<CV_8U , 1, nppiRShiftC_8u_C1R >::call, 0, NppShift<CV_8U , 3, nppiRShiftC_8u_C3R >::call, NppShift<CV_8U , 4, nppiRShiftC_8u_C4R>::call },
@@ -408,7 +408,7 @@ void cv::cuda::rshift(InputArray _src, Scalar_<int> val, OutputArray _dst, Strea
 
 void cv::cuda::lshift(InputArray _src, Scalar_<int> val, OutputArray _dst, Stream& stream)
 {
-    typedef void (*func_t)(const GpuMat& src, Scalar_<Npp32u> sc, GpuMat& dst, cudaStream_t stream);
+    typedef void (*func_t)(const GpuMat& src, Scalar_<Npp32u> sc, GpuMat& dst, hipStream_t stream);
     static const func_t funcs[5][4] =
     {
         {NppShift<CV_8U , 1, nppiLShiftC_8u_C1R>::call , 0, NppShift<CV_8U , 3, nppiLShiftC_8u_C3R>::call , NppShift<CV_8U , 4, nppiLShiftC_8u_C4R>::call },
@@ -463,7 +463,7 @@ namespace
 {
     typedef NppStatus (*nppMagnitude_t)(const Npp32fc* pSrc, int nSrcStep, Npp32f* pDst, int nDstStep, NppiSize oSizeROI);
 
-    void npp_magnitude(const GpuMat& src, GpuMat& dst, nppMagnitude_t func, cudaStream_t stream)
+    void npp_magnitude(const GpuMat& src, GpuMat& dst, nppMagnitude_t func, hipStream_t stream)
     {
         CV_Assert(src.type() == CV_32FC2);
 
@@ -476,7 +476,7 @@ namespace
         nppSafeCall( func(src.ptr<Npp32fc>(), static_cast<int>(src.step), dst.ptr<Npp32f>(), static_cast<int>(dst.step), sz) );
 
         if (stream == 0)
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
     }
 }
 

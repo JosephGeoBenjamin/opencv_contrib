@@ -93,7 +93,7 @@ CUDA_TEST_P(BufferPoolTest, FromNullStream)
 
     RunSimpleTest(Stream::Null(), dst_1, dst_2);
 
-    cudaSafeCall(cudaDeviceSynchronize());
+    cudaSafeCall(hipDeviceSynchronize());
 
     CheckSimpleTest(dst_1, dst_2);
 }

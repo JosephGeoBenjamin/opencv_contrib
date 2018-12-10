@@ -86,7 +86,7 @@ namespace
     }
 }
 
-#ifdef HAVE_CUBLAS
+#ifdef HAVE_HIPBLAS
     namespace
     {
         const ErrorEntry cublas_errors[] =
@@ -114,7 +114,7 @@ namespace
     }
 
     #define cublasSafeCall(expr)  ___cublasSafeCall(expr, __FILE__, __LINE__, CV_Func)
-#endif // HAVE_CUBLAS
+#endif // HAVE_HIPBLAS
 
 #ifdef HAVE_CUFFT
     namespace
@@ -156,7 +156,7 @@ namespace
 
 void cv::cuda::gemm(InputArray _src1, InputArray _src2, double alpha, InputArray _src3, double beta, OutputArray _dst, int flags, Stream& stream)
 {
-#ifndef HAVE_CUBLAS
+#ifndef HAVE_HIPBLAS
     CV_UNUSED(_src1);
     CV_UNUSED(_src2);
     CV_UNUSED(alpha);
@@ -514,7 +514,7 @@ namespace
 
         GpuMat result = getOutputMat(_result, result_size, CV_32FC1, _stream);
 
-        cudaStream_t stream = StreamAccessor::getStream(_stream);
+        hipStream_t stream = StreamAccessor::getStream(_stream);
 
         cufftHandle planR2C, planC2R;
         cufftSafeCall( cufftPlan2d(&planC2R, dft_size.height, dft_size.width, CUFFT_C2R) );

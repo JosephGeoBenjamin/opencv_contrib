@@ -340,17 +340,26 @@ __host__ GpuMat_<T>& GpuMat_<T>::assign(const Expr<Body>& expr, Stream& stream)
 namespace cv {
 
 template<typename _Tp>
-__host__ _InputArray::_InputArray(const cudev::GpuMat_<_Tp>& m)
+#ifdef __HIP_PLATFORM_NVCC__
+__host__
+#endif //__HIP_PLATFORM_
+_InputArray::_InputArray(const cudev::GpuMat_<_Tp>& m)
     : flags(FIXED_TYPE + CUDA_GPU_MAT + DataType<_Tp>::type), obj((void*)&m)
 {}
 
 template<typename _Tp>
-__host__ _OutputArray::_OutputArray(cudev::GpuMat_<_Tp>& m)
+#ifdef __HIP_PLATFORM_NVCC__
+__host__
+#endif //__HIP_PLATFORM_
+_OutputArray::_OutputArray(cudev::GpuMat_<_Tp>& m)
     : _InputArray(m)
 {}
 
 template<typename _Tp>
-__host__ _OutputArray::_OutputArray(const cudev::GpuMat_<_Tp>& m)
+#ifdef __HIP_PLATFORM_NVCC__
+__host__
+#endif //__HIP_PLATFORM_
+_OutputArray::_OutputArray(const cudev::GpuMat_<_Tp>& m)
     : _InputArray(m)
 {
     flags |= FIXED_SIZE;
