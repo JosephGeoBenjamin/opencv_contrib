@@ -101,7 +101,7 @@ namespace
 
         static void call(const GpuMat& src, cv::Scalar value, GpuMat& dst, Stream& _stream)
         {
-            cudaStream_t stream = StreamAccessor::getStream(_stream);
+            hipStream_t stream = StreamAccessor::getStream(_stream);
             NppStreamHandler h(stream);
 
             NppiSize oSizeROI;
@@ -119,7 +119,7 @@ namespace
             nppSafeCall( func(src.ptr<npp_type>(), static_cast<int>(src.step), pConstants, dst.ptr<npp_type>(), static_cast<int>(dst.step), oSizeROI) );
 
             if (stream == 0)
-                CV_CUDEV_SAFE_CALL( cudaDeviceSynchronize() );
+                CV_CUDEV_SAFE_CALL( hipDeviceSynchronize() );
         }
     };
 }

@@ -514,7 +514,7 @@ namespace
 
         GpuMat result = getOutputMat(_result, result_size, CV_32FC1, _stream);
 
-        cudaStream_t stream = StreamAccessor::getStream(_stream);
+        hipStream_t stream = StreamAccessor::getStream(_stream);
 
         cufftHandle planR2C, planC2R;
         cufftSafeCall( cufftPlan2d(&planC2R, dft_size.height, dft_size.width, CUFFT_C2R) );

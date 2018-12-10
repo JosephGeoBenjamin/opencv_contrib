@@ -120,7 +120,7 @@ double cv::cuda::threshold(InputArray _src, OutputArray _dst, double thresh, dou
             dst.ptr<Npp32f>(), static_cast<int>(dst.step), sz, static_cast<Npp32f>(thresh), NPP_CMP_GREATER) );
 
         if (!stream)
-            CV_CUDEV_SAFE_CALL( cudaDeviceSynchronize() );
+            CV_CUDEV_SAFE_CALL( hipDeviceSynchronize() );
     }
     else
     {

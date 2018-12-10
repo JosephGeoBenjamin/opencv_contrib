@@ -58,7 +58,7 @@ using namespace cv::cudev;
 
 namespace
 {
-    texture<uchar, cudaTextureType1D, cudaReadModeElementType> texLutTable;
+    texture<uchar, cudaTextureType1D, hipReadModeElementType> texLutTable;
 
     class LookUpTableImpl : public LookUpTable
     {
@@ -98,7 +98,7 @@ namespace
             std::memset(&texRes, 0, sizeof(texRes));
             texRes.resType = cudaResourceTypeLinear;
             texRes.res.linear.devPtr = d_lut.data;
-            texRes.res.linear.desc = cudaCreateChannelDesc<uchar>();
+            texRes.res.linear.desc = hipCreateChannelDesc<uchar>();
             texRes.res.linear.sizeInBytes = 256 * d_lut.channels() * sizeof(uchar);
 
             cudaTextureDesc texDescr;
@@ -109,8 +109,8 @@ namespace
         else
         {
             // Use the texture reference
-            cudaChannelFormatDesc desc = cudaCreateChannelDesc<uchar>();
-            CV_CUDEV_SAFE_CALL( cudaBindTexture(0, &texLutTable, d_lut.data, &desc) );
+            hipChannelFormatDesc desc = hipCreateChannelDesc<uchar>();
+            CV_CUDEV_SAFE_CALL( hipBindTexture(0, &texLutTable, d_lut.data, &desc) );
         }
     }
 
@@ -124,7 +124,7 @@ namespace
         else
         {
             // Use the texture reference
-            cudaUnbindTexture(texLutTable);
+            hipUnbindTexture(texLutTable);
         }
     }
 

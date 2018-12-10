@@ -78,7 +78,7 @@ void cv::cuda::transpose(InputArray _src, OutputArray _dst, Stream& stream)
             dst.ptr<Npp8u>(), static_cast<int>(dst.step), sz) );
 
         if (!stream)
-            CV_CUDEV_SAFE_CALL( cudaDeviceSynchronize() );
+            CV_CUDEV_SAFE_CALL( hipDeviceSynchronize() );
     }
     else if (elemSize == 4)
     {

@@ -88,7 +88,7 @@ namespace
     {
         typedef typename NppMirrorFunc<DEPTH>::npp_t npp_t;
 
-        static void call(const GpuMat& src, GpuMat& dst, int flipCode, cudaStream_t stream)
+        static void call(const GpuMat& src, GpuMat& dst, int flipCode, hipStream_t stream)
         {
             NppStreamHandler h(stream);
 
@@ -101,14 +101,14 @@ namespace
                 (flipCode == 0 ? NPP_HORIZONTAL_AXIS : (flipCode > 0 ? NPP_VERTICAL_AXIS : NPP_BOTH_AXIS))) );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
     };
 }
 
 void cv::cuda::flip(InputArray _src, OutputArray _dst, int flipCode, Stream& stream)
 {
-    typedef void (*func_t)(const GpuMat& src, GpuMat& dst, int flipCode, cudaStream_t stream);
+    typedef void (*func_t)(const GpuMat& src, GpuMat& dst, int flipCode, hipStream_t stream);
     static const func_t funcs[6][4] =
     {
         {NppMirror<CV_8U, nppiMirror_8u_C1R>::call, 0, NppMirror<CV_8U, nppiMirror_8u_C3R>::call, NppMirror<CV_8U, nppiMirror_8u_C4R>::call},
