@@ -58,7 +58,7 @@ using namespace cv::cudev;
 
 namespace
 {
-    texture<uchar, cudaTextureType1D, hipReadModeElementType> texLutTable;
+    texture<uchar, hipTextureType1D, hipReadModeElementType> texLutTable;
 
     class LookUpTableImpl : public LookUpTable
     {
@@ -70,7 +70,7 @@ namespace
 
     private:
         GpuMat d_lut;
-        cudaTextureObject_t texLutTableObj;
+        hipTextureObject_t texLutTableObj;
         bool cc30;
     };
 
@@ -94,17 +94,17 @@ namespace
         if (cc30)
         {
             // Use the texture object
-            cudaResourceDesc texRes;
+            hipResourceDesc texRes;
             std::memset(&texRes, 0, sizeof(texRes));
-            texRes.resType = cudaResourceTypeLinear;
+            texRes.resType = hipResourceTypeLinear;
             texRes.res.linear.devPtr = d_lut.data;
             texRes.res.linear.desc = hipCreateChannelDesc<uchar>();
             texRes.res.linear.sizeInBytes = 256 * d_lut.channels() * sizeof(uchar);
 
-            cudaTextureDesc texDescr;
+            hipTextureDesc texDescr;
             std::memset(&texDescr, 0, sizeof(texDescr));
 
-            CV_CUDEV_SAFE_CALL( cudaCreateTextureObject(&texLutTableObj, &texRes, &texDescr, 0) );
+            CV_CUDEV_SAFE_CALL( hipCreateTextureObject(&texLutTableObj, &texRes, &texDescr, 0) );
         }
         else
         {
@@ -119,7 +119,7 @@ namespace
         if (cc30)
         {
             // Use the texture object
-            cudaDestroyTextureObject(texLutTableObj);
+            hipDestroyTextureObject(texLutTableObj);
         }
         else
         {
@@ -133,7 +133,7 @@ namespace
         typedef uchar value_type;
         typedef uchar index_type;
 
-        cudaTextureObject_t texLutTableObj;
+        hipTextureObject_t texLutTableObj;
 
         __device__ __forceinline__ uchar operator ()(uchar, uchar x) const
         {
@@ -151,7 +151,7 @@ namespace
         typedef uchar3 value_type;
         typedef uchar3 index_type;
 
-        cudaTextureObject_t texLutTableObj;
+        hipTextureObject_t texLutTableObj;
 
         __device__ __forceinline__ uchar3 operator ()(const uchar3&, const uchar3& x) const
         {
