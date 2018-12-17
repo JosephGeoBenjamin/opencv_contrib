@@ -380,10 +380,9 @@ namespace canny
 
             hipTextureObject_t tex=0;
             hipCreateTextureObject(&tex, &resDesc, &texDesc, NULL);
-            #ifdef HIP_TO_DO
-            hipLaunchKernelGGL((calcMapKernel), dim3(grid), dim3(block), 0, stream, (const PtrStepSzi)dx, (const PtrStepSzi)dy, map, (const float)low_thresh, (const float)high_thresh, tex);
+            
+            hipLaunchKernelGGL((calcMapKernel), dim3(grid), dim3(block), 0, stream, (const PtrStepSzi)dx, (const PtrStepi)dy, (const PtrStepi)map, (const float)low_thresh, (const float)high_thresh, (const hipTextureObject_t)tex);
             cudaSafeCall( hipGetLastError() );
-            #endif //HIP_TO_DO
 
             if (stream == NULL)
                 cudaSafeCall( hipDeviceSynchronize() );
@@ -396,10 +395,9 @@ namespace canny
         {
             // Use the texture reference
             bindTexture(&tex_mag, mag);
-            #ifdef HIP_TO_DO
-            hipLaunchKernelGGL((calcMapKernel), dim3(grid), dim3(block), 0, stream, (const PtrStepSzi)dx, (const PtrStepSzi)dy, map, (const float)low_thresh, (const float)high_thresh);
+            
+            hipLaunchKernelGGL((calcMapKernel), dim3(grid), dim3(block), 0, stream, (const PtrStepSzi)dx, (const PtrStepi)dy, (const PtrStepi)map, (const float)low_thresh, (const float)high_thresh);
             cudaSafeCall( hipGetLastError() );
-            #endif //HIP_TO_DO
 
             if (stream == NULL)
                 cudaSafeCall( hipDeviceSynchronize() );

@@ -114,9 +114,9 @@ namespace cv { namespace cuda { namespace device
             const int PIXELS_PER_THREAD = 16;
 
             void* counterPtr;
-#ifdef HIP_TO_DO 
-            cudaSafeCall( cudaGetSymbolAddress(&counterPtr, g_counter) );
-#endif
+ 
+            cudaSafeCall( hipGetSymbolAddress(&counterPtr, &g_counter) );
+
 
             cudaSafeCall( hipMemset(counterPtr, 0, sizeof(int)) );
 
