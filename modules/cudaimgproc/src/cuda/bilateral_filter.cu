@@ -68,9 +68,8 @@ namespace cv { namespace cuda { namespace device
         __device__ __forceinline__ float sqr(const float& a)  { return a * a; }
 
         template<typename T, typename B>
-        __global__ void bilateral_kernel(const PtrStepSz<T> src,  PtrStep<T> dst, const B b, const int ksz, const float sigma_spatial2_inv_half, const float sigma_color2_inv_half)
+        __global__ void bilateral_kernel(const PtrStepSz<T> src, PtrStep<T> dst, const B b, const int ksz, const float sigma_spatial2_inv_half, const float sigma_color2_inv_half)
         {
-
             typedef typename TypeVec<float, VecTraits<T>::cn>::vec_type value_type;
 
             int x = hipThreadIdx_x + hipBlockIdx_x * hipBlockDim_x;
@@ -123,11 +122,11 @@ namespace cv { namespace cuda { namespace device
                         sum2 = sum2 + weight;
                     }
             }
-            dst(y, x) = saturate_cast<T>(sum1 / sum2);;
+            dst(y, x) = saturate_cast<T>(sum1 / sum2);
         }
 
         template<typename T, template <typename> class B>
-        void bilateral_caller(const PtrStepSzb src, PtrStepSzb dst, int kernel_size, float sigma_spatial, float sigma_color, hipStream_t stream)
+        void bilateral_caller(const PtrStepSzb& src, PtrStepSzb dst, int kernel_size, float sigma_spatial, float sigma_color, hipStream_t stream)
         {
             dim3 block (32, 8);
             dim3 grid (divUp (src.cols, block.x), divUp (src.rows, block.y));
@@ -139,8 +138,8 @@ namespace cv { namespace cuda { namespace device
 
 #ifdef HIP_TODO
             cudaSafeCall( hipFuncSetCacheConfig (bilateral_kernel<T, B<T> >, hipFuncCachePreferL1) );
+            hipLaunchKernelGGL((bilateral_kernel<T, B>), dim3(grid), dim3(block), 0, stream, src, (PtrStepSz<unsigned char>)dst, b, kernel_size, sigma_spatial2_inv_half, sigma_color2_inv_half);
 #endif //HIP_TODO
-            hipLaunchKernelGGL((bilateral_kernel<T, B<T>>), dim3(grid), dim3(block), 0, stream, (PtrStepSz<T>)src, (PtrStepSz<T>)dst, b, kernel_size, sigma_spatial2_inv_half, sigma_color2_inv_half);
 
             cudaSafeCall ( hipGetLastError () );
 
@@ -149,9 +148,9 @@ namespace cv { namespace cuda { namespace device
         }
 
         template<typename T>
-        void bilateral_filter_gpu(const PtrStepSzb src, PtrStepSzb dst, int kernel_size, float gauss_spatial_coeff, float gauss_color_coeff, int borderMode, hipStream_t stream)
+        void bilateral_filter_gpu(const PtrStepSzb& src, PtrStepSzb dst, int kernel_size, float gauss_spatial_coeff, float gauss_color_coeff, int borderMode, hipStream_t stream)
         {
-            typedef void (*caller_t)(const PtrStepSzb src, PtrStepSzb dst, int kernel_size, float sigma_spatial, float sigma_color, hipStream_t stream);
+            typedef void (*caller_t)(const PtrStepSzb& src, PtrStepSzb dst, int kernel_size, float sigma_spatial, float sigma_color, hipStream_t stream);
 
             static caller_t funcs[] =
             {
@@ -168,7 +167,7 @@ namespace cv { namespace cuda { namespace device
 
 
 #define OCV_INSTANTIATE_BILATERAL_FILTER(T) \
-    template void cv::cuda::device::imgproc::bilateral_filter_gpu<T>(const PtrStepSzb, PtrStepSzb, int, float, float, int, hipStream_t);
+    template void cv::cuda::device::imgproc::bilateral_filter_gpu<T>(const PtrStepSzb&, PtrStepSzb, int, float, float, int, hipStream_t);
 
 OCV_INSTANTIATE_BILATERAL_FILTER(uchar)
 //OCV_INSTANTIATE_BILATERAL_FILTER(uchar2)
