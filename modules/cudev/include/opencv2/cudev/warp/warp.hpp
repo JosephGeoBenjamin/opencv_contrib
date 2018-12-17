@@ -68,6 +68,7 @@ struct Warp
         asm("mov.u32 %0, %%laneid;" : "=r"(ret));
 #else
         // HIP_TODO
+
 #endif
         return ret;
     }
