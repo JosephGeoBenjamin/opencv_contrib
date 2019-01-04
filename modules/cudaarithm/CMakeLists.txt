@@ -18,7 +18,7 @@ if(HAVE_HIPBLAS)
 endif()
 
 if(HAVE_ROCFFT)
-  list(APPEND extra_libs ${CUDA_rocfft_LIBRARY})
+  list(APPEND extra_libs ${HIP_rocfft_LIBRARY})
 endif()
 
 ocv_create_module(${extra_libs})
