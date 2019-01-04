@@ -89,31 +89,31 @@ namespace
 #ifdef HAVE_HIPBLAS
     namespace
     {
-        const ErrorEntry cublas_errors[] =
+        const ErrorEntry hipblas_errors[] =
         {
-            error_entry( CUBLAS_STATUS_SUCCESS ),
-            error_entry( CUBLAS_STATUS_NOT_INITIALIZED ),
-            error_entry( CUBLAS_STATUS_ALLOC_FAILED ),
-            error_entry( CUBLAS_STATUS_INVALID_VALUE ),
-            error_entry( CUBLAS_STATUS_ARCH_MISMATCH ),
-            error_entry( CUBLAS_STATUS_MAPPING_ERROR ),
-            error_entry( CUBLAS_STATUS_EXECUTION_FAILED ),
-            error_entry( CUBLAS_STATUS_INTERNAL_ERROR )
+            error_entry( HIPBLAS_STATUS_SUCCESS ),
+            error_entry( HIPBLAS_STATUS_NOT_INITIALIZED ),
+            error_entry( HIPBLAS_STATUS_ALLOC_FAILED ),
+            error_entry( HIPBLAS_STATUS_INVALID_VALUE ),
+            error_entry( HIPBLAS_STATUS_ARCH_MISMATCH ),
+            error_entry( HIPBLAS_STATUS_MAPPING_ERROR ),
+            error_entry( HIPBLAS_STATUS_EXECUTION_FAILED ),
+            error_entry( HIPBLAS_STATUS_INTERNAL_ERROR )
         };
 
-        const size_t cublas_error_num = sizeof(cublas_errors) / sizeof(cublas_errors[0]);
+        const size_t hipblas_error_num = sizeof(hipblas_errors) / sizeof(hipblas_errors[0]);
 
-        static inline void ___cublasSafeCall(cublasStatus_t err, const char* file, const int line, const char* func)
+        static inline void ___hipblasSafeCall(hipblasStatus_t err, const char* file, const int line, const char* func)
         {
-            if (CUBLAS_STATUS_SUCCESS != err)
+            if (HIPBLAS_STATUS_SUCCESS != err)
             {
-                String msg = getErrorString(err, cublas_errors, cublas_error_num);
+                String msg = getErrorString(err, hipblas_errors, hipblas_error_num);
                 cv::error(cv::Error::GpuApiCallError, msg, func, file, line);
             }
         }
     }
 
-    #define cublasSafeCall(expr)  ___cublasSafeCall(expr, __FILE__, __LINE__, CV_Func)
+    #define hipblasSafeCall(expr)  ___hipblasSafeCall(expr, __FILE__, __LINE__, CV_Func)
 #endif // HAVE_HIPBLAS
 
 #ifdef HAVE_ROCFFT
@@ -165,9 +165,9 @@ void cv::cuda::gemm(InputArray _src1, InputArray _src2, double alpha, InputArray
     CV_UNUSED(_dst);
     CV_UNUSED(flags);
     CV_UNUSED(stream);
-    CV_Error(Error::StsNotImplemented, "The library was build without CUBLAS");
+    CV_Error(Error::StsNotImplemented, "The library was build without HIPBLAS");
 #else
-    // CUBLAS works with column-major matrices
+    // HIPBLAS works with column-major matrices
 
     GpuMat src1 = getInputMat(_src1, stream);
     GpuMat src2 = getInputMat(_src2, stream);
@@ -221,12 +221,12 @@ void cv::cuda::gemm(InputArray _src1, InputArray _src2, double alpha, InputArray
         }
     }
 
-    cublasHandle_t handle;
-    cublasSafeCall( cublasCreate_v2(&handle) );
+    hipblasHandle_t handle;
+    hipblasSafeCall( hipblasCreate_v2(&handle) );
 
-    cublasSafeCall( cublasSetStream_v2(handle, StreamAccessor::getStream(stream)) );
+    hipblasSafeCall( hipblasSetStream_v2(handle, StreamAccessor::getStream(stream)) );
 
-    cublasSafeCall( cublasSetPointerMode_v2(handle, CUBLAS_POINTER_MODE_HOST) );
+    hipblasSafeCall( hipblasSetPointerMode_v2(handle, HIPBLAS_POINTER_MODE_HOST) );
 
     const float alphaf = static_cast<float>(alpha);
     const float betaf = static_cast<float>(beta);
@@ -237,13 +237,13 @@ void cv::cuda::gemm(InputArray _src1, InputArray _src2, double alpha, InputArray
     const cuDoubleComplex alphac = make_cuDoubleComplex(alpha, 0);
     const cuDoubleComplex betac = make_cuDoubleComplex(beta, 0);
 
-    cublasOperation_t transa = tr2 ? CUBLAS_OP_T : CUBLAS_OP_N;
-    cublasOperation_t transb = tr1 ? CUBLAS_OP_T : CUBLAS_OP_N;
+    hipblasOperation_t transa = tr2 ? HIPBLAS_OP_T : HIPBLAS_OP_N;
+    hipblasOperation_t transb = tr1 ? HIPBLAS_OP_T : HIPBLAS_OP_N;
 
     switch (src1.type())
     {
     case CV_32FC1:
-        cublasSafeCall( cublasSgemm_v2(handle, transa, transb, tr2 ? src2.rows : src2.cols, tr1 ? src1.cols : src1.rows, tr2 ? src2.cols : src2.rows,
+        hipblasSafeCall( hipblasSgemm_v2(handle, transa, transb, tr2 ? src2.rows : src2.cols, tr1 ? src1.cols : src1.rows, tr2 ? src2.cols : src2.rows,
             &alphaf,
             src2.ptr<float>(), static_cast<int>(src2.step / sizeof(float)),
             src1.ptr<float>(), static_cast<int>(src1.step / sizeof(float)),
@@ -252,7 +252,7 @@ void cv::cuda::gemm(InputArray _src1, InputArray _src2, double alpha, InputArray
         break;
 
     case CV_64FC1:
-        cublasSafeCall( cublasDgemm_v2(handle, transa, transb, tr2 ? src2.rows : src2.cols, tr1 ? src1.cols : src1.rows, tr2 ? src2.cols : src2.rows,
+        hipblasSafeCall( hipblasDgemm_v2(handle, transa, transb, tr2 ? src2.rows : src2.cols, tr1 ? src1.cols : src1.rows, tr2 ? src2.cols : src2.rows,
             &alpha,
             src2.ptr<double>(), static_cast<int>(src2.step / sizeof(double)),
             src1.ptr<double>(), static_cast<int>(src1.step / sizeof(double)),
@@ -261,7 +261,7 @@ void cv::cuda::gemm(InputArray _src1, InputArray _src2, double alpha, InputArray
         break;
 
     case CV_32FC2:
-        cublasSafeCall( cublasCgemm_v2(handle, transa, transb, tr2 ? src2.rows : src2.cols, tr1 ? src1.cols : src1.rows, tr2 ? src2.cols : src2.rows,
+        hipblasSafeCall( hipblasCgemm_v2(handle, transa, transb, tr2 ? src2.rows : src2.cols, tr1 ? src1.cols : src1.rows, tr2 ? src2.cols : src2.rows,
             &alphacf,
             src2.ptr<cuComplex>(), static_cast<int>(src2.step / sizeof(cuComplex)),
             src1.ptr<cuComplex>(), static_cast<int>(src1.step / sizeof(cuComplex)),
@@ -270,7 +270,7 @@ void cv::cuda::gemm(InputArray _src1, InputArray _src2, double alpha, InputArray
         break;
 
     case CV_64FC2:
-        cublasSafeCall( cublasZgemm_v2(handle, transa, transb, tr2 ? src2.rows : src2.cols, tr1 ? src1.cols : src1.rows, tr2 ? src2.cols : src2.rows,
+        hipblasSafeCall( hipblasZgemm_v2(handle, transa, transb, tr2 ? src2.rows : src2.cols, tr1 ? src1.cols : src1.rows, tr2 ? src2.cols : src2.rows,
             &alphac,
             src2.ptr<cuDoubleComplex>(), static_cast<int>(src2.step / sizeof(cuDoubleComplex)),
             src1.ptr<cuDoubleComplex>(), static_cast<int>(src1.step / sizeof(cuDoubleComplex)),
@@ -279,7 +279,7 @@ void cv::cuda::gemm(InputArray _src1, InputArray _src2, double alpha, InputArray
         break;
     }
 
-    cublasSafeCall( cublasDestroy_v2(handle) );
+    hipblasSafeCall( hipblasDestroy_v2(handle) );
 
     syncOutput(dst, _dst, stream);
 #endif
