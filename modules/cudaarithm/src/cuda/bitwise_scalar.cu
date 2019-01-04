@@ -48,6 +48,11 @@
 
 #else
 
+// MCW-Note: Add_definition of __OPENCV_BUILD is not reflected in this module
+#ifndef __OPENCV_BUILD
+#define __OPENCV_BUILD
+#endif
+
 #include "opencv2/cudev.hpp"
 #include "opencv2/core/private.cuda.hpp"
 
