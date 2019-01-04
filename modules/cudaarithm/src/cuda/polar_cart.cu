@@ -207,9 +207,13 @@ namespace
         const T scale = angleInDegrees ? static_cast<T>(CV_PI / 180.0) : static_cast<T>(1.0);
 
         if (magc.empty())
-            polarToCartImpl_<T, false> << <grid, block, 0, stream >> >(shrinkPtr(magc), shrinkPtr(anglec), shrinkPtr(xc), shrinkPtr(yc), scale, anglec.rows, anglec.cols);
+            hipLaunchKernelGGL( (polarToCartImpl_<T, false>), dim3(grid), dim3(block),
+                0, stream, shrinkPtr(magc), shrinkPtr(anglec), shrinkPtr(xc),
+                shrinkPtr(yc), scale, anglec.rows, anglec.cols );
         else
-            polarToCartImpl_<T, true> << <grid, block, 0, stream >> >(shrinkPtr(magc), shrinkPtr(anglec), shrinkPtr(xc), shrinkPtr(yc), scale, anglec.rows, anglec.cols);
+            hipLaunchKernelGGL( (polarToCartImpl_<T, true>), dim3(grid), dim3(block),
+                0, stream, shrinkPtr(magc), shrinkPtr(anglec), shrinkPtr(xc),
+                shrinkPtr(yc), scale, anglec.rows, anglec.cols );
     }
 }
 
