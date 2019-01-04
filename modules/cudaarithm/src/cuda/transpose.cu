@@ -68,6 +68,7 @@ void cv::cuda::transpose(InputArray _src, OutputArray _dst, Stream& stream)
 
     if (elemSize == 1)
     {
+#ifdef NPP_ENABLE
         NppStreamHandler h(StreamAccessor::getStream(stream));
 
         NppiSize sz;
@@ -76,6 +77,7 @@ void cv::cuda::transpose(InputArray _src, OutputArray _dst, Stream& stream)
 
         nppSafeCall( nppiTranspose_8u_C1R(src.ptr<Npp8u>(), static_cast<int>(src.step),
             dst.ptr<Npp8u>(), static_cast<int>(dst.step), sz) );
+#endif //NPP_ENABLE
 
         if (!stream)
             CV_CUDEV_SAFE_CALL( hipDeviceSynchronize() );

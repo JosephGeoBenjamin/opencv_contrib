@@ -68,6 +68,8 @@ void cv::cuda::copyMakeBorder(InputArray, OutputArray, int, int, int, int, int, 
 
 namespace
 {
+
+#ifdef NPP_ENABLE
     template<int DEPTH> struct NppTypeTraits;
     template<> struct NppTypeTraits<CV_8U>  { typedef Npp8u npp_t; };
     template<> struct NppTypeTraits<CV_8S>  { typedef Npp8s npp_t; };
@@ -104,6 +106,8 @@ namespace
                 cudaSafeCall( hipDeviceSynchronize() );
         }
     };
+#endif //NPP_ENABLE
+
 }
 
 void cv::cuda::flip(InputArray _src, OutputArray _dst, int flipCode, Stream& stream)
@@ -111,12 +115,15 @@ void cv::cuda::flip(InputArray _src, OutputArray _dst, int flipCode, Stream& str
     typedef void (*func_t)(const GpuMat& src, GpuMat& dst, int flipCode, hipStream_t stream);
     static const func_t funcs[6][4] =
     {
+#ifdef NPP_ENABLE
         {NppMirror<CV_8U, nppiMirror_8u_C1R>::call, 0, NppMirror<CV_8U, nppiMirror_8u_C3R>::call, NppMirror<CV_8U, nppiMirror_8u_C4R>::call},
         {0,0,0,0},
         {NppMirror<CV_16U, nppiMirror_16u_C1R>::call, 0, NppMirror<CV_16U, nppiMirror_16u_C3R>::call, NppMirror<CV_16U, nppiMirror_16u_C4R>::call},
         {0,0,0,0},
         {NppMirror<CV_32S, nppiMirror_32s_C1R>::call, 0, NppMirror<CV_32S, nppiMirror_32s_C3R>::call, NppMirror<CV_32S, nppiMirror_32s_C4R>::call},
         {NppMirror<CV_32F, nppiMirror_32f_C1R>::call, 0, NppMirror<CV_32F, nppiMirror_32f_C3R>::call, NppMirror<CV_32F, nppiMirror_32f_C4R>::call}
+#endif //NPP_ENABLE
+
     };
 
     GpuMat src = getInputMat(_src, stream);

@@ -143,6 +143,7 @@ void cv::cuda::meanStdDev(InputArray _src, OutputArray _dst, Stream& stream)
 
     GpuMat dst = getOutputMat(_dst, 1, 2, CV_64FC1, stream);
 
+#ifdef NPP_ENABLE
     NppiSize sz;
     sz.width  = src.cols;
     sz.height = src.rows;
@@ -163,6 +164,8 @@ void cv::cuda::meanStdDev(InputArray _src, OutputArray _dst, Stream& stream)
     nppSafeCall( nppiMean_StdDev_8u_C1R(src.ptr<Npp8u>(), static_cast<int>(src.step), sz, buf.ptr<Npp8u>(), dst.ptr<Npp64f>(), dst.ptr<Npp64f>() + 1) );
 
     syncOutput(dst, _dst, stream);
+#endif //NPP_ENABLE
+
 }
 
 void cv::cuda::meanStdDev(InputArray _src, Scalar& mean, Scalar& stddev)
@@ -193,6 +196,7 @@ void cv::cuda::rectStdDev(InputArray _src, InputArray _sqr, OutputArray _dst, Re
 
     GpuMat dst = getOutputMat(_dst, src.size(), CV_32FC1, _stream);
 
+#ifdef NPP_ENABLE
     NppiSize sz;
     sz.width = src.cols;
     sz.height = src.rows;
@@ -214,6 +218,8 @@ void cv::cuda::rectStdDev(InputArray _src, InputArray _sqr, OutputArray _dst, Re
         cudaSafeCall( hipDeviceSynchronize() );
 
     syncOutput(dst, _dst, _stream);
+#endif //NPP_ENABLE
+
 }
 
 #endif
