@@ -56,8 +56,8 @@
 #  include <hipblas.h>
 #endif
 
-#ifdef HAVE_CUFFT
-#  include <cufft.h>
+#ifdef HAVE_ROCFFT
+#  include <rocfft.h>
 #endif
 
 #endif /* __OPENCV_PRECOMP_H__ */

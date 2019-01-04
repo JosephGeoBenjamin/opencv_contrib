@@ -116,38 +116,38 @@ namespace
     #define cublasSafeCall(expr)  ___cublasSafeCall(expr, __FILE__, __LINE__, CV_Func)
 #endif // HAVE_HIPBLAS
 
-#ifdef HAVE_CUFFT
+#ifdef HAVE_ROCFFT
     namespace
     {
         //////////////////////////////////////////////////////////////////////////
-        // CUFFT errors
+        // ROCFFT errors
 
-        const ErrorEntry cufft_errors[] =
+        const ErrorEntry rocfft_errors[] =
         {
-            error_entry( CUFFT_INVALID_PLAN ),
-            error_entry( CUFFT_ALLOC_FAILED ),
-            error_entry( CUFFT_INVALID_TYPE ),
-            error_entry( CUFFT_INVALID_VALUE ),
-            error_entry( CUFFT_INTERNAL_ERROR ),
-            error_entry( CUFFT_EXEC_FAILED ),
-            error_entry( CUFFT_SETUP_FAILED ),
-            error_entry( CUFFT_INVALID_SIZE ),
-            error_entry( CUFFT_UNALIGNED_DATA )
+            error_entry( ROCFFT_INVALID_PLAN ),
+            error_entry( ROCFFT_ALLOC_FAILED ),
+            error_entry( ROCFFT_INVALID_TYPE ),
+            error_entry( ROCFFT_INVALID_VALUE ),
+            error_entry( ROCFFT_INTERNAL_ERROR ),
+            error_entry( ROCFFT_EXEC_FAILED ),
+            error_entry( ROCFFT_SETUP_FAILED ),
+            error_entry( ROCFFT_INVALID_SIZE ),
+            error_entry( ROCFFT_UNALIGNED_DATA )
         };
 
-        const int cufft_error_num = sizeof(cufft_errors) / sizeof(cufft_errors[0]);
+        const int rocfft_error_num = sizeof(rocfft_errors) / sizeof(rocfft_errors[0]);
 
-        void ___cufftSafeCall(int err, const char* file, const int line, const char* func)
+        void ___rocfftSafeCall(int err, const char* file, const int line, const char* func)
         {
-            if (CUFFT_SUCCESS != err)
+            if (ROCFFT_SUCCESS != err)
             {
-                String msg = getErrorString(err, cufft_errors, cufft_error_num);
+                String msg = getErrorString(err, rocfft_errors, rocfft_error_num);
                 cv::error(cv::Error::GpuApiCallError, msg, func, file, line);
             }
         }
     }
 
-    #define cufftSafeCall(expr)  ___cufftSafeCall(expr, __FILE__, __LINE__, CV_Func)
+    #define rocfftSafeCall(expr)  ___rocfftSafeCall(expr, __FILE__, __LINE__, CV_Func)
 
 #endif
 
@@ -300,7 +300,7 @@ void cv::cuda::dft(InputArray _src, OutputArray _dst, Size dft_size, int flags, 
 //////////////////////////////////////////////////////////////////////////////
 // DFT algorithm
 
-#ifdef HAVE_CUFFT
+#ifdef HAVE_ROCFFT
 
 namespace
 {
@@ -310,8 +310,8 @@ namespace
         Size dft_size, dft_size_opt;
         bool is_1d_input, is_row_dft, is_scaled_dft, is_inverse, is_complex_input, is_complex_output;
 
-        cufftType dft_type;
-        cufftHandle plan;
+        rocfftType dft_type;
+        rocfftHandle plan;
 
     public:
         DFTImpl(Size dft_size, int flags)
@@ -323,7 +323,7 @@ namespace
               is_inverse((flags & DFT_INVERSE) != 0),
               is_complex_input((flags & DFT_COMPLEX_INPUT) != 0),
               is_complex_output(!(flags & DFT_REAL_OUTPUT)),
-              dft_type(!is_complex_input ? CUFFT_R2C : (is_complex_output ? CUFFT_C2C : CUFFT_C2R))
+              dft_type(!is_complex_input ? ROCFFT_R2C : (is_complex_output ? ROCFFT_C2C : ROCFFT_C2R))
         {
             // We don't support unpacked output (in the case of real input)
             CV_Assert( !(flags & DFT_COMPLEX_OUTPUT) );
@@ -341,14 +341,14 @@ namespace
             CV_Assert( dft_size_opt.width > 1 );
 
             if (is_1d_input || is_row_dft)
-                cufftSafeCall( cufftPlan1d(&plan, dft_size_opt.width, dft_type, dft_size_opt.height) );
+                rocfftSafeCall( rocfftPlan1d(&plan, dft_size_opt.width, dft_type, dft_size_opt.height) );
             else
-                cufftSafeCall( cufftPlan2d(&plan, dft_size_opt.height, dft_size_opt.width, dft_type) );
+                rocfftSafeCall( rocfftPlan2d(&plan, dft_size_opt.height, dft_size_opt.width, dft_type) );
         }
 
         ~DFTImpl()
         {
-            cufftSafeCall( cufftDestroy(plan) );
+            rocfftSafeCall( rocfftDestroy(plan) );
         }
 
         void compute(InputArray _src, OutputArray _dst, Stream& stream)
@@ -359,7 +359,7 @@ namespace
             CV_Assert( is_complex_input == (src.channels() == 2) );
 
             // Make sure here we work with the continuous input,
-            // as CUFFT can't handle gaps
+            // as ROCFFT can't handle gaps
             GpuMat src_cont;
             if (src.isContinuous())
             {
@@ -373,7 +373,7 @@ namespace
                 src.copyTo(src_cont, stream);
             }
 
-            cufftSafeCall( cufftSetStream(plan, StreamAccessor::getStream(stream)) );
+            rocfftSafeCall( rocfftSetStream(plan, StreamAccessor::getStream(stream)) );
 
             if (is_complex_input)
             {
@@ -382,17 +382,17 @@ namespace
                     createContinuous(dft_size, CV_32FC2, _dst);
                     GpuMat dst = _dst.getGpuMat();
 
-                    cufftSafeCall(cufftExecC2C(
-                            plan, src_cont.ptr<cufftComplex>(), dst.ptr<cufftComplex>(),
-                            is_inverse ? CUFFT_INVERSE : CUFFT_FORWARD));
+                    rocfftSafeCall(rocfftExecC2C(
+                            plan, src_cont.ptr<rocfftComplex>(), dst.ptr<rocfftComplex>(),
+                            is_inverse ? ROCFFT_INVERSE : ROCFFT_FORWARD));
                 }
                 else
                 {
                     createContinuous(dft_size, CV_32F, _dst);
                     GpuMat dst = _dst.getGpuMat();
 
-                    cufftSafeCall(cufftExecC2R(
-                            plan, src_cont.ptr<cufftComplex>(), dst.ptr<cufftReal>()));
+                    rocfftSafeCall(rocfftExecC2R(
+                            plan, src_cont.ptr<rocfftComplex>(), dst.ptr<rocfftReal>()));
                 }
             }
             else
@@ -405,8 +405,8 @@ namespace
 
                 GpuMat dst = _dst.getGpuMat();
 
-                cufftSafeCall(cufftExecR2C(
-                                  plan, src_cont.ptr<cufftReal>(), dst.ptr<cufftComplex>()));
+                rocfftSafeCall(rocfftExecR2C(
+                                  plan, src_cont.ptr<rocfftReal>(), dst.ptr<rocfftComplex>()));
             }
 
             if (is_scaled_dft)
@@ -419,10 +419,10 @@ namespace
 
 Ptr<DFT> cv::cuda::createDFT(Size dft_size, int flags)
 {
-#ifndef HAVE_CUFFT
+#ifndef HAVE_ROCFFT
     CV_UNUSED(dft_size);
     CV_UNUSED(flags);
-    CV_Error(Error::StsNotImplemented, "The library was build without CUFFT");
+    CV_Error(Error::StsNotImplemented, "The library was build without ROCFFT");
     return Ptr<DFT>();
 #else
     return makePtr<DFTImpl>(dft_size, flags);
@@ -432,7 +432,7 @@ Ptr<DFT> cv::cuda::createDFT(Size dft_size, int flags)
 //////////////////////////////////////////////////////////////////////////////
 // Convolution
 
-#ifdef HAVE_CUFFT
+#ifdef HAVE_ROCFFT
 
 namespace
 {
@@ -468,8 +468,8 @@ namespace
         dft_size.width = 1 << int(ceil(std::log(block_size.width + templ_size.width - 1.) / std::log(2.)));
         dft_size.height = 1 << int(ceil(std::log(block_size.height + templ_size.height - 1.) / std::log(2.)));
 
-        // CUFFT has hard-coded kernels for power-of-2 sizes (up to 8192),
-        // see CUDA Toolkit 4.1 CUFFT Library Programming Guide
+        // ROCFFT has hard-coded kernels for power-of-2 sizes (up to 8192),
+        // see CUDA Toolkit 4.1 ROCFFT Library Programming Guide
         if (dft_size.width > 8192)
             dft_size.width = getOptimalDFTSize(block_size.width + templ_size.width - 1);
         if (dft_size.height > 8192)
@@ -516,18 +516,18 @@ namespace
 
         hipStream_t stream = StreamAccessor::getStream(_stream);
 
-        cufftHandle planR2C, planC2R;
-        cufftSafeCall( cufftPlan2d(&planC2R, dft_size.height, dft_size.width, CUFFT_C2R) );
-        cufftSafeCall( cufftPlan2d(&planR2C, dft_size.height, dft_size.width, CUFFT_R2C) );
+        rocfftHandle planR2C, planC2R;
+        rocfftSafeCall( rocfftPlan2d(&planC2R, dft_size.height, dft_size.width, ROCFFT_C2R) );
+        rocfftSafeCall( rocfftPlan2d(&planR2C, dft_size.height, dft_size.width, ROCFFT_R2C) );
 
-        cufftSafeCall( cufftSetStream(planR2C, stream) );
-        cufftSafeCall( cufftSetStream(planC2R, stream) );
+        rocfftSafeCall( rocfftSetStream(planR2C, stream) );
+        rocfftSafeCall( rocfftSetStream(planC2R, stream) );
 
         GpuMat templ_roi(templ.size(), CV_32FC1, templ.data, templ.step);
         cuda::copyMakeBorder(templ_roi, templ_block, 0, templ_block.rows - templ_roi.rows, 0,
                             templ_block.cols - templ_roi.cols, 0, Scalar(), _stream);
 
-        cufftSafeCall( cufftExecR2C(planR2C, templ_block.ptr<cufftReal>(), templ_spect.ptr<cufftComplex>()) );
+        rocfftSafeCall( rocfftExecR2C(planR2C, templ_block.ptr<rocfftReal>(), templ_spect.ptr<rocfftComplex>()) );
 
         // Process all blocks of the result matrix
         for (int y = 0; y < result.rows; y += block_size.height)
@@ -541,12 +541,12 @@ namespace
                 cuda::copyMakeBorder(image_roi, image_block, 0, image_block.rows - image_roi.rows,
                                     0, image_block.cols - image_roi.cols, 0, Scalar(), _stream);
 
-                cufftSafeCall(cufftExecR2C(planR2C, image_block.ptr<cufftReal>(),
-                                           image_spect.ptr<cufftComplex>()));
+                rocfftSafeCall(rocfftExecR2C(planR2C, image_block.ptr<rocfftReal>(),
+                                           image_spect.ptr<rocfftComplex>()));
                 cuda::mulAndScaleSpectrums(image_spect, templ_spect, result_spect, 0,
                                           1.f / dft_size.area(), ccorr, _stream);
-                cufftSafeCall(cufftExecC2R(planC2R, result_spect.ptr<cufftComplex>(),
-                                           result_data.ptr<cufftReal>()));
+                rocfftSafeCall(rocfftExecC2R(planC2R, result_spect.ptr<rocfftComplex>(),
+                                           result_data.ptr<rocfftReal>()));
 
                 Size result_roi_size(std::min(x + block_size.width, result.cols) - x,
                                      std::min(y + block_size.height, result.rows) - y);
@@ -559,8 +559,8 @@ namespace
             }
         }
 
-        cufftSafeCall( cufftDestroy(planR2C) );
-        cufftSafeCall( cufftDestroy(planC2R) );
+        rocfftSafeCall( rocfftDestroy(planR2C) );
+        rocfftSafeCall( rocfftDestroy(planC2R) );
 
         syncOutput(result, _result, _stream);
     }
@@ -570,9 +570,9 @@ namespace
 
 Ptr<Convolution> cv::cuda::createConvolution(Size user_block_size)
 {
-#ifndef HAVE_CUFFT
+#ifndef HAVE_ROCFFT
     CV_UNUSED(user_block_size);
-    CV_Error(Error::StsNotImplemented, "The library was build without CUFFT");
+    CV_Error(Error::StsNotImplemented, "The library was build without ROCFFT");
     return Ptr<Convolution>();
 #else
     return makePtr<ConvolutionImpl>(user_block_size);
