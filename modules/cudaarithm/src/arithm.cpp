@@ -124,22 +124,22 @@ namespace
 
         const ErrorEntry rocfft_errors[] =
         {
-            error_entry( ROCFFT_INVALID_PLAN ),
-            error_entry( ROCFFT_ALLOC_FAILED ),
-            error_entry( ROCFFT_INVALID_TYPE ),
-            error_entry( ROCFFT_INVALID_VALUE ),
-            error_entry( ROCFFT_INTERNAL_ERROR ),
-            error_entry( ROCFFT_EXEC_FAILED ),
-            error_entry( ROCFFT_SETUP_FAILED ),
-            error_entry( ROCFFT_INVALID_SIZE ),
-            error_entry( ROCFFT_UNALIGNED_DATA )
+            error_entry( HIPFFT_INVALID_PLAN ),
+            error_entry( HIPFFT_ALLOC_FAILED ),
+            error_entry( HIPFFT_INVALID_TYPE ),
+            error_entry( HIPFFT_INVALID_VALUE ),
+            error_entry( HIPFFT_INTERNAL_ERROR ),
+            error_entry( HIPFFT_EXEC_FAILED ),
+            error_entry( HIPFFT_SETUP_FAILED ),
+            error_entry( HIPFFT_INVALID_SIZE ),
+            error_entry( HIPFFT_UNALIGNED_DATA )
         };
 
         const int rocfft_error_num = sizeof(rocfft_errors) / sizeof(rocfft_errors[0]);
 
         void ___rocfftSafeCall(int err, const char* file, const int line, const char* func)
         {
-            if (ROCFFT_SUCCESS != err)
+            if (HIPFFT_SUCCESS != err)
             {
                 String msg = getErrorString(err, rocfft_errors, rocfft_error_num);
                 cv::error(cv::Error::GpuApiCallError, msg, func, file, line);
