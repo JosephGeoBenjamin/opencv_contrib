@@ -176,8 +176,8 @@ namespace
     template <typename T, bool useMag>
     __global__ void polarToCartImpl_(const GlobPtr<T> mag, const GlobPtr<T> angle, GlobPtr<T> xmat, GlobPtr<T> ymat, const T scale, const int rows, const int cols)
     {
-        const int x = blockDim.x * blockIdx.x + threadIdx.x;
-        const int y = blockDim.y * blockIdx.y + threadIdx.y;
+        const int x = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
+        const int y = hipBlockDim_y * hipBlockIdx_y + hipThreadIdx_y;
 
         if (x >= cols || y >= rows)
             return;
