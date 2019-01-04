@@ -222,20 +222,20 @@ void cv::cuda::gemm(InputArray _src1, InputArray _src2, double alpha, InputArray
     }
 
     hipblasHandle_t handle;
-    hipblasSafeCall( hipblasCreate_v2(&handle) );
+    hipblasSafeCall( hipblasCreate(&handle) );
 
-    hipblasSafeCall( hipblasSetStream_v2(handle, StreamAccessor::getStream(stream)) );
+    hipblasSafeCall( hipblasSetStream(handle, StreamAccessor::getStream(stream)) );
 
-    hipblasSafeCall( hipblasSetPointerMode_v2(handle, HIPBLAS_POINTER_MODE_HOST) );
+    hipblasSafeCall( hipblasSetPointerMode(handle, HIPBLAS_POINTER_MODE_HOST) );
 
     const float alphaf = static_cast<float>(alpha);
     const float betaf = static_cast<float>(beta);
 
-    const cuComplex alphacf = make_cuComplex(alphaf, 0);
-    const cuComplex betacf = make_cuComplex(betaf, 0);
+    const hipComplex alphacf = make_hipComplex(alphaf, 0);
+    const hipComplex betacf = make_hipComplex(betaf, 0);
 
-    const cuDoubleComplex alphac = make_cuDoubleComplex(alpha, 0);
-    const cuDoubleComplex betac = make_cuDoubleComplex(beta, 0);
+    const hipDoubleComplex alphac = make_hipDoubleComplex(alpha, 0);
+    const hipDoubleComplex betac = make_hipDoubleComplex(beta, 0);
 
     hipblasOperation_t transa = tr2 ? HIPBLAS_OP_T : HIPBLAS_OP_N;
     hipblasOperation_t transb = tr1 ? HIPBLAS_OP_T : HIPBLAS_OP_N;
@@ -263,19 +263,19 @@ void cv::cuda::gemm(InputArray _src1, InputArray _src2, double alpha, InputArray
     case CV_32FC2:
         hipblasSafeCall( hipblasCgemm_v2(handle, transa, transb, tr2 ? src2.rows : src2.cols, tr1 ? src1.cols : src1.rows, tr2 ? src2.cols : src2.rows,
             &alphacf,
-            src2.ptr<cuComplex>(), static_cast<int>(src2.step / sizeof(cuComplex)),
-            src1.ptr<cuComplex>(), static_cast<int>(src1.step / sizeof(cuComplex)),
+            src2.ptr<hipComplex>(), static_cast<int>(src2.step / sizeof(hipComplex)),
+            src1.ptr<hipComplex>(), static_cast<int>(src1.step / sizeof(hipComplex)),
             &betacf,
-            dst.ptr<cuComplex>(), static_cast<int>(dst.step / sizeof(cuComplex))) );
+            dst.ptr<hipComplex>(), static_cast<int>(dst.step / sizeof(hipComplex))) );
         break;
 
     case CV_64FC2:
         hipblasSafeCall( hipblasZgemm_v2(handle, transa, transb, tr2 ? src2.rows : src2.cols, tr1 ? src1.cols : src1.rows, tr2 ? src2.cols : src2.rows,
             &alphac,
-            src2.ptr<cuDoubleComplex>(), static_cast<int>(src2.step / sizeof(cuDoubleComplex)),
-            src1.ptr<cuDoubleComplex>(), static_cast<int>(src1.step / sizeof(cuDoubleComplex)),
+            src2.ptr<hipDoubleComplex>(), static_cast<int>(src2.step / sizeof(hipDoubleComplex)),
+            src1.ptr<hipDoubleComplex>(), static_cast<int>(src1.step / sizeof(hipDoubleComplex)),
             &betac,
-            dst.ptr<cuDoubleComplex>(), static_cast<int>(dst.step / sizeof(cuDoubleComplex))) );
+            dst.ptr<hipDoubleComplex>(), static_cast<int>(dst.step / sizeof(hipDoubleComplex))) );
         break;
     }
 
