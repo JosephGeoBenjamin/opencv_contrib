@@ -261,21 +261,27 @@ void cv::cuda::gemm(InputArray _src1, InputArray _src2, double alpha, InputArray
         break;
 
     case CV_32FC2:
+#ifdef HIP_TODO
+//hipblasCgemm is not implemented by hipBlas
         hipblasSafeCall( hipblasCgemm(handle, transa, transb, tr2 ? src2.rows : src2.cols, tr1 ? src1.cols : src1.rows, tr2 ? src2.cols : src2.rows,
             &alphacf,
             src2.ptr<hipComplex>(), static_cast<int>(src2.step / sizeof(hipComplex)),
             src1.ptr<hipComplex>(), static_cast<int>(src1.step / sizeof(hipComplex)),
             &betacf,
             dst.ptr<hipComplex>(), static_cast<int>(dst.step / sizeof(hipComplex))) );
+#endif //HIP_TODO
         break;
 
     case CV_64FC2:
+#ifdef HIP_TODO
+//hipblasZgemm is not implemented by hipBlas
         hipblasSafeCall( hipblasZgemm(handle, transa, transb, tr2 ? src2.rows : src2.cols, tr1 ? src1.cols : src1.rows, tr2 ? src2.cols : src2.rows,
             &alphac,
             src2.ptr<hipDoubleComplex>(), static_cast<int>(src2.step / sizeof(hipDoubleComplex)),
             src1.ptr<hipDoubleComplex>(), static_cast<int>(src1.step / sizeof(hipDoubleComplex)),
             &betac,
             dst.ptr<hipDoubleComplex>(), static_cast<int>(dst.step / sizeof(hipDoubleComplex))) );
+#endif //HIP_TODO
         break;
     }
 
