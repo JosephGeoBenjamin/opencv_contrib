@@ -54,7 +54,7 @@ namespace column_filter
     #define MAX_KERNEL_SIZE 32
 
     template <int KSIZE, typename T, typename D, typename B>
-    __global__ void linearColumnFilter(const PtrStepSz<T> src, PtrStep<D> dst, const float* kernel, const int anchor, const B brd)
+    __global__ void linearColumnFilter(const PtrStepSz<T> src, PtrStepSz<D> dst, const float* kernel, const int anchor, const B brd)
     {
         #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 200)
             const int BLOCK_DIM_X = 16;
