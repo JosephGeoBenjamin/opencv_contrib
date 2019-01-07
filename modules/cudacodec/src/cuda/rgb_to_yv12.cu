@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -150,18 +151,18 @@ void RGB_to_YV12(const GpuMat& src, GpuMat& dst)
     switch (src.channels())
     {
     case 1:
-        Gray_to_YV12<<<grid, block>>>(globPtr<uchar>(src), globPtr<uchar>(dst));
+        hipLaunchKernelGGL((Gray_to_YV12), dim3(grid), dim3(block), 0, 0, globPtr<uchar>(src), globPtr<uchar>(dst));
         break;
     case 3:
-        RGB_to_YV12<<<grid, block>>>(globPtr<uchar3>(src), globPtr<uchar>(dst));
+        hipLaunchKernelGGL((RGB_to_YV12), dim3(grid), dim3(block), 0, 0, globPtr<uchar3>(src), globPtr<uchar>(dst));
         break;
     case 4:
-        RGB_to_YV12<<<grid, block>>>(globPtr<uchar4>(src), globPtr<uchar>(dst));
+        hipLaunchKernelGGL((RGB_to_YV12), dim3(grid), dim3(block), 0, 0, globPtr<uchar4>(src), globPtr<uchar>(dst));
         break;
     }
 
-    CV_CUDEV_SAFE_CALL( cudaGetLastError() );
-    CV_CUDEV_SAFE_CALL( cudaDeviceSynchronize() );
+    CV_CUDEV_SAFE_CALL( hipGetLastError() );
+    CV_CUDEV_SAFE_CALL( hipDeviceSynchronize() );
 }
 
 #endif
