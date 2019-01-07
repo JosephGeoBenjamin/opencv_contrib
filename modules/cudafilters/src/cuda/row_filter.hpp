@@ -72,53 +72,53 @@ namespace row_filter
 
         __shared__ sum_t smem[BLOCK_DIM_Y][(PATCH_PER_BLOCK + 2 * HALO_SIZE) * BLOCK_DIM_X];
 
-        const int y = blockIdx.y * BLOCK_DIM_Y + threadIdx.y;
+        const int y = hipBlockIdx_y * BLOCK_DIM_Y + hipThreadIdx_y;
 
         if (y >= src.rows)
             return;
 
         const T* src_row = src.ptr(y);
 
-        const int xStart = blockIdx.x * (PATCH_PER_BLOCK * BLOCK_DIM_X) + threadIdx.x;
+        const int xStart = hipBlockIdx_x * (PATCH_PER_BLOCK * BLOCK_DIM_X) + hipThreadIdx_x;
 
-        if (blockIdx.x > 0)
+        if (hipBlockIdx_x > 0)
         {
             //Load left halo
             #pragma unroll
             for (int j = 0; j < HALO_SIZE; ++j)
-                smem[threadIdx.y][threadIdx.x + j * BLOCK_DIM_X] = saturate_cast<sum_t>(src_row[xStart - (HALO_SIZE - j) * BLOCK_DIM_X]);
+                smem[hipThreadIdx_y][hipThreadIdx_x + j * BLOCK_DIM_X] = saturate_cast<sum_t>(src_row[xStart - (HALO_SIZE - j) * BLOCK_DIM_X]);
         }
         else
         {
             //Load left halo
             #pragma unroll
             for (int j = 0; j < HALO_SIZE; ++j)
-                smem[threadIdx.y][threadIdx.x + j * BLOCK_DIM_X] = saturate_cast<sum_t>(brd.at_low(xStart - (HALO_SIZE - j) * BLOCK_DIM_X, src_row));
+                smem[hipThreadIdx_y][hipThreadIdx_x + j * BLOCK_DIM_X] = saturate_cast<sum_t>(brd.at_low(xStart - (HALO_SIZE - j) * BLOCK_DIM_X, src_row));
         }
 
-        if (blockIdx.x + 2 < gridDim.x)
+        if (hipBlockIdx_x + 2 < hipGridDim_x)
         {
             //Load main data
             #pragma unroll
             for (int j = 0; j < PATCH_PER_BLOCK; ++j)
-                smem[threadIdx.y][threadIdx.x + HALO_SIZE * BLOCK_DIM_X + j * BLOCK_DIM_X] = saturate_cast<sum_t>(src_row[xStart + j * BLOCK_DIM_X]);
+                smem[hipThreadIdx_y][hipThreadIdx_x + HALO_SIZE * BLOCK_DIM_X + j * BLOCK_DIM_X] = saturate_cast<sum_t>(src_row[xStart + j * BLOCK_DIM_X]);
 
             //Load right halo
             #pragma unroll
             for (int j = 0; j < HALO_SIZE; ++j)
-                smem[threadIdx.y][threadIdx.x + (PATCH_PER_BLOCK + HALO_SIZE) * BLOCK_DIM_X + j * BLOCK_DIM_X] = saturate_cast<sum_t>(src_row[xStart + (PATCH_PER_BLOCK + j) * BLOCK_DIM_X]);
+                smem[hipThreadIdx_y][hipThreadIdx_x + (PATCH_PER_BLOCK + HALO_SIZE) * BLOCK_DIM_X + j * BLOCK_DIM_X] = saturate_cast<sum_t>(src_row[xStart + (PATCH_PER_BLOCK + j) * BLOCK_DIM_X]);
         }
         else
         {
             //Load main data
             #pragma unroll
             for (int j = 0; j < PATCH_PER_BLOCK; ++j)
-                smem[threadIdx.y][threadIdx.x + HALO_SIZE * BLOCK_DIM_X + j * BLOCK_DIM_X] = saturate_cast<sum_t>(brd.at_high(xStart + j * BLOCK_DIM_X, src_row));
+                smem[hipThreadIdx_y][hipThreadIdx_x + HALO_SIZE * BLOCK_DIM_X + j * BLOCK_DIM_X] = saturate_cast<sum_t>(brd.at_high(xStart + j * BLOCK_DIM_X, src_row));
 
             //Load right halo
             #pragma unroll
             for (int j = 0; j < HALO_SIZE; ++j)
-                smem[threadIdx.y][threadIdx.x + (PATCH_PER_BLOCK + HALO_SIZE) * BLOCK_DIM_X + j * BLOCK_DIM_X] = saturate_cast<sum_t>(brd.at_high(xStart + (PATCH_PER_BLOCK + j) * BLOCK_DIM_X, src_row));
+                smem[hipThreadIdx_y][hipThreadIdx_x + (PATCH_PER_BLOCK + HALO_SIZE) * BLOCK_DIM_X + j * BLOCK_DIM_X] = saturate_cast<sum_t>(brd.at_high(xStart + (PATCH_PER_BLOCK + j) * BLOCK_DIM_X, src_row));
         }
 
         __syncthreads();
@@ -134,7 +134,7 @@ namespace row_filter
 
                 #pragma unroll
                 for (int k = 0; k < KSIZE; ++k)
-                    sum = sum + smem[threadIdx.y][threadIdx.x + HALO_SIZE * BLOCK_DIM_X + j * BLOCK_DIM_X - anchor + k] * kernel[k];
+                    sum = sum + smem[hipThreadIdx_y][hipThreadIdx_x + HALO_SIZE * BLOCK_DIM_X + j * BLOCK_DIM_X - anchor + k] * kernel[k];
 
                 dst(y, x) = saturate_cast<D>(sum);
             }

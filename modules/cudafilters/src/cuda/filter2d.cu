@@ -57,8 +57,8 @@ namespace cv { namespace cuda { namespace device
     {
         typedef typename TypeVec<float, VecTraits<D>::cn>::vec_type sum_t;
 
-        const int x = blockIdx.x * blockDim.x + threadIdx.x;
-        const int y = blockIdx.y * blockDim.y + threadIdx.y;
+        const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+        const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
         if (x >= dst.cols || y >= dst.rows)
             return;

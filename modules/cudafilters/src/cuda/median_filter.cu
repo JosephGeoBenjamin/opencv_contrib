@@ -55,14 +55,14 @@ namespace cv { namespace cuda { namespace device
     // {
 
         __device__ void histogramAddAndSub8(int* H, const int * hist_colAdd,const int * hist_colSub){
-            int tx = threadIdx.x;
+            int tx = hipThreadIdx_x;
             if (tx<8){
                 H[tx]+=hist_colAdd[tx]-hist_colSub[tx];
             }
         }
 
         __device__ void histogramMultipleAdd8(int* H, const int * hist_col,int histCount){
-            int tx = threadIdx.x;
+            int tx = hipThreadIdx_x;
             if (tx<8){
                 int temp=H[tx];
                 for(int i=0; i<histCount; i++)
@@ -72,21 +72,21 @@ namespace cv { namespace cuda { namespace device
         }
 
         __device__ void histogramClear8(int* H){
-            int tx = threadIdx.x;
+            int tx = hipThreadIdx_x;
             if (tx<8){
                 H[tx]=0;
             }
         }
 
         __device__ void histogramAdd8(int* H, const int * hist_col){
-            int tx = threadIdx.x;
+            int tx = hipThreadIdx_x;
             if (tx<8){
                 H[tx]+=hist_col[tx];
             }
         }
 
         __device__ void histogramSub8(int* H, const int * hist_col){
-            int tx = threadIdx.x;
+            int tx = hipThreadIdx_x;
             if (tx<8){
                 H[tx]-=hist_col[tx];
             }
@@ -94,14 +94,14 @@ namespace cv { namespace cuda { namespace device
 
 
         __device__ void histogramAdd32(int* H, const int * hist_col){
-            int tx = threadIdx.x;
+            int tx = hipThreadIdx_x;
             if (tx<32){
                 H[tx]+=hist_col[tx];
             }
         }
 
         __device__ void histogramAddAndSub32(int* H, const int * hist_colAdd,const int * hist_colSub){
-            int tx = threadIdx.x;
+            int tx = hipThreadIdx_x;
             if (tx<32){
                 H[tx]+=hist_colAdd[tx]-hist_colSub[tx];
             }
@@ -109,20 +109,20 @@ namespace cv { namespace cuda { namespace device
 
 
         __device__ void histogramClear32(int* H){
-            int tx = threadIdx.x;
+            int tx = hipThreadIdx_x;
             if (tx<32){
                 H[tx]=0;
             }
         }
 
         __device__ void lucClear8(int* luc){
-            int tx = threadIdx.x;
+            int tx = hipThreadIdx_x;
             if (tx<8)
                 luc[tx]=0;
         }
 
         __device__ void histogramMedianPar8LookupOnly(int* H,int* Hscan, const int medPos,int* retval, int* countAtMed){
-            int tx=threadIdx.x;
+            int tx=hipThreadIdx_x;
             *retval=*countAtMed=0;
             if(tx<8){
                 Hscan[tx]=H[tx];
@@ -153,7 +153,7 @@ namespace cv { namespace cuda { namespace device
         }
 
         __device__ void histogramMedianPar32LookupOnly(int* H,int* Hscan, const int medPos,int* retval, int* countAtMed){
-            int tx=threadIdx.x;
+            int tx=hipThreadIdx_x;
             *retval=*countAtMed=0;
             if(tx<32){
                 Hscan[tx]=H[tx];
@@ -200,32 +200,32 @@ namespace cv { namespace cuda { namespace device
 
         int rows = src.rows, cols=src.cols;
 
-        int extraRowThread=rows%gridDim.x;
-        int doExtraRow=blockIdx.x<extraRowThread;
+        int extraRowThread=rows%hipGridDim_x;
+        int doExtraRow=hipBlockIdx_x<extraRowThread;
         int startRow=0, stopRow=0;
-        int rowsPerBlock= rows/gridDim.x+doExtraRow;
+        int rowsPerBlock= rows/hipGridDim_x+doExtraRow;
 
 
         // The following code partitions the work to the blocks. Some blocks will do one row more
         // than other blocks. This code is responsible for doing that balancing
         if(doExtraRow){
-            startRow=rowsPerBlock*blockIdx.x;
+            startRow=rowsPerBlock*hipBlockIdx_x;
             stopRow=::min(rows, startRow+rowsPerBlock);
         }
         else{
-            startRow=(rowsPerBlock+1)*extraRowThread+(rowsPerBlock)*(blockIdx.x-extraRowThread);
+            startRow=(rowsPerBlock+1)*extraRowThread+(rowsPerBlock)*(hipBlockIdx_x-extraRowThread);
             stopRow=::min(rows, startRow+rowsPerBlock);
         }
 
-        int* hist= histPar.data+cols*256*blockIdx.x;
-        int* histCoarse=coarseHistGrid.data +cols*8*blockIdx.x;
+        int* hist= histPar.data+cols*256*hipBlockIdx_x;
+        int* histCoarse=coarseHistGrid.data +cols*8*hipBlockIdx_x;
 
-        if (blockIdx.x==(gridDim.x-1))
+        if (hipBlockIdx_x==(hipGridDim_x-1))
             stopRow=rows;
         __syncthreads();
         int initNeeded=0, initVal, initStartRow, initStopRow;
 
-        if(blockIdx.x==0){
+        if(hipBlockIdx_x==0){
             initNeeded=1; initVal=r+2; initStartRow=1;  initStopRow=r;
         }
         else if (startRow<(r+2)){
@@ -242,7 +242,7 @@ namespace cv { namespace cuda { namespace device
         // of the median filter is outside the window.
         // For all threads in the block the same code will be executed.
         if (initNeeded){
-            for (int j=threadIdx.x; j<(cols); j+=blockDim.x){
+            for (int j=hipThreadIdx_x; j<(cols); j+=hipBlockDim_x){
                 hist[j*256+src.ptr(0)[j]]=initVal;
                 histCoarse[j*8+(src.ptr(0)[j]>>5)]=initVal;
             }
@@ -250,7 +250,7 @@ namespace cv { namespace cuda { namespace device
         __syncthreads();
 
         // For all remaining rows in the median filter, add the values to the the histogram
-        for (int j=threadIdx.x; j<cols; j+=blockDim.x){
+        for (int j=hipThreadIdx_x; j<cols; j+=hipBlockDim_x){
             for(int i=initStartRow; i<initStopRow; i++){
                     int pos=::min(i,rows-1);
                     hist[j*256+src.ptr(pos)[j]]++;
@@ -259,8 +259,8 @@ namespace cv { namespace cuda { namespace device
         }
         __syncthreads();
          // Going through all the rows that the block is responsible for.
-         int inc=blockDim.x*256;
-         int incCoarse=blockDim.x*8;
+         int inc=hipBlockDim_x*256;
+         int incCoarse=hipBlockDim_x*8;
          for(int i=startRow; i< stopRow; i++){
              // For every new row that is started the global histogram for the entire window is restarted.
 
@@ -268,11 +268,11 @@ namespace cv { namespace cuda { namespace device
              lucClear8(luc);
              // Computing some necessary indices
              int possub=::max(0,i-r-1),posadd=::min(rows-1,i+r);
-             int histPos=threadIdx.x*256;
-             int histCoarsePos=threadIdx.x*8;
+             int histPos=hipThreadIdx_x*256;
+             int histCoarsePos=hipThreadIdx_x*8;
              // Going through all the elements of a specific row. Foeach histogram, a value is taken out and
              // one value is added.
-             for (int j=threadIdx.x; j<cols; j+=blockDim.x){
+             for (int j=hipThreadIdx_x; j<cols; j+=hipBlockDim_x){
                 hist[histPos+ src.ptr(possub)[j] ]--;
                 hist[histPos+ src.ptr(posadd)[j] ]++;
                 histCoarse[histCoarsePos+ (src.ptr(possub)[j]>>5) ]--;
@@ -321,7 +321,7 @@ namespace cv { namespace cuda { namespace device
                 else retval=0;
                 __syncthreads();
 
-                if (threadIdx.x==0){
+                if (hipThreadIdx_x==0){
                     dest.ptr(i)[j]=(firstBin<<5) + retval;
                 }
                 histogramAddAndSub8(HCoarse, histCoarse+(int)(posadd<<3),histCoarse+(int)(possub<<3));
@@ -334,8 +334,8 @@ namespace cv { namespace cuda { namespace device
 
     void medianFiltering_gpu(const PtrStepSzb src, PtrStepSzb dst, PtrStepSzi devHist, PtrStepSzi devCoarseHist,int kernel, int partitions,hipStream_t stream){
         int medPos=2*kernel*kernel+2*kernel;
-        dim3 gridDim; gridDim.x=partitions;
-        dim3 blockDim; blockDim.x=32;
+        dim3 gridDim; hipGridDim_x=partitions;
+        dim3 blockDim; hipBlockDim_x=32;
         hipLaunchKernelGGL((cuMedianFilterMultiBlock), dim3(gridDim), dim3(blockDim), 0, stream, src, dst, devHist,devCoarseHist, kernel, medPos);
         if (!stream)
             cudaSafeCall( hipDeviceSynchronize() );
