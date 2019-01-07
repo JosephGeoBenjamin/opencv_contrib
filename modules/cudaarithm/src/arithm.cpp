@@ -243,7 +243,7 @@ void cv::cuda::gemm(InputArray _src1, InputArray _src2, double alpha, InputArray
     switch (src1.type())
     {
     case CV_32FC1:
-        hipblasSafeCall( hipblasSgemm_v2(handle, transa, transb, tr2 ? src2.rows : src2.cols, tr1 ? src1.cols : src1.rows, tr2 ? src2.cols : src2.rows,
+        hipblasSafeCall( hipblasSgemm(handle, transa, transb, tr2 ? src2.rows : src2.cols, tr1 ? src1.cols : src1.rows, tr2 ? src2.cols : src2.rows,
             &alphaf,
             src2.ptr<float>(), static_cast<int>(src2.step / sizeof(float)),
             src1.ptr<float>(), static_cast<int>(src1.step / sizeof(float)),
@@ -252,7 +252,7 @@ void cv::cuda::gemm(InputArray _src1, InputArray _src2, double alpha, InputArray
         break;
 
     case CV_64FC1:
-        hipblasSafeCall( hipblasDgemm_v2(handle, transa, transb, tr2 ? src2.rows : src2.cols, tr1 ? src1.cols : src1.rows, tr2 ? src2.cols : src2.rows,
+        hipblasSafeCall( hipblasDgemm(handle, transa, transb, tr2 ? src2.rows : src2.cols, tr1 ? src1.cols : src1.rows, tr2 ? src2.cols : src2.rows,
             &alpha,
             src2.ptr<double>(), static_cast<int>(src2.step / sizeof(double)),
             src1.ptr<double>(), static_cast<int>(src1.step / sizeof(double)),
@@ -261,7 +261,7 @@ void cv::cuda::gemm(InputArray _src1, InputArray _src2, double alpha, InputArray
         break;
 
     case CV_32FC2:
-        hipblasSafeCall( hipblasCgemm_v2(handle, transa, transb, tr2 ? src2.rows : src2.cols, tr1 ? src1.cols : src1.rows, tr2 ? src2.cols : src2.rows,
+        hipblasSafeCall( hipblasCgemm(handle, transa, transb, tr2 ? src2.rows : src2.cols, tr1 ? src1.cols : src1.rows, tr2 ? src2.cols : src2.rows,
             &alphacf,
             src2.ptr<hipComplex>(), static_cast<int>(src2.step / sizeof(hipComplex)),
             src1.ptr<hipComplex>(), static_cast<int>(src1.step / sizeof(hipComplex)),
@@ -270,7 +270,7 @@ void cv::cuda::gemm(InputArray _src1, InputArray _src2, double alpha, InputArray
         break;
 
     case CV_64FC2:
-        hipblasSafeCall( hipblasZgemm_v2(handle, transa, transb, tr2 ? src2.rows : src2.cols, tr1 ? src1.cols : src1.rows, tr2 ? src2.cols : src2.rows,
+        hipblasSafeCall( hipblasZgemm(handle, transa, transb, tr2 ? src2.rows : src2.cols, tr1 ? src1.cols : src1.rows, tr2 ? src2.cols : src2.rows,
             &alphac,
             src2.ptr<hipDoubleComplex>(), static_cast<int>(src2.step / sizeof(hipDoubleComplex)),
             src1.ptr<hipDoubleComplex>(), static_cast<int>(src1.step / sizeof(hipDoubleComplex)),
@@ -279,7 +279,7 @@ void cv::cuda::gemm(InputArray _src1, InputArray _src2, double alpha, InputArray
         break;
     }
 
-    hipblasSafeCall( hipblasDestroy_v2(handle) );
+    hipblasSafeCall( hipblasDestroy(handle) );
 
     syncOutput(dst, _dst, stream);
 #endif
@@ -384,7 +384,7 @@ namespace
 
                     hipfftSafeCall(hipfftExecC2C(
                             plan, src_cont.ptr<hipfftComplex>(), dst.ptr<hipfftComplex>(),
-                            is_inverse ? HIPFFT_INVERSE : HIPFFT_FORWARD));
+                            is_inverse ? HIPFFT_BACKWARD : HIPFFT_FORWARD));
                 }
                 else
                 {
