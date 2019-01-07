@@ -137,7 +137,7 @@ namespace
 
         GpuMat srcRoi = srcBorder_(Rect(ksize_.width, ksize_.height, src.cols, src.rows));
 
-        cudaStream_t stream = StreamAccessor::getStream(_stream);
+        hipStream_t stream = StreamAccessor::getStream(_stream);
         NppStreamHandler h(stream);
 
         NppiSize oSizeROI;
@@ -177,7 +177,7 @@ namespace
             break;
         }
         if (stream == 0)
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
     }
 }
 
@@ -199,7 +199,7 @@ namespace cv { namespace cuda { namespace device
     template <typename T, typename D>
     void filter2D(PtrStepSzb srcWhole, int ofsX, int ofsY, PtrStepSzb dst, const float* kernel,
                   int kWidth, int kHeight, int anchorX, int anchorY,
-                  int borderMode, const float* borderValue, cudaStream_t stream);
+                  int borderMode, const float* borderValue, hipStream_t stream);
 }}}
 
 namespace
@@ -214,7 +214,7 @@ namespace
     private:
         typedef void (*filter2D_t)(PtrStepSzb srcWhole, int ofsX, int ofsY, PtrStepSzb dst, const float* kernel,
                                    int kWidth, int kHeight, int anchorX, int anchorY,
-                                   int borderMode, const float* borderValue, cudaStream_t stream);
+                                   int borderMode, const float* borderValue, hipStream_t stream);
 
         GpuMat kernel_;
         Point anchor_;
@@ -324,10 +324,10 @@ Ptr<Filter> cv::cuda::createLaplacianFilter(int srcType, int dstType, int ksize,
 namespace filter
 {
     template <typename T, typename D>
-    void linearRow(PtrStepSzb src, PtrStepSzb dst, const float* kernel, int ksize, int anchor, int brd_type, int cc, cudaStream_t stream);
+    void linearRow(PtrStepSzb src, PtrStepSzb dst, const float* kernel, int ksize, int anchor, int brd_type, int cc, hipStream_t stream);
 
     template <typename T, typename D>
-    void linearColumn(PtrStepSzb src, PtrStepSzb dst, const float* kernel, int ksize, int anchor, int brd_type, int cc, cudaStream_t stream);
+    void linearColumn(PtrStepSzb src, PtrStepSzb dst, const float* kernel, int ksize, int anchor, int brd_type, int cc, hipStream_t stream);
 }
 
 namespace
@@ -342,7 +342,7 @@ namespace
         void apply(InputArray src, OutputArray dst, Stream& stream = Stream::Null());
 
     private:
-        typedef void (*func_t)(PtrStepSzb src, PtrStepSzb dst, const float* kernel, int ksize, int anchor, int brd_type, int cc, cudaStream_t stream);
+        typedef void (*func_t)(PtrStepSzb src, PtrStepSzb dst, const float* kernel, int ksize, int anchor, int brd_type, int cc, hipStream_t stream);
 
         int srcType_, bufType_, dstType_;
         GpuMat rowKernel_, columnKernel_;
@@ -429,7 +429,7 @@ namespace
         DeviceInfo devInfo;
         const int cc = devInfo.majorVersion() * 10 + devInfo.minorVersion();
 
-        cudaStream_t stream = StreamAccessor::getStream(_stream);
+        hipStream_t stream = StreamAccessor::getStream(_stream);
 
         rowFilter_(src, buf_, rowKernel_.ptr<float>(), rowKernel_.cols, anchor_.x, rowBorderMode_, cc, stream);
         columnFilter_(buf_, dst, columnKernel_.ptr<float>(), columnKernel_.cols, anchor_.y, columnBorderMode_, cc, stream);
@@ -617,7 +617,7 @@ namespace
         _dst.create(src.size(), src.type());
         GpuMat dst = _dst.getGpuMat();
 
-        cudaStream_t stream = StreamAccessor::getStream(_stream);
+        hipStream_t stream = StreamAccessor::getStream(_stream);
         NppStreamHandler h(stream);
 
         NppiSize oSizeROI;
@@ -660,7 +660,7 @@ namespace
         }
 
         if (stream == 0)
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
     }
 }
 
@@ -886,7 +886,7 @@ namespace
 
         GpuMat srcRoi = srcBorder_(Rect(ksize_.width, ksize_.height, src.cols, src.rows));
 
-        cudaStream_t stream = StreamAccessor::getStream(_stream);
+        hipStream_t stream = StreamAccessor::getStream(_stream);
         NppStreamHandler h(stream);
 
         NppiSize oSizeROI;
@@ -905,7 +905,7 @@ namespace
                            oSizeROI, oMaskSize, oAnchor) );
 
         if (stream == 0)
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
     }
 }
 
@@ -962,7 +962,7 @@ namespace
 
         GpuMat srcRoi = srcBorder_(Rect(ksize_, 0, src.cols, src.rows));
 
-        cudaStream_t stream = StreamAccessor::getStream(_stream);
+        hipStream_t stream = StreamAccessor::getStream(_stream);
         NppStreamHandler h(stream);
 
         NppiSize oSizeROI;
@@ -974,7 +974,7 @@ namespace
                                                 oSizeROI, ksize_, anchor_) );
 
         if (stream == 0)
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
     }
 }
 
@@ -1023,7 +1023,7 @@ namespace
 
         GpuMat srcRoi = srcBorder_(Rect(0, ksize_, src.cols, src.rows));
 
-        cudaStream_t stream = StreamAccessor::getStream(_stream);
+        hipStream_t stream = StreamAccessor::getStream(_stream);
         NppStreamHandler h(stream);
 
         NppiSize oSizeROI;
@@ -1035,7 +1035,7 @@ namespace
                                                    oSizeROI, ksize_, anchor_) );
 
         if (stream == 0)
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
     }
 }
 
@@ -1052,7 +1052,7 @@ Ptr<Filter> cv::cuda::createColumnSumFilter(int srcType, int dstType, int ksize,
 namespace cv { namespace cuda { namespace device
 {
     void medianFiltering_gpu(const PtrStepSzb src, PtrStepSzb dst, PtrStepSzi devHist,
-        PtrStepSzi devCoarseHist,int kernel, int partitions, cudaStream_t stream);
+        PtrStepSzi devCoarseHist,int kernel, int partitions, hipStream_t stream);
 }}}
 
 namespace

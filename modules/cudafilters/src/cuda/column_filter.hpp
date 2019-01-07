@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -141,7 +142,7 @@ namespace column_filter
     }
 
     template <int KSIZE, typename T, typename D, template<typename> class B>
-    void caller(PtrStepSz<T> src, PtrStepSz<D> dst, const float* kernel, int anchor, int cc, cudaStream_t stream)
+    void caller(PtrStepSz<T> src, PtrStepSz<D> dst, const float* kernel, int anchor, int cc, hipStream_t stream)
     {
         int BLOCK_DIM_X;
         int BLOCK_DIM_Y;
@@ -165,21 +166,21 @@ namespace column_filter
 
         B<T> brd(src.rows);
 
-        linearColumnFilter<KSIZE, T, D><<<grid, block, 0, stream>>>(src, dst, kernel, anchor, brd);
+        hipLaunchKernelGGL((linearColumnFilter<KSIZE, T, D>), dim3(grid), dim3(block), 0, stream, src, dst, kernel, anchor, brd);
 
-        cudaSafeCall( cudaGetLastError() );
+        cudaSafeCall( hipGetLastError() );
 
         if (stream == 0)
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
     }
 }
 
 namespace filter
 {
     template <typename T, typename D>
-    void linearColumn(PtrStepSzb src, PtrStepSzb dst, const float* kernel, int ksize, int anchor, int brd_type, int cc, cudaStream_t stream)
+    void linearColumn(PtrStepSzb src, PtrStepSzb dst, const float* kernel, int ksize, int anchor, int brd_type, int cc, hipStream_t stream)
     {
-        typedef void (*caller_t)(PtrStepSz<T> src, PtrStepSz<D> dst, const float* kernel, int anchor, int cc, cudaStream_t stream);
+        typedef void (*caller_t)(PtrStepSz<T> src, PtrStepSz<D> dst, const float* kernel, int anchor, int cc, hipStream_t stream);
 
         static const caller_t callers[5][33] =
         {

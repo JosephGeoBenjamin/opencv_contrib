@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -331,13 +332,13 @@ namespace cv { namespace cuda { namespace device
         }
     }
 
-    void medianFiltering_gpu(const PtrStepSzb src, PtrStepSzb dst, PtrStepSzi devHist, PtrStepSzi devCoarseHist,int kernel, int partitions,cudaStream_t stream){
+    void medianFiltering_gpu(const PtrStepSzb src, PtrStepSzb dst, PtrStepSzi devHist, PtrStepSzi devCoarseHist,int kernel, int partitions,hipStream_t stream){
         int medPos=2*kernel*kernel+2*kernel;
         dim3 gridDim; gridDim.x=partitions;
         dim3 blockDim; blockDim.x=32;
-        cuMedianFilterMultiBlock<<<gridDim,blockDim,0, stream>>>(src, dst, devHist,devCoarseHist, kernel, medPos);
+        hipLaunchKernelGGL((cuMedianFilterMultiBlock), dim3(gridDim), dim3(blockDim), 0, stream, src, dst, devHist,devCoarseHist, kernel, medPos);
         if (!stream)
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
     }
 
 }}}
