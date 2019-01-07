@@ -122,7 +122,7 @@ namespace
         //////////////////////////////////////////////////////////////////////////
         // ROCFFT errors
 
-        const ErrorEntry rocfft_errors[] =
+        const ErrorEntry hipfft_errors[] =
         {
             error_entry( HIPFFT_INVALID_PLAN ),
             error_entry( HIPFFT_ALLOC_FAILED ),
@@ -135,19 +135,19 @@ namespace
             error_entry( HIPFFT_UNALIGNED_DATA )
         };
 
-        const int rocfft_error_num = sizeof(rocfft_errors) / sizeof(rocfft_errors[0]);
+        const int hipfft_error_num = sizeof(hipfft_errors) / sizeof(hipfft_errors[0]);
 
-        void ___rocfftSafeCall(int err, const char* file, const int line, const char* func)
+        void ___hipfftSafeCall(int err, const char* file, const int line, const char* func)
         {
             if (HIPFFT_SUCCESS != err)
             {
-                String msg = getErrorString(err, rocfft_errors, rocfft_error_num);
+                String msg = getErrorString(err, hipfft_errors, hipfft_error_num);
                 cv::error(cv::Error::GpuApiCallError, msg, func, file, line);
             }
         }
     }
 
-    #define rocfftSafeCall(expr)  ___rocfftSafeCall(expr, __FILE__, __LINE__, CV_Func)
+    #define hipfftSafeCall(expr)  ___hipfftSafeCall(expr, __FILE__, __LINE__, CV_Func)
 
 #endif
 
@@ -310,8 +310,8 @@ namespace
         Size dft_size, dft_size_opt;
         bool is_1d_input, is_row_dft, is_scaled_dft, is_inverse, is_complex_input, is_complex_output;
 
-        rocfftType dft_type;
-        rocfftHandle plan;
+        hipfftType dft_type;
+        hipfftHandle plan;
 
     public:
         DFTImpl(Size dft_size, int flags)
@@ -323,7 +323,7 @@ namespace
               is_inverse((flags & DFT_INVERSE) != 0),
               is_complex_input((flags & DFT_COMPLEX_INPUT) != 0),
               is_complex_output(!(flags & DFT_REAL_OUTPUT)),
-              dft_type(!is_complex_input ? ROCFFT_R2C : (is_complex_output ? ROCFFT_C2C : ROCFFT_C2R))
+              dft_type(!is_complex_input ? HIPFFT_R2C : (is_complex_output ? HIPFFT_C2C : HIPFFT_C2R))
         {
             // We don't support unpacked output (in the case of real input)
             CV_Assert( !(flags & DFT_COMPLEX_OUTPUT) );
@@ -341,14 +341,14 @@ namespace
             CV_Assert( dft_size_opt.width > 1 );
 
             if (is_1d_input || is_row_dft)
-                rocfftSafeCall( rocfftPlan1d(&plan, dft_size_opt.width, dft_type, dft_size_opt.height) );
+                hipfftSafeCall( hipfftPlan1d(&plan, dft_size_opt.width, dft_type, dft_size_opt.height) );
             else
-                rocfftSafeCall( rocfftPlan2d(&plan, dft_size_opt.height, dft_size_opt.width, dft_type) );
+                hipfftSafeCall( hipfftPlan2d(&plan, dft_size_opt.height, dft_size_opt.width, dft_type) );
         }
 
         ~DFTImpl()
         {
-            rocfftSafeCall( rocfftDestroy(plan) );
+            hipfftSafeCall( hipfftDestroy(plan) );
         }
 
         void compute(InputArray _src, OutputArray _dst, Stream& stream)
@@ -373,7 +373,7 @@ namespace
                 src.copyTo(src_cont, stream);
             }
 
-            rocfftSafeCall( rocfftSetStream(plan, StreamAccessor::getStream(stream)) );
+            hipfftSafeCall( hipfftSetStream(plan, StreamAccessor::getStream(stream)) );
 
             if (is_complex_input)
             {
@@ -382,17 +382,17 @@ namespace
                     createContinuous(dft_size, CV_32FC2, _dst);
                     GpuMat dst = _dst.getGpuMat();
 
-                    rocfftSafeCall(rocfftExecC2C(
-                            plan, src_cont.ptr<rocfftComplex>(), dst.ptr<rocfftComplex>(),
-                            is_inverse ? ROCFFT_INVERSE : ROCFFT_FORWARD));
+                    hipfftSafeCall(hipfftExecC2C(
+                            plan, src_cont.ptr<hipfftComplex>(), dst.ptr<hipfftComplex>(),
+                            is_inverse ? HIPFFT_INVERSE : HIPFFT_FORWARD));
                 }
                 else
                 {
                     createContinuous(dft_size, CV_32F, _dst);
                     GpuMat dst = _dst.getGpuMat();
 
-                    rocfftSafeCall(rocfftExecC2R(
-                            plan, src_cont.ptr<rocfftComplex>(), dst.ptr<rocfftReal>()));
+                    hipfftSafeCall(hipfftExecC2R(
+                            plan, src_cont.ptr<hipfftComplex>(), dst.ptr<hipfftReal>()));
                 }
             }
             else
@@ -405,8 +405,8 @@ namespace
 
                 GpuMat dst = _dst.getGpuMat();
 
-                rocfftSafeCall(rocfftExecR2C(
-                                  plan, src_cont.ptr<rocfftReal>(), dst.ptr<rocfftComplex>()));
+                hipfftSafeCall(hipfftExecR2C(
+                                  plan, src_cont.ptr<hipfftReal>(), dst.ptr<hipfftComplex>()));
             }
 
             if (is_scaled_dft)
@@ -516,18 +516,18 @@ namespace
 
         hipStream_t stream = StreamAccessor::getStream(_stream);
 
-        rocfftHandle planR2C, planC2R;
-        rocfftSafeCall( rocfftPlan2d(&planC2R, dft_size.height, dft_size.width, ROCFFT_C2R) );
-        rocfftSafeCall( rocfftPlan2d(&planR2C, dft_size.height, dft_size.width, ROCFFT_R2C) );
+        hipfftHandle planR2C, planC2R;
+        hipfftSafeCall( hipfftPlan2d(&planC2R, dft_size.height, dft_size.width, HIPFFT_C2R) );
+        hipfftSafeCall( hipfftPlan2d(&planR2C, dft_size.height, dft_size.width, HIPFFT_R2C) );
 
-        rocfftSafeCall( rocfftSetStream(planR2C, stream) );
-        rocfftSafeCall( rocfftSetStream(planC2R, stream) );
+        hipfftSafeCall( hipfftSetStream(planR2C, stream) );
+        hipfftSafeCall( hipfftSetStream(planC2R, stream) );
 
         GpuMat templ_roi(templ.size(), CV_32FC1, templ.data, templ.step);
         cuda::copyMakeBorder(templ_roi, templ_block, 0, templ_block.rows - templ_roi.rows, 0,
                             templ_block.cols - templ_roi.cols, 0, Scalar(), _stream);
 
-        rocfftSafeCall( rocfftExecR2C(planR2C, templ_block.ptr<rocfftReal>(), templ_spect.ptr<rocfftComplex>()) );
+        hipfftSafeCall( hipfftExecR2C(planR2C, templ_block.ptr<hipfftReal>(), templ_spect.ptr<hipfftComplex>()) );
 
         // Process all blocks of the result matrix
         for (int y = 0; y < result.rows; y += block_size.height)
@@ -541,12 +541,12 @@ namespace
                 cuda::copyMakeBorder(image_roi, image_block, 0, image_block.rows - image_roi.rows,
                                     0, image_block.cols - image_roi.cols, 0, Scalar(), _stream);
 
-                rocfftSafeCall(rocfftExecR2C(planR2C, image_block.ptr<rocfftReal>(),
-                                           image_spect.ptr<rocfftComplex>()));
+                hipfftSafeCall(hipfftExecR2C(planR2C, image_block.ptr<hipfftReal>(),
+                                           image_spect.ptr<hipfftComplex>()));
                 cuda::mulAndScaleSpectrums(image_spect, templ_spect, result_spect, 0,
                                           1.f / dft_size.area(), ccorr, _stream);
-                rocfftSafeCall(rocfftExecC2R(planC2R, result_spect.ptr<rocfftComplex>(),
-                                           result_data.ptr<rocfftReal>()));
+                hipfftSafeCall(hipfftExecC2R(planC2R, result_spect.ptr<hipfftComplex>(),
+                                           result_data.ptr<hipfftReal>()));
 
                 Size result_roi_size(std::min(x + block_size.width, result.cols) - x,
                                      std::min(y + block_size.height, result.rows) - y);
@@ -559,8 +559,8 @@ namespace
             }
         }
 
-        rocfftSafeCall( rocfftDestroy(planR2C) );
-        rocfftSafeCall( rocfftDestroy(planC2R) );
+        hipfftSafeCall( hipfftDestroy(planR2C) );
+        hipfftSafeCall( hipfftDestroy(planC2R) );
 
         syncOutput(result, _result, _stream);
     }

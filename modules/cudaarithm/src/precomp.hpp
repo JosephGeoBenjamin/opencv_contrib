@@ -57,7 +57,7 @@
 #endif
 
 #ifdef HAVE_ROCFFT
-#  include <rocfft.h>
+#  include <hipfft.h>
 #endif
 
 #endif /* __OPENCV_PRECOMP_H__ */
