@@ -334,9 +334,9 @@ namespace cv { namespace cuda { namespace device
 
     void medianFiltering_gpu(const PtrStepSzb src, PtrStepSzb dst, PtrStepSzi devHist, PtrStepSzi devCoarseHist,int kernel, int partitions,hipStream_t stream){
         int medPos=2*kernel*kernel+2*kernel;
-        dim3 gridDim; hipGridDim_x=partitions;
-        dim3 blockDim; hipBlockDim_x=32;
-        hipLaunchKernelGGL((cuMedianFilterMultiBlock), dim3(gridDim), dim3(blockDim), 0, stream, src, dst, devHist,devCoarseHist, kernel, medPos);
+        dim3 grid; grid.x=partitions;
+        dim3 block; block.x=32;
+        hipLaunchKernelGGL((cuMedianFilterMultiBlock), dim3(grid), dim3(block), 0, stream, src, dst, devHist,devCoarseHist, kernel, medPos);
         if (!stream)
             cudaSafeCall( hipDeviceSynchronize() );
     }
