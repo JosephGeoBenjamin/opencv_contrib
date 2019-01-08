@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -173,54 +174,54 @@ namespace cv { namespace cuda { namespace device
             }
         }
 
-        template <typename T, template <typename> class B> void pyrDown_caller(PtrStepSz<T> src, PtrStepSz<T> dst, cudaStream_t stream)
+        template <typename T, template <typename> class B> void pyrDown_caller(PtrStepSz<T> src, PtrStepSz<T> dst, hipStream_t stream)
         {
             const dim3 block(256);
             const dim3 grid(divUp(src.cols, block.x), dst.rows);
 
             B<T> b(src.rows, src.cols);
 
-            pyrDown<T><<<grid, block, 0, stream>>>(src, dst, b, dst.cols);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((pyrDown<T>), dim3(grid), dim3(block), 0, stream, src, dst, b, dst.cols);
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
-        template <typename T> void pyrDown_gpu(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream)
+        template <typename T> void pyrDown_gpu(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream)
         {
             pyrDown_caller<T, BrdReflect101>(static_cast< PtrStepSz<T> >(src), static_cast< PtrStepSz<T> >(dst), stream);
         }
 
-        template void pyrDown_gpu<uchar>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        //template void pyrDown_gpu<uchar2>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        template void pyrDown_gpu<uchar3>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        template void pyrDown_gpu<uchar4>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
+        template void pyrDown_gpu<uchar>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        //template void pyrDown_gpu<uchar2>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        template void pyrDown_gpu<uchar3>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        template void pyrDown_gpu<uchar4>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
 
-        //template void pyrDown_gpu<schar>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        //template void pyrDown_gpu<char2>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        //template void pyrDown_gpu<char3>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        //template void pyrDown_gpu<char4>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
+        //template void pyrDown_gpu<schar>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        //template void pyrDown_gpu<char2>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        //template void pyrDown_gpu<char3>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        //template void pyrDown_gpu<char4>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
 
-        template void pyrDown_gpu<ushort>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        //template void pyrDown_gpu<ushort2>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        template void pyrDown_gpu<ushort3>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        template void pyrDown_gpu<ushort4>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
+        template void pyrDown_gpu<ushort>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        //template void pyrDown_gpu<ushort2>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        template void pyrDown_gpu<ushort3>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        template void pyrDown_gpu<ushort4>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
 
-        template void pyrDown_gpu<short>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        //template void pyrDown_gpu<short2>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        template void pyrDown_gpu<short3>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        template void pyrDown_gpu<short4>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
+        template void pyrDown_gpu<short>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        //template void pyrDown_gpu<short2>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        template void pyrDown_gpu<short3>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        template void pyrDown_gpu<short4>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
 
-        template void pyrDown_gpu<int>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        //template void pyrDown_gpu<int2>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        template void pyrDown_gpu<int3>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        template void pyrDown_gpu<int4>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
+        template void pyrDown_gpu<int>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        //template void pyrDown_gpu<int2>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        template void pyrDown_gpu<int3>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        template void pyrDown_gpu<int4>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
 
-        template void pyrDown_gpu<float>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        //template void pyrDown_gpu<float2>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        template void pyrDown_gpu<float3>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        template void pyrDown_gpu<float4>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
+        template void pyrDown_gpu<float>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        //template void pyrDown_gpu<float2>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        template void pyrDown_gpu<float3>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        template void pyrDown_gpu<float4>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
     } // namespace imgproc
 }}} // namespace cv { namespace cuda { namespace cudev
 

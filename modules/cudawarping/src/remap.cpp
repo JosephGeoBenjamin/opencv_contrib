@@ -54,7 +54,7 @@ namespace cv { namespace cuda { namespace device
     {
         template <typename T>
         void remap_gpu(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, PtrStepSzf xmap, PtrStepSzf ymap, PtrStepSzb dst,
-                       int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
+                       int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
     }
 }}}
 
@@ -63,7 +63,7 @@ void cv::cuda::remap(InputArray _src, OutputArray _dst, InputArray _xmap, InputA
     using namespace cv::cuda::device::imgproc;
 
     typedef void (*func_t)(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, PtrStepSzf xmap, PtrStepSzf ymap, PtrStepSzb dst, int interpolation,
-        int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
+        int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
     static const func_t funcs[6][4] =
     {
         {remap_gpu<uchar>      , 0 /*remap_gpu<uchar2>*/ , remap_gpu<uchar3>     , remap_gpu<uchar4>     },
