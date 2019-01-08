@@ -106,7 +106,7 @@ namespace
     }
 
     template <typename T>
-    __global__ void RGB_to_YV12(const GlobPtrSz<T> src, GlobPtr<uchar> dst)
+    __global__ void RGB_to_YV12(const GlobPtrSz<T> src, GlobPtrSz<uchar> dst)
     {
         const int x = (blockIdx.x * blockDim.x + threadIdx.x) * 2;
         const int y = (blockIdx.y * blockDim.y + threadIdx.y) * 2;
