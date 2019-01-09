@@ -166,7 +166,7 @@ namespace column_filter
 
         B<T> brd(src.rows);
 
-        hipLaunchKernelGGL((linearColumnFilter<KSIZE, T, D>), dim3(grid), dim3(block), 0, stream, src, dst, kernel, anchor, brd);
+        hipLaunchKernelGGL((linearColumnFilter<KSIZE, T, D, B<T>>), dim3(grid), dim3(block), 0, stream, src, dst, kernel, anchor, brd);
 
         cudaSafeCall( hipGetLastError() );
 
