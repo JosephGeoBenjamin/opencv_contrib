@@ -56,8 +56,8 @@ namespace cv { namespace cuda { namespace device
     {
         template <typename Ptr2D, typename T> __global__ void remap(const Ptr2D src, const PtrStepf mapx, const PtrStepf mapy, PtrStepSz<T> dst)
         {
-            const int x = blockDim.x * blockIdx.x + threadIdx.x;
-            const int y = blockDim.y * blockIdx.y + threadIdx.y;
+            const int x = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
+            const int y = hipBlockDim_y * hipBlockIdx_y + hipThreadIdx_y;
 
             if (x < dst.cols && y < dst.rows)
             {

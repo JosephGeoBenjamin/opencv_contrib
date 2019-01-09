@@ -85,8 +85,8 @@ namespace cv { namespace cuda { namespace device
 
         template <class Transform> __global__ void buildWarpMaps(PtrStepSzf xmap, PtrStepf ymap)
         {
-            const int x = blockDim.x * blockIdx.x + threadIdx.x;
-            const int y = blockDim.y * blockIdx.y + threadIdx.y;
+            const int x = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
+            const int y = hipBlockDim_y * hipBlockIdx_y + hipThreadIdx_y;
 
             if (x < xmap.cols && y < xmap.rows)
             {
@@ -128,8 +128,8 @@ namespace cv { namespace cuda { namespace device
 
         template <class Transform, class Ptr2D, typename T> __global__ void warp(const Ptr2D src, PtrStepSz<T> dst)
         {
-            const int x = blockDim.x * blockIdx.x + threadIdx.x;
-            const int y = blockDim.y * blockIdx.y + threadIdx.y;
+            const int x = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
+            const int y = hipBlockDim_y * hipBlockIdx_y + hipThreadIdx_y;
 
             if (x < dst.cols && y < dst.rows)
             {

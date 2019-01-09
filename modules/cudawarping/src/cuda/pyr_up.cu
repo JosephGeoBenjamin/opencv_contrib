@@ -57,16 +57,16 @@ namespace cv { namespace cuda { namespace device
         {
             typedef typename TypeVec<float, VecTraits<T>::cn>::vec_type sum_t;
 
-            const int x = blockIdx.x * blockDim.x + threadIdx.x;
-            const int y = blockIdx.y * blockDim.y + threadIdx.y;
+            const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             __shared__ sum_t s_srcPatch[10][10];
             __shared__ sum_t s_dstPatch[20][16];
 
-            if (threadIdx.x < 10 && threadIdx.y < 10)
+            if (hipThreadIdx_x < 10 && hipThreadIdx_y < 10)
             {
-                int srcx = static_cast<int>((blockIdx.x * blockDim.x) / 2 + threadIdx.x) - 1;
-                int srcy = static_cast<int>((blockIdx.y * blockDim.y) / 2 + threadIdx.y) - 1;
+                int srcx = static_cast<int>((hipBlockIdx_x * hipBlockDim_x) / 2 + hipThreadIdx_x) - 1;
+                int srcy = static_cast<int>((hipBlockIdx_y * hipBlockDim_y) / 2 + hipThreadIdx_y) - 1;
 
                 srcx = ::abs(srcx);
                 srcx = ::min(src.cols - 1, srcx);
@@ -74,30 +74,30 @@ namespace cv { namespace cuda { namespace device
                 srcy = ::abs(srcy);
                 srcy = ::min(src.rows - 1, srcy);
 
-                s_srcPatch[threadIdx.y][threadIdx.x] = saturate_cast<sum_t>(src(srcy, srcx));
+                s_srcPatch[hipThreadIdx_y][hipThreadIdx_x] = saturate_cast<sum_t>(src(srcy, srcx));
             }
 
             __syncthreads();
 
             sum_t sum = VecTraits<sum_t>::all(0);
 
-            const int evenFlag = static_cast<int>((threadIdx.x & 1) == 0);
-            const int oddFlag  = static_cast<int>((threadIdx.x & 1) != 0);
-            const bool eveny = ((threadIdx.y & 1) == 0);
-            const int tidx = threadIdx.x;
+            const int evenFlag = static_cast<int>((hipThreadIdx_x & 1) == 0);
+            const int oddFlag  = static_cast<int>((hipThreadIdx_x & 1) != 0);
+            const bool eveny = ((hipThreadIdx_y & 1) == 0);
+            const int tidx = hipThreadIdx_x;
 
             if (eveny)
             {
-                sum = sum + (evenFlag * 0.0625f) * s_srcPatch[1 + (threadIdx.y >> 1)][1 + ((tidx - 2) >> 1)];
-                sum = sum + ( oddFlag * 0.25f  ) * s_srcPatch[1 + (threadIdx.y >> 1)][1 + ((tidx - 1) >> 1)];
-                sum = sum + (evenFlag * 0.375f ) * s_srcPatch[1 + (threadIdx.y >> 1)][1 + ((tidx    ) >> 1)];
-                sum = sum + ( oddFlag * 0.25f  ) * s_srcPatch[1 + (threadIdx.y >> 1)][1 + ((tidx + 1) >> 1)];
-                sum = sum + (evenFlag * 0.0625f) * s_srcPatch[1 + (threadIdx.y >> 1)][1 + ((tidx + 2) >> 1)];
+                sum = sum + (evenFlag * 0.0625f) * s_srcPatch[1 + (hipThreadIdx_y >> 1)][1 + ((tidx - 2) >> 1)];
+                sum = sum + ( oddFlag * 0.25f  ) * s_srcPatch[1 + (hipThreadIdx_y >> 1)][1 + ((tidx - 1) >> 1)];
+                sum = sum + (evenFlag * 0.375f ) * s_srcPatch[1 + (hipThreadIdx_y >> 1)][1 + ((tidx    ) >> 1)];
+                sum = sum + ( oddFlag * 0.25f  ) * s_srcPatch[1 + (hipThreadIdx_y >> 1)][1 + ((tidx + 1) >> 1)];
+                sum = sum + (evenFlag * 0.0625f) * s_srcPatch[1 + (hipThreadIdx_y >> 1)][1 + ((tidx + 2) >> 1)];
             }
 
-            s_dstPatch[2 + threadIdx.y][threadIdx.x] = sum;
+            s_dstPatch[2 + hipThreadIdx_y][hipThreadIdx_x] = sum;
 
-            if (threadIdx.y < 2)
+            if (hipThreadIdx_y < 2)
             {
                 sum = VecTraits<sum_t>::all(0);
 
@@ -110,10 +110,10 @@ namespace cv { namespace cuda { namespace device
                     sum = sum + (evenFlag * 0.0625f) * s_srcPatch[0][1 + ((tidx + 2) >> 1)];
                 }
 
-                s_dstPatch[threadIdx.y][threadIdx.x] = sum;
+                s_dstPatch[hipThreadIdx_y][hipThreadIdx_x] = sum;
             }
 
-            if (threadIdx.y > 13)
+            if (hipThreadIdx_y > 13)
             {
                 sum = VecTraits<sum_t>::all(0);
 
@@ -126,20 +126,20 @@ namespace cv { namespace cuda { namespace device
                     sum = sum + (evenFlag * 0.0625f) * s_srcPatch[9][1 + ((tidx + 2) >> 1)];
                 }
 
-                s_dstPatch[4 + threadIdx.y][threadIdx.x] = sum;
+                s_dstPatch[4 + hipThreadIdx_y][hipThreadIdx_x] = sum;
             }
 
             __syncthreads();
 
             sum = VecTraits<sum_t>::all(0);
 
-            const int tidy = threadIdx.y;
+            const int tidy = hipThreadIdx_y;
 
-            sum = sum + 0.0625f * s_dstPatch[2 + tidy - 2][threadIdx.x];
-            sum = sum + 0.25f   * s_dstPatch[2 + tidy - 1][threadIdx.x];
-            sum = sum + 0.375f  * s_dstPatch[2 + tidy    ][threadIdx.x];
-            sum = sum + 0.25f   * s_dstPatch[2 + tidy + 1][threadIdx.x];
-            sum = sum + 0.0625f * s_dstPatch[2 + tidy + 2][threadIdx.x];
+            sum = sum + 0.0625f * s_dstPatch[2 + tidy - 2][hipThreadIdx_x];
+            sum = sum + 0.25f   * s_dstPatch[2 + tidy - 1][hipThreadIdx_x];
+            sum = sum + 0.375f  * s_dstPatch[2 + tidy    ][hipThreadIdx_x];
+            sum = sum + 0.25f   * s_dstPatch[2 + tidy + 1][hipThreadIdx_x];
+            sum = sum + 0.0625f * s_dstPatch[2 + tidy + 2][hipThreadIdx_x];
 
             if (x < dst.cols && y < dst.rows)
                 dst(y, x) = saturate_cast<T>(4.0f * sum);

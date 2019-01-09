@@ -57,8 +57,8 @@ namespace cv { namespace cuda { namespace device
 
     template <typename T> __global__ void resize_nearest(const PtrStep<T> src, PtrStepSz<T> dst, const float fy, const float fx)
     {
-        const int dst_x = blockDim.x * blockIdx.x + threadIdx.x;
-        const int dst_y = blockDim.y * blockIdx.y + threadIdx.y;
+        const int dst_x = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
+        const int dst_y = hipBlockDim_y * hipBlockIdx_y + hipThreadIdx_y;
 
         if (dst_x < dst.cols && dst_y < dst.rows)
         {
@@ -73,8 +73,8 @@ namespace cv { namespace cuda { namespace device
     {
         typedef typename TypeVec<float, VecTraits<T>::cn>::vec_type work_type;
 
-        const int dst_x = blockDim.x * blockIdx.x + threadIdx.x;
-        const int dst_y = blockDim.y * blockIdx.y + threadIdx.y;
+        const int dst_x = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
+        const int dst_y = hipBlockDim_y * hipBlockIdx_y + hipThreadIdx_y;
 
         if (dst_x < dst.cols && dst_y < dst.rows)
         {
@@ -108,8 +108,8 @@ namespace cv { namespace cuda { namespace device
 
     template <class Ptr2D, typename T> __global__ void resize(const Ptr2D src, PtrStepSz<T> dst, const float fy, const float fx)
     {
-        const int dst_x = blockDim.x * blockIdx.x + threadIdx.x;
-        const int dst_y = blockDim.y * blockIdx.y + threadIdx.y;
+        const int dst_x = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
+        const int dst_y = hipBlockDim_y * hipBlockIdx_y + hipThreadIdx_y;
 
         if (dst_x < dst.cols && dst_y < dst.rows)
         {
@@ -122,8 +122,8 @@ namespace cv { namespace cuda { namespace device
 
     template <typename Ptr2D, typename T> __global__ void resize_area(const Ptr2D src, PtrStepSz<T> dst)
     {
-        const int x = blockDim.x * blockIdx.x + threadIdx.x;
-        const int y = blockDim.y * blockIdx.y + threadIdx.y;
+        const int x = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
+        const int y = hipBlockDim_y * hipBlockIdx_y + hipThreadIdx_y;
 
         if (x < dst.cols && y < dst.rows)
         {
