@@ -53,10 +53,9 @@ namespace cv { namespace cuda { namespace device
 {
     namespace imgproc
     {
-        template <typename T, typename B> __global__ void pyrDown(const PtrStepSz<T> src, PtrStep<T> dst, const B b, int dst_cols)
+        template <typename T, typename B> __global__ void pyrDown(const PtrStepSz<T> src, PtrStepSz<T> dst, const B b, int dst_cols)
         {
             typedef typename TypeVec<float, VecTraits<T>::cn>::vec_type work_t;
-
             __shared__ work_t smem[256 + 4];
 
             const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;

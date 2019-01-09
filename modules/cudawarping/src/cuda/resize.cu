@@ -55,7 +55,7 @@ namespace cv { namespace cuda { namespace device
 {
     // kernels
 
-    template <typename T> __global__ void resize_nearest(const PtrStep<T> src, PtrStepSz<T> dst, const float fy, const float fx)
+    template <typename T> __global__ void resize_nearest(const PtrStepSz<T> src, PtrStepSz<T> dst, const float fy, const float fx)
     {
         const int dst_x = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
         const int dst_y = hipBlockDim_y * hipBlockIdx_y + hipThreadIdx_y;

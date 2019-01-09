@@ -54,7 +54,7 @@ namespace cv { namespace cuda { namespace device
 {
     namespace imgproc
     {
-        template <typename Ptr2D, typename T> __global__ void remap(const Ptr2D src, const PtrStepf mapx, const PtrStepf mapy, PtrStepSz<T> dst)
+        template <typename Ptr2D, typename T> __global__ void remap(const Ptr2D src, const PtrStepSzf mapx, const PtrStepSzf mapy, PtrStepSz<T> dst)
         {
             const int x = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
             const int y = hipBlockDim_y * hipBlockIdx_y + hipThreadIdx_y;
