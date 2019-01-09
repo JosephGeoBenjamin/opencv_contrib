@@ -53,7 +53,7 @@ namespace cv { namespace cuda { namespace device
 {
     namespace imgproc
     {
-        template <typename T, typename B> __global__ void pyrDown(const PtrStepSz<T> src, PtrStepSz<T> dst, const B b, int dst_cols)
+        template <typename T, typename B> __global__ void pyrDown(const PtrStepSz<float> src, PtrStepSz<T> dst, const B b, int dst_cols)
         {
             typedef typename TypeVec<float, VecTraits<T>::cn>::vec_type work_t;
             __shared__ work_t smem[256 + 4];
@@ -180,7 +180,7 @@ namespace cv { namespace cuda { namespace device
 
             B<T> b(src.rows, src.cols);
 
-            hipLaunchKernelGGL((pyrDown<T>), dim3(grid), dim3(block), 0, stream, src, dst, b, dst.cols);
+            hipLaunchKernelGGL((pyrDown< T, B<T>>), dim3(grid), dim3(block), 0, stream, (PtrStepSz<float>)src, dst, b, dst.cols);
             cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)

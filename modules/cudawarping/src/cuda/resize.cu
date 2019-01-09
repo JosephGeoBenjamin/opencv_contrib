@@ -69,7 +69,7 @@ namespace cv { namespace cuda { namespace device
         }
     }
 
-    template <typename T> __global__ void resize_linear(const PtrStepSz<T> src, PtrStepSz<T> dst, const float fy, const float fx)
+    template <typename T> __global__ void resize_linear(const PtrStepSz<float> src, PtrStepSz<T> dst, const float fy, const float fx)
     {
         typedef typename TypeVec<float, VecTraits<T>::cn>::vec_type work_type;
 
@@ -90,7 +90,7 @@ namespace cv { namespace cuda { namespace device
             const int x2_read = ::min(x2, src.cols - 1);
             const int y2_read = ::min(y2, src.rows - 1);
 
-            T src_reg = src(y1, x1);
+            float src_reg = src(y1, x1);
             out = out + src_reg * ((x2 - src_x) * (y2 - src_y));
 
             src_reg = src(y1, x2_read);
@@ -214,7 +214,7 @@ namespace cv { namespace cuda { namespace device
         const dim3 block(32, 8);
         const dim3 grid(divUp(dst.cols, block.x), divUp(dst.rows, block.y));
 
-        hipLaunchKernelGGL((resize_linear), dim3(grid), dim3(block), 0, stream, src, dst, fy, fx);
+        hipLaunchKernelGGL((resize_linear<T>), dim3(grid), dim3(block), 0, stream, (PtrStepSz<float>)src, dst, fy, fx);
         cudaSafeCall( hipGetLastError() );
 
         if (stream == 0)
