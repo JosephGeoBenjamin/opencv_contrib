@@ -237,6 +237,7 @@ INSTANTIATE_TEST_CASE_P(CUDA_Warping, WarpPerspective, testing::Combine(
 ///////////////////////////////////////////////////////////////////
 // Test NPP
 
+#ifdef NPP_ENABLE
 PARAM_TEST_CASE(WarpPerspectiveNPP, cv::cuda::DeviceInfo, MatType, Inverse, Interpolation)
 {
     cv::cuda::DeviceInfo devInfo;
@@ -279,7 +280,7 @@ INSTANTIATE_TEST_CASE_P(CUDA_Warping, WarpPerspectiveNPP, testing::Combine(
     testing::Values(MatType(CV_8UC1), MatType(CV_8UC3), MatType(CV_8UC4), MatType(CV_32FC1), MatType(CV_32FC3), MatType(CV_32FC4)),
     DIRECT_INVERSE,
     testing::Values(Interpolation(cv::INTER_NEAREST), Interpolation(cv::INTER_LINEAR), Interpolation(cv::INTER_CUBIC))));
-
+#endif //NPP_ENABLE
 
 }} // namespace
 #endif // HAVE_HIP
