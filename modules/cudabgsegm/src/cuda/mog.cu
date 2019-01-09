@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -167,21 +168,23 @@ namespace cv { namespace cuda { namespace device
 
         template <typename SrcT, typename WorkT>
         void mog_withoutLearning_caller(PtrStepSzb frame, PtrStepSzb fgmask, PtrStepSzf weight, PtrStepSzb mean, PtrStepSzb var,
-                                        int nmixtures, float varThreshold, float backgroundRatio, cudaStream_t stream)
+                                        int nmixtures, float varThreshold, float backgroundRatio, hipStream_t stream)
         {
             dim3 block(32, 8);
             dim3 grid(divUp(frame.cols, block.x), divUp(frame.rows, block.y));
 
-            cudaSafeCall( cudaFuncSetCacheConfig(mog_withoutLearning<SrcT, WorkT>, cudaFuncCachePreferL1) );
+#ifdef HIP_TODO
+            cudaSafeCall( hipFuncSetCacheConfig(mog_withoutLearning<SrcT, WorkT>, hipFuncCachePreferL1) );
+#endif //HIP_TODO
 
-            mog_withoutLearning<SrcT, WorkT><<<grid, block, 0, stream>>>((PtrStepSz<SrcT>) frame, fgmask,
+            hipLaunchKernelGGL((mog_withoutLearning<SrcT, WorkT>), dim3(grid), dim3(block), 0, stream, (PtrStepSz<SrcT>) frame, fgmask,
                                                                          weight, (PtrStepSz<WorkT>) mean, (PtrStepSz<WorkT>) var,
                                                                          nmixtures, varThreshold, backgroundRatio);
 
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
         ///////////////////////////////////////////////////////////////
@@ -320,30 +323,32 @@ namespace cv { namespace cuda { namespace device
         template <typename SrcT, typename WorkT>
         void mog_withLearning_caller(PtrStepSzb frame, PtrStepSzb fgmask, PtrStepSzf weight, PtrStepSzf sortKey, PtrStepSzb mean, PtrStepSzb var,
                                      int nmixtures, float varThreshold, float backgroundRatio, float learningRate, float minVar,
-                                     cudaStream_t stream)
+                                     hipStream_t stream)
         {
             dim3 block(32, 8);
             dim3 grid(divUp(frame.cols, block.x), divUp(frame.rows, block.y));
 
-            cudaSafeCall( cudaFuncSetCacheConfig(mog_withLearning<SrcT, WorkT>, cudaFuncCachePreferL1) );
+#ifdef HIP_TODO
+            cudaSafeCall( hipFuncSetCacheConfig(mog_withLearning<SrcT, WorkT>, hipFuncCachePreferL1) );
+#endif //HIP_TODO
 
-            mog_withLearning<SrcT, WorkT><<<grid, block, 0, stream>>>((PtrStepSz<SrcT>) frame, fgmask,
+            hipLaunchKernelGGL((mog_withLearning<SrcT, WorkT>), dim3(grid), dim3(block), 0, stream, (PtrStepSz<SrcT>) frame, fgmask,
                                                                       weight, sortKey, (PtrStepSz<WorkT>) mean, (PtrStepSz<WorkT>) var,
                                                                       nmixtures, varThreshold, backgroundRatio, learningRate, minVar);
 
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
         ///////////////////////////////////////////////////////////////
         // MOG
 
-        void mog_gpu(PtrStepSzb frame, int cn, PtrStepSzb fgmask, PtrStepSzf weight, PtrStepSzf sortKey, PtrStepSzb mean, PtrStepSzb var, int nmixtures, float varThreshold, float learningRate, float backgroundRatio, float noiseSigma, cudaStream_t stream)
+        void mog_gpu(PtrStepSzb frame, int cn, PtrStepSzb fgmask, PtrStepSzf weight, PtrStepSzf sortKey, PtrStepSzb mean, PtrStepSzb var, int nmixtures, float varThreshold, float learningRate, float backgroundRatio, float noiseSigma, hipStream_t stream)
         {
-            typedef void (*withoutLearning_t)(PtrStepSzb frame, PtrStepSzb fgmask, PtrStepSzf weight, PtrStepSzb mean, PtrStepSzb var, int nmixtures, float varThreshold, float backgroundRatio, cudaStream_t stream);
-            typedef void (*withLearning_t)(PtrStepSzb frame, PtrStepSzb fgmask, PtrStepSzf weight, PtrStepSzf sortKey, PtrStepSzb mean, PtrStepSzb var, int nmixtures, float varThreshold, float backgroundRatio, float learningRate, float minVar, cudaStream_t stream);
+            typedef void (*withoutLearning_t)(PtrStepSzb frame, PtrStepSzb fgmask, PtrStepSzf weight, PtrStepSzb mean, PtrStepSzb var, int nmixtures, float varThreshold, float backgroundRatio, hipStream_t stream);
+            typedef void (*withLearning_t)(PtrStepSzb frame, PtrStepSzb fgmask, PtrStepSzf weight, PtrStepSzf sortKey, PtrStepSzb mean, PtrStepSzb var, int nmixtures, float varThreshold, float backgroundRatio, float learningRate, float minVar, hipStream_t stream);
 
             static const withoutLearning_t withoutLearning[] =
             {
@@ -393,23 +398,25 @@ namespace cv { namespace cuda { namespace device
         }
 
         template <typename WorkT, typename OutT>
-        void getBackgroundImage_caller(PtrStepSzf weight, PtrStepSzb mean, PtrStepSzb dst, int nmixtures, float backgroundRatio, cudaStream_t stream)
+        void getBackgroundImage_caller(PtrStepSzf weight, PtrStepSzb mean, PtrStepSzb dst, int nmixtures, float backgroundRatio, hipStream_t stream)
         {
             dim3 block(32, 8);
             dim3 grid(divUp(dst.cols, block.x), divUp(dst.rows, block.y));
 
-            cudaSafeCall( cudaFuncSetCacheConfig(getBackgroundImage<WorkT, OutT>, cudaFuncCachePreferL1) );
+#ifdef HIP_TODO
+            cudaSafeCall( hipFuncSetCacheConfig(getBackgroundImage<WorkT, OutT>, hipFuncCachePreferL1) );
+#endif //HIP_TODO
 
-            getBackgroundImage<WorkT, OutT><<<grid, block, 0, stream>>>(weight, (PtrStepSz<WorkT>) mean, (PtrStepSz<OutT>) dst, nmixtures, backgroundRatio);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((getBackgroundImage<WorkT, OutT>), dim3(grid), dim3(block), 0, stream, weight, (PtrStepSz<WorkT>) mean, (PtrStepSz<OutT>) dst, nmixtures, backgroundRatio);
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
-        void getBackgroundImage_gpu(int cn, PtrStepSzf weight, PtrStepSzb mean, PtrStepSzb dst, int nmixtures, float backgroundRatio, cudaStream_t stream)
+        void getBackgroundImage_gpu(int cn, PtrStepSzf weight, PtrStepSzb mean, PtrStepSzb dst, int nmixtures, float backgroundRatio, hipStream_t stream)
         {
-            typedef void (*func_t)(PtrStepSzf weight, PtrStepSzb mean, PtrStepSzb dst, int nmixtures, float backgroundRatio, cudaStream_t stream);
+            typedef void (*func_t)(PtrStepSzf weight, PtrStepSzb mean, PtrStepSzb dst, int nmixtures, float backgroundRatio, hipStream_t stream);
 
             static const func_t funcs[] =
             {
