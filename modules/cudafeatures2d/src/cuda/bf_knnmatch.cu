@@ -107,15 +107,15 @@ namespace cv { namespace cuda { namespace device
             int myBestTrainIdx1 = -1;
             int myBestTrainIdx2 = -1;
 
-            s_distance += threadIdx.y * BLOCK_SIZE;
-            s_trainIdx += threadIdx.y * BLOCK_SIZE;
+            s_distance += hipThreadIdx_y * BLOCK_SIZE;
+            s_trainIdx += hipThreadIdx_y * BLOCK_SIZE;
 
-            s_distance[threadIdx.x] = bestDistance1;
-            s_trainIdx[threadIdx.x] = bestTrainIdx1;
+            s_distance[hipThreadIdx_x] = bestDistance1;
+            s_trainIdx[hipThreadIdx_x] = bestTrainIdx1;
 
             __syncthreads();
 
-            if (threadIdx.x == 0)
+            if (hipThreadIdx_x == 0)
             {
                 #pragma unroll
                 for (int i = 0; i < BLOCK_SIZE; ++i)
@@ -140,12 +140,12 @@ namespace cv { namespace cuda { namespace device
 
             __syncthreads();
 
-            s_distance[threadIdx.x] = bestDistance2;
-            s_trainIdx[threadIdx.x] = bestTrainIdx2;
+            s_distance[hipThreadIdx_x] = bestDistance2;
+            s_trainIdx[hipThreadIdx_x] = bestTrainIdx2;
 
             __syncthreads();
 
-            if (threadIdx.x == 0)
+            if (hipThreadIdx_x == 0)
             {
                 #pragma unroll
                 for (int i = 0; i < BLOCK_SIZE; ++i)
@@ -228,17 +228,17 @@ namespace cv { namespace cuda { namespace device
             int myBestImgIdx1 = -1;
             int myBestImgIdx2 = -1;
 
-            s_distance += threadIdx.y * BLOCK_SIZE;
-            s_trainIdx += threadIdx.y * BLOCK_SIZE;
-            s_imgIdx   += threadIdx.y * BLOCK_SIZE;
+            s_distance += hipThreadIdx_y * BLOCK_SIZE;
+            s_trainIdx += hipThreadIdx_y * BLOCK_SIZE;
+            s_imgIdx   += hipThreadIdx_y * BLOCK_SIZE;
 
-            s_distance[threadIdx.x] = bestDistance1;
-            s_trainIdx[threadIdx.x] = bestTrainIdx1;
-            s_imgIdx[threadIdx.x]   = bestImgIdx1;
+            s_distance[hipThreadIdx_x] = bestDistance1;
+            s_trainIdx[hipThreadIdx_x] = bestTrainIdx1;
+            s_imgIdx[hipThreadIdx_x]   = bestImgIdx1;
 
             __syncthreads();
 
-            if (threadIdx.x == 0)
+            if (hipThreadIdx_x == 0)
             {
                 #pragma unroll
                 for (int i = 0; i < BLOCK_SIZE; ++i)
@@ -266,13 +266,13 @@ namespace cv { namespace cuda { namespace device
 
             __syncthreads();
 
-            s_distance[threadIdx.x] = bestDistance2;
-            s_trainIdx[threadIdx.x] = bestTrainIdx2;
-            s_imgIdx[threadIdx.x]   = bestImgIdx2;
+            s_distance[hipThreadIdx_x] = bestDistance2;
+            s_trainIdx[hipThreadIdx_x] = bestTrainIdx2;
+            s_imgIdx[hipThreadIdx_x]   = bestImgIdx2;
 
             __syncthreads();
 
-            if (threadIdx.x == 0)
+            if (hipThreadIdx_x == 0)
             {
                 #pragma unroll
                 for (int i = 0; i < BLOCK_SIZE; ++i)
@@ -308,8 +308,8 @@ namespace cv { namespace cuda { namespace device
             #pragma unroll
             for (int i = 0; i < MAX_DESC_LEN / BLOCK_SIZE; ++i)
             {
-                const int loadX = threadIdx.x + i * BLOCK_SIZE;
-                s_query[threadIdx.y * MAX_DESC_LEN + loadX] = loadX < query.cols ? query.ptr(::min(queryIdx, query.rows - 1))[loadX] : 0;
+                const int loadX = hipThreadIdx_x + i * BLOCK_SIZE;
+                s_query[hipThreadIdx_y * MAX_DESC_LEN + loadX] = loadX < query.cols ? query.ptr(::min(queryIdx, query.rows - 1))[loadX] : 0;
             }
         }
 
@@ -327,30 +327,30 @@ namespace cv { namespace cuda { namespace device
                 #pragma unroll
                 for (int i = 0; i < MAX_DESC_LEN / BLOCK_SIZE; ++i)
                 {
-                    const int loadX = threadIdx.x + i * BLOCK_SIZE;
+                    const int loadX = hipThreadIdx_x + i * BLOCK_SIZE;
 
-                    s_train[threadIdx.x * BLOCK_SIZE + threadIdx.y] = 0;
+                    s_train[hipThreadIdx_x * BLOCK_SIZE + hipThreadIdx_y] = 0;
 
                     if (loadX < train.cols)
                     {
                         T val;
 
-                        ForceGlob<T>::Load(train.ptr(::min(t * BLOCK_SIZE + threadIdx.y, train.rows - 1)), loadX, val);
-                        s_train[threadIdx.x * BLOCK_SIZE + threadIdx.y] = val;
+                        ForceGlob<T>::Load(train.ptr(::min(t * BLOCK_SIZE + hipThreadIdx_y, train.rows - 1)), loadX, val);
+                        s_train[hipThreadIdx_x * BLOCK_SIZE + hipThreadIdx_y] = val;
                     }
 
                     __syncthreads();
 
                     #pragma unroll
                     for (int j = 0; j < BLOCK_SIZE; ++j)
-                        dist.reduceIter(s_query[threadIdx.y * MAX_DESC_LEN + i * BLOCK_SIZE + j], s_train[j * BLOCK_SIZE + threadIdx.x]);
+                        dist.reduceIter(s_query[hipThreadIdx_y * MAX_DESC_LEN + i * BLOCK_SIZE + j], s_train[j * BLOCK_SIZE + hipThreadIdx_x]);
 
                     __syncthreads();
                 }
 
                 typename Dist::result_type distVal = dist;
 
-                const int trainIdx = t * BLOCK_SIZE + threadIdx.x;
+                const int trainIdx = t * BLOCK_SIZE + hipThreadIdx_x;
 
                 if (queryIdx < query.rows && trainIdx < train.rows && mask(queryIdx, trainIdx))
                 {
@@ -379,7 +379,7 @@ namespace cv { namespace cuda { namespace device
         {
             HIP_DYNAMIC_SHARED( int, smem)
 
-            const int queryIdx = blockIdx.x * BLOCK_SIZE + threadIdx.y;
+            const int queryIdx = hipBlockIdx_x * BLOCK_SIZE + hipThreadIdx_y;
 
             typename Dist::value_type* s_query = (typename Dist::value_type*)(smem);
             typename Dist::value_type* s_train = (typename Dist::value_type*)(smem + BLOCK_SIZE * MAX_DESC_LEN);
@@ -400,7 +400,7 @@ namespace cv { namespace cuda { namespace device
 
             findBestMatch<BLOCK_SIZE>(myBestDistance1, myBestDistance2, myBestTrainIdx1, myBestTrainIdx2, s_distance, s_trainIdx);
 
-            if (queryIdx < query.rows && threadIdx.x == 0)
+            if (queryIdx < query.rows && hipThreadIdx_x == 0)
             {
                 bestTrainIdx[queryIdx] = make_int2(myBestTrainIdx1, myBestTrainIdx2);
                 bestDistance[queryIdx] = make_float2(myBestDistance1, myBestDistance2);
@@ -429,7 +429,7 @@ namespace cv { namespace cuda { namespace device
         {
             HIP_DYNAMIC_SHARED( int, smem)
 
-            const int queryIdx = blockIdx.x * BLOCK_SIZE + threadIdx.y;
+            const int queryIdx = hipBlockIdx_x * BLOCK_SIZE + hipThreadIdx_y;
 
             typename Dist::value_type* s_query = (typename Dist::value_type*)(smem);
             typename Dist::value_type* s_train = (typename Dist::value_type*)(smem + BLOCK_SIZE * MAX_DESC_LEN);
@@ -460,7 +460,7 @@ namespace cv { namespace cuda { namespace device
 
             findBestMatch<BLOCK_SIZE>(myBestDistance1, myBestDistance2, myBestTrainIdx1, myBestTrainIdx2, myBestImgIdx1, myBestImgIdx2, s_distance, s_trainIdx, s_imgIdx);
 
-            if (queryIdx < query.rows && threadIdx.x == 0)
+            if (queryIdx < query.rows && hipThreadIdx_x == 0)
             {
                 bestTrainIdx[queryIdx] = make_int2(myBestTrainIdx1, myBestTrainIdx2);
                 bestImgIdx[queryIdx] = make_int2(myBestImgIdx1, myBestImgIdx2);
@@ -502,34 +502,34 @@ namespace cv { namespace cuda { namespace device
                 #pragma unroll
                 for (int i = 0; i < MAX_DESC_LEN / BLOCK_SIZE; ++i)
                 {
-                    const int loadX = threadIdx.x + i * BLOCK_SIZE;
+                    const int loadX = hipThreadIdx_x + i * BLOCK_SIZE;
 
-                    s_query[threadIdx.y * BLOCK_SIZE + threadIdx.x] = 0;
-                    s_train[threadIdx.x * BLOCK_SIZE + threadIdx.y] = 0;
+                    s_query[hipThreadIdx_y * BLOCK_SIZE + hipThreadIdx_x] = 0;
+                    s_train[hipThreadIdx_x * BLOCK_SIZE + hipThreadIdx_y] = 0;
 
                     if (loadX < query.cols)
                     {
                         T val;
 
                         ForceGlob<T>::Load(query.ptr(::min(queryIdx, query.rows - 1)), loadX, val);
-                        s_query[threadIdx.y * BLOCK_SIZE + threadIdx.x] = val;
+                        s_query[hipThreadIdx_y * BLOCK_SIZE + hipThreadIdx_x] = val;
 
-                        ForceGlob<T>::Load(train.ptr(::min(t * BLOCK_SIZE + threadIdx.y, train.rows - 1)), loadX, val);
-                        s_train[threadIdx.x * BLOCK_SIZE + threadIdx.y] = val;
+                        ForceGlob<T>::Load(train.ptr(::min(t * BLOCK_SIZE + hipThreadIdx_y, train.rows - 1)), loadX, val);
+                        s_train[hipThreadIdx_x * BLOCK_SIZE + hipThreadIdx_y] = val;
                     }
 
                     __syncthreads();
 
                     #pragma unroll
                     for (int j = 0; j < BLOCK_SIZE; ++j)
-                        dist.reduceIter(s_query[threadIdx.y * BLOCK_SIZE + j], s_train[j * BLOCK_SIZE + threadIdx.x]);
+                        dist.reduceIter(s_query[hipThreadIdx_y * BLOCK_SIZE + j], s_train[j * BLOCK_SIZE + hipThreadIdx_x]);
 
                     __syncthreads();
                 }
 
                 typename Dist::result_type distVal = dist;
 
-                const int trainIdx = t * BLOCK_SIZE + threadIdx.x;
+                const int trainIdx = t * BLOCK_SIZE + hipThreadIdx_x;
 
                 if (queryIdx < query.rows && trainIdx < train.rows && mask(queryIdx, trainIdx))
                 {
@@ -558,7 +558,7 @@ namespace cv { namespace cuda { namespace device
         {
             HIP_DYNAMIC_SHARED( int, smem)
 
-            const int queryIdx = blockIdx.x * BLOCK_SIZE + threadIdx.y;
+            const int queryIdx = hipBlockIdx_x * BLOCK_SIZE + hipThreadIdx_y;
 
             typename Dist::value_type* s_query = (typename Dist::value_type*)(smem);
             typename Dist::value_type* s_train = (typename Dist::value_type*)(smem + BLOCK_SIZE * BLOCK_SIZE);
@@ -577,7 +577,7 @@ namespace cv { namespace cuda { namespace device
 
             findBestMatch<BLOCK_SIZE>(myBestDistance1, myBestDistance2, myBestTrainIdx1, myBestTrainIdx2, s_distance, s_trainIdx);
 
-            if (queryIdx < query.rows && threadIdx.x == 0)
+            if (queryIdx < query.rows && hipThreadIdx_x == 0)
             {
                 bestTrainIdx[queryIdx] = make_int2(myBestTrainIdx1, myBestTrainIdx2);
                 bestDistance[queryIdx] = make_float2(myBestDistance1, myBestDistance2);
@@ -606,7 +606,7 @@ namespace cv { namespace cuda { namespace device
         {
             HIP_DYNAMIC_SHARED( int, smem)
 
-            const int queryIdx = blockIdx.x * BLOCK_SIZE + threadIdx.y;
+            const int queryIdx = hipBlockIdx_x * BLOCK_SIZE + hipThreadIdx_y;
 
             typename Dist::value_type* s_query = (typename Dist::value_type*)(smem);
             typename Dist::value_type* s_train = (typename Dist::value_type*)(smem + BLOCK_SIZE * BLOCK_SIZE);
@@ -635,7 +635,7 @@ namespace cv { namespace cuda { namespace device
 
             findBestMatch<BLOCK_SIZE>(myBestDistance1, myBestDistance2, myBestTrainIdx1, myBestTrainIdx2, myBestImgIdx1, myBestImgIdx2, s_distance, s_trainIdx, s_imgIdx);
 
-            if (queryIdx < query.rows && threadIdx.x == 0)
+            if (queryIdx < query.rows && hipThreadIdx_x == 0)
             {
                 bestTrainIdx[queryIdx] = make_int2(myBestTrainIdx1, myBestTrainIdx2);
                 bestImgIdx[queryIdx] = make_int2(myBestImgIdx1, myBestImgIdx2);
@@ -676,34 +676,34 @@ namespace cv { namespace cuda { namespace device
 
                 for (int i = 0, endi = (query.cols + BLOCK_SIZE - 1) / BLOCK_SIZE; i < endi; ++i)
                 {
-                    const int loadX = threadIdx.x + i * BLOCK_SIZE;
+                    const int loadX = hipThreadIdx_x + i * BLOCK_SIZE;
 
-                    s_query[threadIdx.y * BLOCK_SIZE + threadIdx.x] = 0;
-                    s_train[threadIdx.x * BLOCK_SIZE + threadIdx.y] = 0;
+                    s_query[hipThreadIdx_y * BLOCK_SIZE + hipThreadIdx_x] = 0;
+                    s_train[hipThreadIdx_x * BLOCK_SIZE + hipThreadIdx_y] = 0;
 
                     if (loadX < query.cols)
                     {
                         T val;
 
                         ForceGlob<T>::Load(query.ptr(::min(queryIdx, query.rows - 1)), loadX, val);
-                        s_query[threadIdx.y * BLOCK_SIZE + threadIdx.x] = val;
+                        s_query[hipThreadIdx_y * BLOCK_SIZE + hipThreadIdx_x] = val;
 
-                        ForceGlob<T>::Load(train.ptr(::min(t * BLOCK_SIZE + threadIdx.y, train.rows - 1)), loadX, val);
-                        s_train[threadIdx.x * BLOCK_SIZE + threadIdx.y] = val;
+                        ForceGlob<T>::Load(train.ptr(::min(t * BLOCK_SIZE + hipThreadIdx_y, train.rows - 1)), loadX, val);
+                        s_train[hipThreadIdx_x * BLOCK_SIZE + hipThreadIdx_y] = val;
                     }
 
                     __syncthreads();
 
                     #pragma unroll
                     for (int j = 0; j < BLOCK_SIZE; ++j)
-                        dist.reduceIter(s_query[threadIdx.y * BLOCK_SIZE + j], s_train[j * BLOCK_SIZE + threadIdx.x]);
+                        dist.reduceIter(s_query[hipThreadIdx_y * BLOCK_SIZE + j], s_train[j * BLOCK_SIZE + hipThreadIdx_x]);
 
                     __syncthreads();
                 }
 
                 typename Dist::result_type distVal = dist;
 
-                const int trainIdx = t * BLOCK_SIZE + threadIdx.x;
+                const int trainIdx = t * BLOCK_SIZE + hipThreadIdx_x;
 
                 if (queryIdx < query.rows && trainIdx < train.rows && mask(queryIdx, trainIdx))
                 {
@@ -732,7 +732,7 @@ namespace cv { namespace cuda { namespace device
         {
             HIP_DYNAMIC_SHARED( int, smem)
 
-            const int queryIdx = blockIdx.x * BLOCK_SIZE + threadIdx.y;
+            const int queryIdx = hipBlockIdx_x * BLOCK_SIZE + hipThreadIdx_y;
 
             typename Dist::value_type* s_query = (typename Dist::value_type*)(smem);
             typename Dist::value_type* s_train = (typename Dist::value_type*)(smem + BLOCK_SIZE * BLOCK_SIZE);
@@ -751,7 +751,7 @@ namespace cv { namespace cuda { namespace device
 
             findBestMatch<BLOCK_SIZE>(myBestDistance1, myBestDistance2, myBestTrainIdx1, myBestTrainIdx2, s_distance, s_trainIdx);
 
-            if (queryIdx < query.rows && threadIdx.x == 0)
+            if (queryIdx < query.rows && hipThreadIdx_x == 0)
             {
                 bestTrainIdx[queryIdx] = make_int2(myBestTrainIdx1, myBestTrainIdx2);
                 bestDistance[queryIdx] = make_float2(myBestDistance1, myBestDistance2);
@@ -780,7 +780,7 @@ namespace cv { namespace cuda { namespace device
         {
             HIP_DYNAMIC_SHARED( int, smem)
 
-            const int queryIdx = blockIdx.x * BLOCK_SIZE + threadIdx.y;
+            const int queryIdx = hipBlockIdx_x * BLOCK_SIZE + hipThreadIdx_y;
 
             typename Dist::value_type* s_query = (typename Dist::value_type*)(smem);
             typename Dist::value_type* s_train = (typename Dist::value_type*)(smem + BLOCK_SIZE * BLOCK_SIZE);
@@ -809,7 +809,7 @@ namespace cv { namespace cuda { namespace device
 
             findBestMatch<BLOCK_SIZE>(myBestDistance1, myBestDistance2, myBestTrainIdx1, myBestTrainIdx2, myBestImgIdx1, myBestImgIdx2, s_distance, s_trainIdx, s_imgIdx);
 
-            if (queryIdx < query.rows && threadIdx.x == 0)
+            if (queryIdx < query.rows && hipThreadIdx_x == 0)
             {
                 bestTrainIdx[queryIdx] = make_int2(myBestTrainIdx1, myBestTrainIdx2);
                 bestImgIdx[queryIdx] = make_int2(myBestImgIdx1, myBestImgIdx2);
@@ -907,8 +907,8 @@ namespace cv { namespace cuda { namespace device
         {
             HIP_DYNAMIC_SHARED( int, smem)
 
-            const int queryIdx = blockIdx.y * BLOCK_SIZE + threadIdx.y;
-            const int trainIdx = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+            const int queryIdx = hipBlockIdx_y * BLOCK_SIZE + hipThreadIdx_y;
+            const int trainIdx = hipBlockIdx_x * BLOCK_SIZE + hipThreadIdx_x;
 
             typename Dist::value_type* s_query = (typename Dist::value_type*)(smem);
             typename Dist::value_type* s_train = (typename Dist::value_type*)(smem + BLOCK_SIZE * BLOCK_SIZE);
@@ -918,24 +918,24 @@ namespace cv { namespace cuda { namespace device
             #pragma unroll
             for (int i = 0; i < MAX_DESC_LEN / BLOCK_SIZE; ++i)
             {
-                const int loadX = threadIdx.x + i * BLOCK_SIZE;
+                const int loadX = hipThreadIdx_x + i * BLOCK_SIZE;
 
                 if (loadX < query.cols)
                 {
-                    s_query[threadIdx.y * BLOCK_SIZE + threadIdx.x] = query.ptr(::min(queryIdx, query.rows - 1))[loadX];
-                    s_train[threadIdx.x * BLOCK_SIZE + threadIdx.y] = train.ptr(::min(blockIdx.x * BLOCK_SIZE + threadIdx.y, train.rows - 1))[loadX];
+                    s_query[hipThreadIdx_y * BLOCK_SIZE + hipThreadIdx_x] = query.ptr(::min(queryIdx, query.rows - 1))[loadX];
+                    s_train[hipThreadIdx_x * BLOCK_SIZE + hipThreadIdx_y] = train.ptr(::min(hipBlockIdx_x * BLOCK_SIZE + hipThreadIdx_y, train.rows - 1))[loadX];
                 }
                 else
                 {
-                    s_query[threadIdx.y * BLOCK_SIZE + threadIdx.x] = 0;
-                    s_train[threadIdx.x * BLOCK_SIZE + threadIdx.y] = 0;
+                    s_query[hipThreadIdx_y * BLOCK_SIZE + hipThreadIdx_x] = 0;
+                    s_train[hipThreadIdx_x * BLOCK_SIZE + hipThreadIdx_y] = 0;
                 }
 
                 __syncthreads();
 
                 #pragma unroll
                 for (int j = 0; j < BLOCK_SIZE; ++j)
-                    dist.reduceIter(s_query[threadIdx.y * BLOCK_SIZE + j], s_train[j * BLOCK_SIZE + threadIdx.x]);
+                    dist.reduceIter(s_query[hipThreadIdx_y * BLOCK_SIZE + j], s_train[j * BLOCK_SIZE + hipThreadIdx_x]);
 
                 __syncthreads();
             }
@@ -971,8 +971,8 @@ namespace cv { namespace cuda { namespace device
         {
             HIP_DYNAMIC_SHARED( int, smem)
 
-            const int queryIdx = blockIdx.y * BLOCK_SIZE + threadIdx.y;
-            const int trainIdx = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+            const int queryIdx = hipBlockIdx_y * BLOCK_SIZE + hipThreadIdx_y;
+            const int trainIdx = hipBlockIdx_x * BLOCK_SIZE + hipThreadIdx_x;
 
             typename Dist::value_type* s_query = (typename Dist::value_type*)(smem);
             typename Dist::value_type* s_train = (typename Dist::value_type*)(smem + BLOCK_SIZE * BLOCK_SIZE);
@@ -981,24 +981,24 @@ namespace cv { namespace cuda { namespace device
 
             for (int i = 0, endi = (query.cols + BLOCK_SIZE - 1) / BLOCK_SIZE; i < endi; ++i)
             {
-                const int loadX = threadIdx.x + i * BLOCK_SIZE;
+                const int loadX = hipThreadIdx_x + i * BLOCK_SIZE;
 
                 if (loadX < query.cols)
                 {
-                    s_query[threadIdx.y * BLOCK_SIZE + threadIdx.x] = query.ptr(::min(queryIdx, query.rows - 1))[loadX];
-                    s_train[threadIdx.x * BLOCK_SIZE + threadIdx.y] = train.ptr(::min(blockIdx.x * BLOCK_SIZE + threadIdx.y, train.rows - 1))[loadX];
+                    s_query[hipThreadIdx_y * BLOCK_SIZE + hipThreadIdx_x] = query.ptr(::min(queryIdx, query.rows - 1))[loadX];
+                    s_train[hipThreadIdx_x * BLOCK_SIZE + hipThreadIdx_y] = train.ptr(::min(hipBlockIdx_x * BLOCK_SIZE + hipThreadIdx_y, train.rows - 1))[loadX];
                 }
                 else
                 {
-                    s_query[threadIdx.y * BLOCK_SIZE + threadIdx.x] = 0;
-                    s_train[threadIdx.x * BLOCK_SIZE + threadIdx.y] = 0;
+                    s_query[hipThreadIdx_y * BLOCK_SIZE + hipThreadIdx_x] = 0;
+                    s_train[hipThreadIdx_x * BLOCK_SIZE + hipThreadIdx_y] = 0;
                 }
 
                 __syncthreads();
 
                 #pragma unroll
                 for (int j = 0; j < BLOCK_SIZE; ++j)
-                    dist.reduceIter(s_query[threadIdx.y * BLOCK_SIZE + j], s_train[j * BLOCK_SIZE + threadIdx.x]);
+                    dist.reduceIter(s_query[hipThreadIdx_y * BLOCK_SIZE + j], s_train[j * BLOCK_SIZE + hipThreadIdx_x]);
 
                 __syncthreads();
             }
@@ -1073,14 +1073,14 @@ namespace cv { namespace cuda { namespace device
             __shared__ float s_dist[SMEM_SIZE];
             __shared__ int s_trainIdx[SMEM_SIZE];
 
-            const int queryIdx = blockIdx.x;
+            const int queryIdx = hipBlockIdx_x;
 
             float* allDistRow = allDist.ptr(queryIdx);
 
             float dist = numeric_limits<float>::max();
             int bestIdx = -1;
 
-            for (int i = threadIdx.x; i < allDist.cols; i += BLOCK_SIZE)
+            for (int i = hipThreadIdx_x; i < allDist.cols; i += BLOCK_SIZE)
             {
                 float reg = allDistRow[i];
                 if (reg < dist)
@@ -1090,13 +1090,13 @@ namespace cv { namespace cuda { namespace device
                 }
             }
 
-            s_dist[threadIdx.x] = dist;
-            s_trainIdx[threadIdx.x] = bestIdx;
+            s_dist[hipThreadIdx_x] = dist;
+            s_trainIdx[hipThreadIdx_x] = bestIdx;
             __syncthreads();
 
-            reduceKeyVal<BLOCK_SIZE>(s_dist, dist, s_trainIdx, bestIdx, threadIdx.x, less<float>());
+            reduceKeyVal<BLOCK_SIZE>(s_dist, dist, s_trainIdx, bestIdx, hipThreadIdx_x, less<float>());
 
-            if (threadIdx.x == 0)
+            if (hipThreadIdx_x == 0)
             {
                 if (dist < numeric_limits<float>::max())
                 {

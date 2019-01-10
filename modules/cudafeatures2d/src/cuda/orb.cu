@@ -98,7 +98,7 @@ namespace cv { namespace cuda { namespace device
             __shared__ int smem1[8 * 32];
             __shared__ int smem2[8 * 32];
 
-            const int ptidx = blockIdx.x * blockDim.y + threadIdx.y;
+            const int ptidx = hipBlockIdx_x * hipBlockDim_y + hipThreadIdx_y;
 
             if (ptidx < npoints)
             {
@@ -110,7 +110,7 @@ namespace cv { namespace cuda { namespace device
 
                 int a = 0, b = 0, c = 0;
 
-                for (int ind = threadIdx.x; ind < blockSize * blockSize; ind += blockDim.x)
+                for (int ind = hipThreadIdx_x; ind < blockSize * blockSize; ind += hipBlockDim_x)
                 {
                     const int i = ind / blockSize;
                     const int j = ind % blockSize;
@@ -128,14 +128,14 @@ namespace cv { namespace cuda { namespace device
                     c += Ix * Iy;
                 }
 
-                int* srow0 = smem0 + threadIdx.y * blockDim.x;
-                int* srow1 = smem1 + threadIdx.y * blockDim.x;
-                int* srow2 = smem2 + threadIdx.y * blockDim.x;
+                int* srow0 = smem0 + hipThreadIdx_y * hipBlockDim_x;
+                int* srow1 = smem1 + hipThreadIdx_y * hipBlockDim_x;
+                int* srow2 = smem2 + hipThreadIdx_y * hipBlockDim_x;
 
                 plus<int> op;
-                reduce<32>(smem_tuple(srow0, srow1, srow2), thrust::tie(a, b, c), threadIdx.x, thrust::make_tuple(op, op, op));
+                reduce<32>(smem_tuple(srow0, srow1, srow2), thrust::tie(a, b, c), hipThreadIdx_x, thrust::make_tuple(op, op, op));
 
-                if (threadIdx.x == 0)
+                if (hipThreadIdx_x == 0)
                 {
                     float scale = (1 << 2) * blockSize * 255.0f;
                     scale = 1.0f / scale;
@@ -176,12 +176,12 @@ namespace cv { namespace cuda { namespace device
             __shared__ int smem0[8 * 32];
             __shared__ int smem1[8 * 32];
 
-            int* srow0 = smem0 + threadIdx.y * blockDim.x;
-            int* srow1 = smem1 + threadIdx.y * blockDim.x;
+            int* srow0 = smem0 + hipThreadIdx_y * hipBlockDim_x;
+            int* srow1 = smem1 + hipThreadIdx_y * hipBlockDim_x;
 
             plus<int> op;
 
-            const int ptidx = blockIdx.x * blockDim.y + threadIdx.y;
+            const int ptidx = hipBlockIdx_x * hipBlockDim_y + hipThreadIdx_y;
 
             if (ptidx < npoints)
             {
@@ -190,10 +190,10 @@ namespace cv { namespace cuda { namespace device
                 const short2 loc = loc_[ptidx];
 
                 // Treat the center line differently, v=0
-                for (int u = threadIdx.x - half_k; u <= half_k; u += blockDim.x)
+                for (int u = hipThreadIdx_x - half_k; u <= half_k; u += hipBlockDim_x)
                     m_10 += u * image(loc.y, loc.x + u);
 
-                reduce<32>(srow0, m_10, threadIdx.x, op);
+                reduce<32>(srow0, m_10, hipThreadIdx_x, op);
 
                 for (int v = 1; v <= half_k; ++v)
                 {
@@ -202,7 +202,7 @@ namespace cv { namespace cuda { namespace device
                     int m_sum = 0;
                     const int d = c_u_max[v];
 
-                    for (int u = threadIdx.x - d; u <= d; u += blockDim.x)
+                    for (int u = hipThreadIdx_x - d; u <= d; u += hipBlockDim_x)
                     {
                         int val_plus = image(loc.y + v, loc.x + u);
                         int val_minus = image(loc.y - v, loc.x + u);
@@ -211,13 +211,13 @@ namespace cv { namespace cuda { namespace device
                         m_sum += u * (val_plus + val_minus);
                     }
 
-                    reduce<32>(smem_tuple(srow0, srow1), thrust::tie(v_sum, m_sum), threadIdx.x, thrust::make_tuple(op, op));
+                    reduce<32>(smem_tuple(srow0, srow1), thrust::tie(v_sum, m_sum), hipThreadIdx_x, thrust::make_tuple(op, op));
 
                     m_10 += m_sum;
                     m_01 += v * v_sum;
                 }
 
-                if (threadIdx.x == 0)
+                if (hipThreadIdx_x == 0)
                 {
                     float kp_dir = ::atan2f((float)m_01, (float)m_10);
                     kp_dir += (kp_dir < 0) * (2.0f * CV_PI_F);
@@ -366,8 +366,8 @@ namespace cv { namespace cuda { namespace device
         __global__ void computeOrbDescriptor(const PtrStepb img, const short2* loc, const float* angle_, const int npoints,
             const int* pattern_x, const int* pattern_y, PtrStepb desc, int dsize)
         {
-            const int descidx = blockIdx.x * blockDim.x + threadIdx.x;
-            const int ptidx = blockIdx.y * blockDim.y + threadIdx.y;
+            const int descidx = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int ptidx = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (ptidx < npoints && descidx < dsize)
             {
@@ -416,7 +416,7 @@ namespace cv { namespace cuda { namespace device
 
         __global__ void mergeLocation(const short2* loc_, float* x, float* y, const int npoints, float scale)
         {
-            const int ptidx = blockIdx.x * blockDim.x + threadIdx.x;
+            const int ptidx = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
 
             if (ptidx < npoints)
             {

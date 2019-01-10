@@ -62,8 +62,8 @@ namespace cv { namespace cuda { namespace device
         {
             HIP_DYNAMIC_SHARED( int, smem)
 
-            const int queryIdx = blockIdx.y * BLOCK_SIZE + threadIdx.y;
-            const int trainIdx = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+            const int queryIdx = hipBlockIdx_y * BLOCK_SIZE + hipThreadIdx_y;
+            const int trainIdx = hipBlockIdx_x * BLOCK_SIZE + hipThreadIdx_x;
 
             typename Dist::value_type* s_query = (typename Dist::value_type*)(smem);
             typename Dist::value_type* s_train = (typename Dist::value_type*)(smem + BLOCK_SIZE * BLOCK_SIZE);
@@ -73,27 +73,27 @@ namespace cv { namespace cuda { namespace device
             #pragma unroll
             for (int i = 0; i < MAX_DESC_LEN / BLOCK_SIZE; ++i)
             {
-                const int loadX = threadIdx.x + i * BLOCK_SIZE;
+                const int loadX = hipThreadIdx_x + i * BLOCK_SIZE;
 
-                s_query[threadIdx.y * BLOCK_SIZE + threadIdx.x] = 0;
-                s_train[threadIdx.x * BLOCK_SIZE + threadIdx.y] = 0;
+                s_query[hipThreadIdx_y * BLOCK_SIZE + hipThreadIdx_x] = 0;
+                s_train[hipThreadIdx_x * BLOCK_SIZE + hipThreadIdx_y] = 0;
 
                 if (loadX < query.cols)
                 {
                     T val;
 
                     ForceGlob<T>::Load(query.ptr(::min(queryIdx, query.rows - 1)), loadX, val);
-                    s_query[threadIdx.y * BLOCK_SIZE + threadIdx.x] = val;
+                    s_query[hipThreadIdx_y * BLOCK_SIZE + hipThreadIdx_x] = val;
 
-                    ForceGlob<T>::Load(train.ptr(::min(blockIdx.x * BLOCK_SIZE + threadIdx.y, train.rows - 1)), loadX, val);
-                    s_train[threadIdx.x * BLOCK_SIZE + threadIdx.y] = val;
+                    ForceGlob<T>::Load(train.ptr(::min(hipBlockIdx_x * BLOCK_SIZE + hipThreadIdx_y, train.rows - 1)), loadX, val);
+                    s_train[hipThreadIdx_x * BLOCK_SIZE + hipThreadIdx_y] = val;
                 }
 
                 __syncthreads();
 
                 #pragma unroll
                 for (int j = 0; j < BLOCK_SIZE; ++j)
-                    dist.reduceIter(s_query[threadIdx.y * BLOCK_SIZE + j], s_train[j * BLOCK_SIZE + threadIdx.x]);
+                    dist.reduceIter(s_query[hipThreadIdx_y * BLOCK_SIZE + j], s_train[j * BLOCK_SIZE + hipThreadIdx_x]);
 
                 __syncthreads();
             }
@@ -170,8 +170,8 @@ namespace cv { namespace cuda { namespace device
         {
             HIP_DYNAMIC_SHARED( int, smem)
 
-            const int queryIdx = blockIdx.y * BLOCK_SIZE + threadIdx.y;
-            const int trainIdx = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+            const int queryIdx = hipBlockIdx_y * BLOCK_SIZE + hipThreadIdx_y;
+            const int trainIdx = hipBlockIdx_x * BLOCK_SIZE + hipThreadIdx_x;
 
             typename Dist::value_type* s_query = (typename Dist::value_type*)(smem);
             typename Dist::value_type* s_train = (typename Dist::value_type*)(smem + BLOCK_SIZE * BLOCK_SIZE);
@@ -180,27 +180,27 @@ namespace cv { namespace cuda { namespace device
 
             for (int i = 0, endi = (query.cols + BLOCK_SIZE - 1) / BLOCK_SIZE; i < endi; ++i)
             {
-                const int loadX = threadIdx.x + i * BLOCK_SIZE;
+                const int loadX = hipThreadIdx_x + i * BLOCK_SIZE;
 
-                s_query[threadIdx.y * BLOCK_SIZE + threadIdx.x] = 0;
-                s_train[threadIdx.x * BLOCK_SIZE + threadIdx.y] = 0;
+                s_query[hipThreadIdx_y * BLOCK_SIZE + hipThreadIdx_x] = 0;
+                s_train[hipThreadIdx_x * BLOCK_SIZE + hipThreadIdx_y] = 0;
 
                 if (loadX < query.cols)
                 {
                     T val;
 
                     ForceGlob<T>::Load(query.ptr(::min(queryIdx, query.rows - 1)), loadX, val);
-                    s_query[threadIdx.y * BLOCK_SIZE + threadIdx.x] = val;
+                    s_query[hipThreadIdx_y * BLOCK_SIZE + hipThreadIdx_x] = val;
 
-                    ForceGlob<T>::Load(train.ptr(::min(blockIdx.x * BLOCK_SIZE + threadIdx.y, train.rows - 1)), loadX, val);
-                    s_train[threadIdx.x * BLOCK_SIZE + threadIdx.y] = val;
+                    ForceGlob<T>::Load(train.ptr(::min(hipBlockIdx_x * BLOCK_SIZE + hipThreadIdx_y, train.rows - 1)), loadX, val);
+                    s_train[hipThreadIdx_x * BLOCK_SIZE + hipThreadIdx_y] = val;
                 }
 
                 __syncthreads();
 
                 #pragma unroll
                 for (int j = 0; j < BLOCK_SIZE; ++j)
-                    dist.reduceIter(s_query[threadIdx.y * BLOCK_SIZE + j], s_train[j * BLOCK_SIZE + threadIdx.x]);
+                    dist.reduceIter(s_query[hipThreadIdx_y * BLOCK_SIZE + j], s_train[j * BLOCK_SIZE + hipThreadIdx_x]);
 
                 __syncthreads();
             }

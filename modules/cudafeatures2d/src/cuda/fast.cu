@@ -221,8 +221,8 @@ namespace cv { namespace cuda { namespace device
         {
             #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 110)
 
-            const int j = threadIdx.x + blockIdx.x * blockDim.x + 3;
-            const int i = threadIdx.y + blockIdx.y * blockDim.y + 3;
+            const int j = hipThreadIdx_x + hipBlockIdx_x * hipBlockDim_x + 3;
+            const int i = hipThreadIdx_y + hipBlockIdx_y * hipBlockDim_y + 3;
 
             if (i < img.rows - 3 && j < img.cols - 3 && mask(i, j))
             {
@@ -320,7 +320,7 @@ namespace cv { namespace cuda { namespace device
         {
             #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 110)
 
-            const int kpIdx = threadIdx.x + blockIdx.x * blockDim.x;
+            const int kpIdx = hipThreadIdx_x + hipBlockIdx_x * hipBlockDim_x;
 
             if (kpIdx < count)
             {
