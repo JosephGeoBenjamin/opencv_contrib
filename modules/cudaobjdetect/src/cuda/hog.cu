@@ -833,6 +833,7 @@ namespace cv { namespace cuda { namespace device
 
         texture<uchar4, 2, hipReadModeNormalizedFloat> resize8UC4_tex;
         texture<uchar,  2, hipReadModeNormalizedFloat> resize8UC1_tex;
+        texture<float4,  2, hipReadModeNormalizedFloat> resizeFP4_tex;
 
         __global__ void resize_for_hog_kernel(float sx, float sy, PtrStepSz<uchar> dst, int colOfs)
         {
@@ -850,7 +851,7 @@ namespace cv { namespace cuda { namespace device
 
             if (x < dst.cols && y < dst.rows)
             {
-                float4 val = tex2D(resize8UC4_tex, x * sx + colOfs, y * sy);
+                float4 val = tex2D(resizeFP4_tex, x * sx + colOfs, y * sy);
                 dst.ptr(y)[x] = make_uchar4(val.x * 255, val.y * 255, val.z * 255, val.w * 255);
             }
         }
