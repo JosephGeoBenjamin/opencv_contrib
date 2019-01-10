@@ -120,15 +120,15 @@ namespace cv { namespace cuda { namespace device
             varMin = ::fminf(varMin, varMax);
             varMax = ::fmaxf(varMin, varMax);
 
-            cudaSafeCall( hipMemcpyToSymbol(c_nmixtures, &nmixtures, sizeof(int)) );
-            cudaSafeCall( hipMemcpyToSymbol(c_Tb, &Tb, sizeof(float)) );
-            cudaSafeCall( hipMemcpyToSymbol(c_TB, &TB, sizeof(float)) );
-            cudaSafeCall( hipMemcpyToSymbol(c_Tg, &Tg, sizeof(float)) );
-            cudaSafeCall( hipMemcpyToSymbol(c_varInit, &varInit, sizeof(float)) );
-            cudaSafeCall( hipMemcpyToSymbol(c_varMin, &varMin, sizeof(float)) );
-            cudaSafeCall( hipMemcpyToSymbol(c_varMax, &varMax, sizeof(float)) );
-            cudaSafeCall( hipMemcpyToSymbol(c_tau, &tau, sizeof(float)) );
-            cudaSafeCall( hipMemcpyToSymbol(c_shadowVal, &shadowVal, sizeof(unsigned char)) );
+            cudaSafeCall( hipMemcpyToSymbol(&c_nmixtures, &nmixtures, sizeof(int)) );
+            cudaSafeCall( hipMemcpyToSymbol(&c_Tb, &Tb, sizeof(float)) );
+            cudaSafeCall( hipMemcpyToSymbol(&c_TB, &TB, sizeof(float)) );
+            cudaSafeCall( hipMemcpyToSymbol(&c_Tg, &Tg, sizeof(float)) );
+            cudaSafeCall( hipMemcpyToSymbol(&c_varInit, &varInit, sizeof(float)) );
+            cudaSafeCall( hipMemcpyToSymbol(&c_varMin, &varMin, sizeof(float)) );
+            cudaSafeCall( hipMemcpyToSymbol(&c_varMax, &varMax, sizeof(float)) );
+            cudaSafeCall( hipMemcpyToSymbol(&c_tau, &tau, sizeof(float)) );
+            cudaSafeCall( hipMemcpyToSymbol(&c_shadowVal, &shadowVal, sizeof(unsigned char)) );
         }
 
         template <bool detectShadows, typename SrcT, typename WorkT>
