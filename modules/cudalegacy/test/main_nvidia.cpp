@@ -133,6 +133,7 @@ void generateResizeTests(NCVAutoTestLister &testLister, NCVTestSourceProvider<T>
     }
 }
 
+#ifdef NPP_ENABLE
 void generateNPPSTVectorTests(NCVAutoTestLister &testLister, NCVTestSourceProvider<Ncv32u> &src, Ncv32u maxLength)
 {
     //compaction
@@ -164,7 +165,7 @@ void generateNPPSTVectorTests(NCVAutoTestLister &testLister, NCVTestSourceProvid
         testLister.add(new TestCompact(testName, src, i, 0x00000000, 2));
     }
 }
-
+#endif //NPP_ENABLE
 
 template <class T>
 void generateTransposeTests(NCVAutoTestLister &testLister, NCVTestSourceProvider<T> &src)
@@ -297,6 +298,7 @@ static void devNullOutput(const cv::String& msg)
 
 }
 
+#ifdef NPP_ENABLE
 bool nvidia_NPPST_Integral_Image(const std::string& test_data_path, OutputLevel outputLevel)
 {
     path = test_data_path.c_str();
@@ -386,6 +388,7 @@ bool nvidia_NPPST_Transpose(const std::string& test_data_path, OutputLevel outpu
 
     return testListerTranspose.invoke();
 }
+#endif //NPP_ENABLE
 
 bool nvidia_NCV_Vector_Operations(const std::string& test_data_path, OutputLevel outputLevel)
 {

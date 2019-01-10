@@ -60,6 +60,7 @@
 
 namespace cv { namespace cuda
 {
+#ifdef NPP_ENABLE
     class NppStStreamHandler
     {
     public:
@@ -87,6 +88,7 @@ namespace cv { namespace cuda
             cv::error(cv::Error::GpuApiCallError, msg, func, file, line);
         }
     }
+#endif //NPP_ENABLE
 }}
 
 #define ncvSafeCall(expr)  cv::cuda::checkNcvError(expr, __FILE__, __LINE__, CV_Func)

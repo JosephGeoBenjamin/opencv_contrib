@@ -197,12 +197,14 @@ bool TestHaarCascadeApplication::process()
     NCVVectorAlloc<NcvRect32u> h_hypotheses(*this->allocatorCPU.get(), this->width * this->height);
     ncvAssertReturn(h_hypotheses.isMemAllocated(), false);
 
+#ifdef NPP_ENABLE
     NCVStatus nppStat;
     Ncv32u szTmpBufIntegral, szTmpBufSqIntegral;
     nppStat = nppiStIntegralGetSize_8u32u(NcvSize32u(this->width, this->height), &szTmpBufIntegral, this->devProp);
     ncvAssertReturn(nppStat == NPPST_SUCCESS, false);
     nppStat = nppiStSqrIntegralGetSize_8u64u(NcvSize32u(this->width, this->height), &szTmpBufSqIntegral, this->devProp);
     ncvAssertReturn(nppStat == NPPST_SUCCESS, false);
+#endif //NPP_ENABLE
     NCVVectorAlloc<Ncv8u> d_tmpIIbuf(*this->allocatorGPU.get(), std::max(szTmpBufIntegral, szTmpBufSqIntegral));
     ncvAssertReturn(d_tmpIIbuf.isMemAllocated(), false);
 
@@ -216,6 +218,7 @@ bool TestHaarCascadeApplication::process()
     ncvAssertReturn(ncvStat == NCV_SUCCESS, false);
     ncvAssertCUDAReturn(hipStreamSynchronize(0), false);
 
+#ifdef NPP_ENABLE
     nppStat = nppiStIntegral_8u32u_C1R(d_img.ptr(), d_img.pitch(),
                                        d_integralImage.ptr(), d_integralImage.pitch(),
                                        NcvSize32u(d_img.width(), d_img.height()),
@@ -227,12 +230,14 @@ bool TestHaarCascadeApplication::process()
                                           NcvSize32u(d_img.width(), d_img.height()),
                                           d_tmpIIbuf.ptr(), szTmpBufSqIntegral, this->devProp);
     ncvAssertReturn(nppStat == NPPST_SUCCESS, false);
+#endif //NPP_ENABLE
 
     const NcvRect32u rect(
         HAAR_STDDEV_BORDER,
         HAAR_STDDEV_BORDER,
         haar.ClassifierSize.width - 2*HAAR_STDDEV_BORDER,
         haar.ClassifierSize.height - 2*HAAR_STDDEV_BORDER);
+#ifdef NPP_ENABLE
     nppStat = nppiStRectStdDev_32f_C1R(
         d_integralImage.ptr(), d_integralImage.pitch(),
         d_sqIntegralImage.ptr(), d_sqIntegralImage.pitch(),
@@ -240,6 +245,7 @@ bool TestHaarCascadeApplication::process()
         NcvSize32u(searchRoi.width, searchRoi.height), rect,
         1.0f, true);
     ncvAssertReturn(nppStat == NPPST_SUCCESS, false);
+#endif //NPP_ENABLE
 
     ncvStat = d_integralImage.copySolid(h_integralImage, 0);
     ncvAssertReturn(ncvStat == NCV_SUCCESS, false);

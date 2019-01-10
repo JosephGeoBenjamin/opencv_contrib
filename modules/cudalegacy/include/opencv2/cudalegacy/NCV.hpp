@@ -351,6 +351,7 @@ enum
 
     NCV_WARNING_HAAR_DETECTIONS_VECTOR_OVERFLOW,
 
+#ifdef NPP_ENABLE
     //NPP statuses
     NPPST_SUCCESS = NCV_SUCCESS,              ///< Successful operation (same as NPP_NO_ERROR)
     NPPST_ERROR,                              ///< Unknown error
@@ -368,6 +369,7 @@ enum
     NPPST_MEM_INSUFFICIENT_BUFFER,            ///< Insufficient user-allocated buffer
     NPPST_MEM_RESIDENCE_ERROR,                ///< Memory residence error detected (check if pointers should be device or pinned)
     NPPST_MEM_INTERNAL_ERROR,                 ///< Internal memory management error
+#endif //NPP_ENABLE
 
     NCV_LAST_STATUS                           ///< Marker to continue error numeration in other files
 };

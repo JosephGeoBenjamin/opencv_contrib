@@ -64,6 +64,7 @@ struct NVidiaTest : TestWithParam<cv::cuda::DeviceInfo>
     }
 };
 
+#ifdef NPP_ENABLE
 struct NPPST : NVidiaTest {};
 struct NCV : NVidiaTest {};
 
@@ -108,6 +109,7 @@ CUDA_TEST_P(NPPST, Transpose)
 
     ASSERT_TRUE(res);
 }
+#endif //NPP_ENABLE
 
 CUDA_TEST_P(NCV, VectorOperations)
 {
@@ -143,8 +145,10 @@ CUDA_TEST_P(NCV, Visualization)
 
     ASSERT_TRUE(res);
 }
-
+#ifdef NPP_ENABLE
 INSTANTIATE_TEST_CASE_P(CUDA_Legacy, NPPST, ALL_DEVICES);
+#endif //NPP_ENABLE
+
 INSTANTIATE_TEST_CASE_P(CUDA_Legacy, NCV, ALL_DEVICES);
 
 

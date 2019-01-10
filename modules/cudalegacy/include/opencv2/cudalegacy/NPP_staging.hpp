@@ -45,6 +45,7 @@
 
 #include "opencv2/cudalegacy/NCV.hpp"
 
+#ifdef NPP_ENABLE
 //! @addtogroup cudalegacy
 //! @{
 
@@ -902,5 +903,7 @@ NCVStatus nppsStCompact_32f_host(Ncv32f *h_src, Ncv32u srcLen,
 /*@}*/
 
 //! @}
+
+#endif //NPP_ENABLE
 
 #endif // _npp_staging_hpp_

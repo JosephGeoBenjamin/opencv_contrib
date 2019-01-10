@@ -1086,6 +1086,7 @@ NCVStatus ncvApplyHaarClassifierCascade_device(NCVMatrix<Ncv32u> &integral,
     NCVVector<Ncv32u> *d_ptrNowData = &d_vecPixelMask;
     NCVVector<Ncv32u> *d_ptrNowTmp = &d_vecPixelMaskTmp;
 
+#ifdef NPP_ENABLE
     Ncv32u szNppCompactTmpBuf;
     nppsStCompactGetSize_32u(static_cast<Ncv32u>(d_vecPixelMask.length()), &szNppCompactTmpBuf, devProp);
     if (bDoAtomicCompaction)
@@ -1093,6 +1094,7 @@ NCVStatus ncvApplyHaarClassifierCascade_device(NCVMatrix<Ncv32u> &integral,
         szNppCompactTmpBuf = 0;
     }
     NCVVectorAlloc<Ncv8u> d_tmpBufCompact(gpuAllocator, szNppCompactTmpBuf);
+#endif //NPP_ENABLE
 
     NCV_SKIP_COND_BEGIN
 
@@ -1153,7 +1155,7 @@ NCVStatus ncvApplyHaarClassifierCascade_device(NCVMatrix<Ncv32u> &integral,
     {
         if (bDoAtomicCompaction)
         {
-            ncvAssertCUDAReturn(hipMemcpyToSymbolAsync(d_outMaskPosition, hp_zero, sizeof(Ncv32u),
+            ncvAssertCUDAReturn(hipMemcpyToSymbolAsync(&d_outMaskPosition, hp_zero, sizeof(Ncv32u),
                                                         0, hipMemcpyHostToDevice, cuStream), NCV_CUDA_ERROR);
             ncvAssertCUDAReturn(hipStreamSynchronize(cuStream), NCV_CUDA_ERROR);
         }
@@ -1187,11 +1189,14 @@ NCVStatus ncvApplyHaarClassifierCascade_device(NCVMatrix<Ncv32u> &integral,
         }
         else
         {
+#ifdef NPP_ENABLE
             NCVStatus nppSt;
             nppSt = nppsStCompact_32u(d_ptrNowTmp->ptr(), static_cast<Ncv32u>(d_vecPixelMask.length()),
                                       d_ptrNowData->ptr(), hp_numDet, OBJDET_MASK_ELEMENT_INVALID_32U,
                                       d_tmpBufCompact.ptr(), szNppCompactTmpBuf, devProp);
             ncvAssertReturn(nppSt == NPPST_SUCCESS, NCV_NPP_ERROR);
+#endif //NPP_ENABLE
+
         }
         numDetections = *hp_numDet;
     }
@@ -1203,7 +1208,7 @@ NCVStatus ncvApplyHaarClassifierCascade_device(NCVMatrix<Ncv32u> &integral,
 
         if (bDoAtomicCompaction)
         {
-            ncvAssertCUDAReturn(hipMemcpyToSymbolAsync(d_outMaskPosition, hp_zero, sizeof(Ncv32u),
+            ncvAssertCUDAReturn(hipMemcpyToSymbolAsync(&d_outMaskPosition, hp_zero, sizeof(Ncv32u),
                                                         0, hipMemcpyHostToDevice, cuStream), NCV_CUDA_ERROR);
             ncvAssertCUDAReturn(hipStreamSynchronize(cuStream), NCV_CUDA_ERROR);
         }
@@ -1242,11 +1247,14 @@ NCVStatus ncvApplyHaarClassifierCascade_device(NCVMatrix<Ncv32u> &integral,
         }
         else
         {
+#ifdef NPP_ENABLE
             NCVStatus nppSt;
             nppSt = nppsStCompact_32u(d_ptrNowData->ptr(), static_cast<Ncv32u>(d_vecPixelMask.length()),
                                       d_ptrNowTmp->ptr(), hp_numDet, OBJDET_MASK_ELEMENT_INVALID_32U,
                                       d_tmpBufCompact.ptr(), szNppCompactTmpBuf, devProp);
             ncvAssertReturnNcvStat(nppSt);
+#endif //NPP_ENABLE
+
         }
 
         swap(d_ptrNowData, d_ptrNowTmp);
@@ -1268,7 +1276,7 @@ NCVStatus ncvApplyHaarClassifierCascade_device(NCVMatrix<Ncv32u> &integral,
 
         if (bDoAtomicCompaction)
         {
-            ncvAssertCUDAReturn(hipMemcpyToSymbolAsync(d_outMaskPosition, hp_zero, sizeof(Ncv32u),
+            ncvAssertCUDAReturn(hipMemcpyToSymbolAsync(&d_outMaskPosition, hp_zero, sizeof(Ncv32u),
                                                         0, hipMemcpyHostToDevice, cuStream), NCV_CUDA_ERROR);
             ncvAssertCUDAReturn(hipStreamSynchronize(cuStream), NCV_CUDA_ERROR);
         }
@@ -1312,11 +1320,14 @@ NCVStatus ncvApplyHaarClassifierCascade_device(NCVMatrix<Ncv32u> &integral,
         }
         else
         {
+#ifdef NPP_ENABLE
             NCVStatus nppSt;
             nppSt = nppsStCompact_32u(d_ptrNowData->ptr(), numDetections,
                                       d_ptrNowTmp->ptr(), hp_numDet, OBJDET_MASK_ELEMENT_INVALID_32U,
                                       d_tmpBufCompact.ptr(), szNppCompactTmpBuf, devProp);
             ncvAssertReturnNcvStat(nppSt);
+#endif //NPP_ENABLE
+
         }
 
         swap(d_ptrNowData, d_ptrNowTmp);
@@ -1331,7 +1342,7 @@ NCVStatus ncvApplyHaarClassifierCascade_device(NCVMatrix<Ncv32u> &integral,
     {
         if (bDoAtomicCompaction)
         {
-            ncvAssertCUDAReturn(hipMemcpyToSymbolAsync(d_outMaskPosition, hp_zero, sizeof(Ncv32u),
+            ncvAssertCUDAReturn(hipMemcpyToSymbolAsync(&d_outMaskPosition, hp_zero, sizeof(Ncv32u),
                                                         0, hipMemcpyHostToDevice, cuStream), NCV_CUDA_ERROR);
             ncvAssertCUDAReturn(hipStreamSynchronize(cuStream), NCV_CUDA_ERROR);
         }
@@ -1373,11 +1384,14 @@ NCVStatus ncvApplyHaarClassifierCascade_device(NCVMatrix<Ncv32u> &integral,
         }
         else
         {
+#ifdef NPP_ENABLE
             NCVStatus nppSt;
             nppSt = nppsStCompact_32u(d_ptrNowData->ptr(), numDetections,
                                       d_ptrNowTmp->ptr(), hp_numDet, OBJDET_MASK_ELEMENT_INVALID_32U,
                                       d_tmpBufCompact.ptr(), szNppCompactTmpBuf, devProp);
             ncvAssertReturnNcvStat(nppSt);
+#endif //NPP_ENABLE
+
         }
 
         swap(d_ptrNowData, d_ptrNowTmp);
@@ -1620,17 +1634,20 @@ NCVStatus ncvDetectObjectsMultiScale_device(NCVMatrix<Ncv8u> &d_srcImg,
     NCVVectorAlloc<NcvRect32u> h_hypothesesIntermediate(cpuAllocator, d_srcImg.width() * d_srcImg.height());
     ncvAssertReturn(h_hypothesesIntermediate.isMemAllocated(), NCV_ALLOCATOR_BAD_ALLOC);
 
+#ifdef NPP_ENABLE
     NCVStatus nppStat;
     Ncv32u szTmpBufIntegral, szTmpBufSqIntegral;
     nppStat = nppiStIntegralGetSize_8u32u(NcvSize32u(d_srcImg.width(), d_srcImg.height()), &szTmpBufIntegral, devProp);
     ncvAssertReturnNcvStat(nppStat);
     nppStat = nppiStSqrIntegralGetSize_8u64u(NcvSize32u(d_srcImg.width(), d_srcImg.height()), &szTmpBufSqIntegral, devProp);
     ncvAssertReturnNcvStat(nppStat);
+#endif //NPP_ENABLE
+
     NCVVectorAlloc<Ncv8u> d_tmpIIbuf(gpuAllocator, std::max(szTmpBufIntegral, szTmpBufSqIntegral));
     ncvAssertReturn(d_tmpIIbuf.isMemAllocated(), NCV_ALLOCATOR_BAD_ALLOC);
 
     NCV_SKIP_COND_BEGIN
-
+#ifdef NPP_ENABLE
     nppStat = nppiStIntegral_8u32u_C1R(d_srcImg.ptr(), d_srcImg.pitch(),
                                        integral.ptr(), integral.pitch(),
                                        NcvSize32u(d_srcImg.width(), d_srcImg.height()),
@@ -1642,6 +1659,7 @@ NCVStatus ncvDetectObjectsMultiScale_device(NCVMatrix<Ncv8u> &d_srcImg,
                                           NcvSize32u(d_srcImg.width(), d_srcImg.height()),
                                           d_tmpIIbuf.ptr(), szTmpBufSqIntegral, devProp);
     ncvAssertReturnNcvStat(nppStat);
+#endif //NPP_ENABLE
 
     NCV_SKIP_COND_END
 
@@ -1717,7 +1735,7 @@ NCVStatus ncvDetectObjectsMultiScale_device(NCVMatrix<Ncv8u> &d_srcImg,
         searchRoi.height = scaledIIRoi.height - haar.ClassifierSize.height;
 
         NCV_SKIP_COND_BEGIN
-
+#ifdef NPP_ENABLE
         nppStat = nppiStDecimate_32u_C1R(
             integral.ptr(), integral.pitch(),
             d_scaledIntegralImage.ptr(), d_scaledIntegralImage.pitch(),
@@ -1753,6 +1771,7 @@ NCVStatus ncvDetectObjectsMultiScale_device(NCVMatrix<Ncv8u> &d_srcImg,
             searchRoi, pixelStep, (Ncv32f)scale*scale,
             gpuAllocator, cpuAllocator, devProp, cuStream);
         ncvAssertReturnNcvStat(nppStat);
+#endif //NPP_ENABLE
 
         NCV_SKIP_COND_BEGIN
 
