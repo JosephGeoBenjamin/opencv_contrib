@@ -63,7 +63,7 @@ namespace cv { namespace cuda
     class NppStStreamHandler
     {
     public:
-        inline explicit NppStStreamHandler(cudaStream_t newStream = 0)
+        inline explicit NppStStreamHandler(hipStream_t newStream = 0)
         {
             oldStream = nppStSetActiveCUDAstream(newStream);
         }
@@ -74,7 +74,7 @@ namespace cv { namespace cuda
         }
 
     private:
-        cudaStream_t oldStream;
+        hipStream_t oldStream;
     };
 
     CV_EXPORTS cv::String getNcvErrorMessage(int code);

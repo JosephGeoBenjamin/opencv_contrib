@@ -149,7 +149,7 @@ bool TestHaarCascadeApplication::process()
     ncvAssertReturn(NCV_SUCCESS == h_HaarStages.copySolid(d_HaarStages, 0), false);
     ncvAssertReturn(NCV_SUCCESS == h_HaarNodes.copySolid(d_HaarNodes, 0), false);
     ncvAssertReturn(NCV_SUCCESS == h_HaarFeatures.copySolid(d_HaarFeatures, 0), false);
-    ncvAssertCUDAReturn(cudaStreamSynchronize(0), false);
+    ncvAssertCUDAReturn(hipStreamSynchronize(0), false);
 
     NCV_SKIP_COND_END
 
@@ -214,7 +214,7 @@ bool TestHaarCascadeApplication::process()
     ncvAssertReturn(this->src.fill(h_img), false);
     ncvStat = h_img.copySolid(d_img, 0);
     ncvAssertReturn(ncvStat == NCV_SUCCESS, false);
-    ncvAssertCUDAReturn(cudaStreamSynchronize(0), false);
+    ncvAssertCUDAReturn(hipStreamSynchronize(0), false);
 
     nppStat = nppiStIntegral_8u32u_C1R(d_img.ptr(), d_img.pitch(),
                                        d_integralImage.ptr(), d_integralImage.pitch(),
@@ -260,7 +260,7 @@ bool TestHaarCascadeApplication::process()
             }
         }
     }
-    ncvAssertReturn(cudaSuccess == cudaStreamSynchronize(0), false);
+    ncvAssertReturn(hipSuccess == hipStreamSynchronize(0), false);
 
     {
         // calculations here
@@ -278,9 +278,9 @@ bool TestHaarCascadeApplication::process()
     NCV_SKIP_COND_END
 
     int devId;
-    ncvAssertCUDAReturn(cudaGetDevice(&devId), false);
-    cudaDeviceProp _devProp;
-    ncvAssertCUDAReturn(cudaGetDeviceProperties(&_devProp, devId), false);
+    ncvAssertCUDAReturn(hipGetDevice(&devId), false);
+    hipDeviceProp_t _devProp;
+    ncvAssertCUDAReturn(hipGetDeviceProperties(&_devProp, devId), false);
 
     ncvStat = ncvApplyHaarClassifierCascade_device(
         d_integralImage, d_rectStdDev, d_pixelMask,

@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -125,7 +126,7 @@ static NCVStatus drawRectsWrapperDevice(T *d_dst,
                                         NcvRect32u *d_rects,
                                         Ncv32u numRects,
                                         T color,
-                                        cudaStream_t cuStream)
+                                        hipStream_t cuStream)
 {
     CV_UNUSED(cuStream);
     ncvAssertReturn(d_dst != NULL && d_rects != NULL, NCV_NULL_PTR);
@@ -146,7 +147,7 @@ static NCVStatus drawRectsWrapperDevice(T *d_dst,
         grid.x = 65535;
     }
 
-    drawRects<T><<<grid, block>>>(d_dst, dstStride, dstWidth, dstHeight, d_rects, numRects, color);
+    hipLaunchKernelGGL((drawRects<T>), dim3(grid), dim3(block), 0, 0, d_dst, dstStride, dstWidth, dstHeight, d_rects, numRects, color);
 
     ncvAssertCUDALastErrorReturn(NCV_CUDA_ERROR);
 
@@ -161,7 +162,7 @@ NCVStatus ncvDrawRects_8u_device(Ncv8u *d_dst,
                                  NcvRect32u *d_rects,
                                  Ncv32u numRects,
                                  Ncv8u color,
-                                 cudaStream_t cuStream)
+                                 hipStream_t cuStream)
 {
     return drawRectsWrapperDevice(d_dst, dstStride, dstWidth, dstHeight, d_rects, numRects, color, cuStream);
 }
@@ -174,7 +175,7 @@ NCVStatus ncvDrawRects_32u_device(Ncv32u *d_dst,
                                   NcvRect32u *d_rects,
                                   Ncv32u numRects,
                                   Ncv32u color,
-                                  cudaStream_t cuStream)
+                                  hipStream_t cuStream)
 {
     return drawRectsWrapperDevice(d_dst, dstStride, dstWidth, dstHeight, d_rects, numRects, color, cuStream);
 }

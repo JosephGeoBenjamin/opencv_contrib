@@ -59,17 +59,17 @@
  * \return Current CUDA stream
  */
 CV_EXPORTS
-cudaStream_t nppStGetActiveCUDAstream();
+hipStream_t nppStGetActiveCUDAstream();
 
 
 /**
  * Sets an active CUDA stream used by NPPST
  * NOT THREAD SAFE
- * \param cudaStream        [IN] cudaStream CUDA stream to become current
+ * \param hipStream        [IN] hipStream CUDA stream to become current
  * \return CUDA stream used before
  */
 CV_EXPORTS
-cudaStream_t nppStSetActiveCUDAstream(cudaStream_t cudaStream);
+hipStream_t nppStSetActiveCUDAstream(hipStream_t hipStream);
 
 
 /*@}*/
@@ -672,7 +672,7 @@ NCVStatus nppiStTranspose_128_C1R_host(void *d_src, Ncv32u srcStep,
  * \return NCV status code
  */
 CV_EXPORTS
-NCVStatus nppiStIntegralGetSize_8u32u(NcvSize32u roiSize, Ncv32u *pBufsize, cudaDeviceProp &devProp);
+NCVStatus nppiStIntegralGetSize_8u32u(NcvSize32u roiSize, Ncv32u *pBufsize, hipDeviceProp_t &devProp);
 
 
 /**
@@ -680,7 +680,7 @@ NCVStatus nppiStIntegralGetSize_8u32u(NcvSize32u roiSize, Ncv32u *pBufsize, cuda
  * \see nppiStIntegralGetSize_8u32u
  */
 CV_EXPORTS
-NCVStatus nppiStIntegralGetSize_32f32f(NcvSize32u roiSize, Ncv32u *pBufsize, cudaDeviceProp &devProp);
+NCVStatus nppiStIntegralGetSize_32f32f(NcvSize32u roiSize, Ncv32u *pBufsize, hipDeviceProp_t &devProp);
 
 
 /**
@@ -700,7 +700,7 @@ NCVStatus nppiStIntegralGetSize_32f32f(NcvSize32u roiSize, Ncv32u *pBufsize, cud
 CV_EXPORTS
 NCVStatus nppiStIntegral_8u32u_C1R(Ncv8u *d_src, Ncv32u srcStep,
                                    Ncv32u *d_dst, Ncv32u dstStep, NcvSize32u roiSize,
-                                   Ncv8u *pBuffer, Ncv32u bufSize, cudaDeviceProp &devProp);
+                                   Ncv8u *pBuffer, Ncv32u bufSize, hipDeviceProp_t &devProp);
 
 
 /**
@@ -710,7 +710,7 @@ NCVStatus nppiStIntegral_8u32u_C1R(Ncv8u *d_src, Ncv32u srcStep,
 CV_EXPORTS
 NCVStatus nppiStIntegral_32f32f_C1R(Ncv32f *d_src, Ncv32u srcStep,
                                     Ncv32f *d_dst, Ncv32u dstStep, NcvSize32u roiSize,
-                                    Ncv8u *pBuffer, Ncv32u bufSize, cudaDeviceProp &devProp);
+                                    Ncv8u *pBuffer, Ncv32u bufSize, hipDeviceProp_t &devProp);
 
 
 /**
@@ -748,7 +748,7 @@ NCVStatus nppiStIntegral_32f32f_C1R_host(Ncv32f *h_src, Ncv32u srcStep,
  * \return NCV status code
  */
 CV_EXPORTS
-NCVStatus nppiStSqrIntegralGetSize_8u64u(NcvSize32u roiSize, Ncv32u *pBufsize, cudaDeviceProp &devProp);
+NCVStatus nppiStSqrIntegralGetSize_8u64u(NcvSize32u roiSize, Ncv32u *pBufsize, hipDeviceProp_t &devProp);
 
 
 /**
@@ -768,7 +768,7 @@ NCVStatus nppiStSqrIntegralGetSize_8u64u(NcvSize32u roiSize, Ncv32u *pBufsize, c
 CV_EXPORTS
 NCVStatus nppiStSqrIntegral_8u64u_C1R(Ncv8u *d_src, Ncv32u srcStep,
                                       Ncv64u *d_dst, Ncv32u dstStep, NcvSize32u roiSize,
-                                      Ncv8u *pBuffer, Ncv32u bufSize, cudaDeviceProp &devProp);
+                                      Ncv8u *pBuffer, Ncv32u bufSize, hipDeviceProp_t &devProp);
 
 
 /**
@@ -805,21 +805,21 @@ NCVStatus nppiStSqrIntegral_8u64u_C1R_host(Ncv8u *h_src, Ncv32u srcStep,
  * \return NCV status code
  */
 CV_EXPORTS
-NCVStatus nppsStCompactGetSize_32u(Ncv32u srcLen, Ncv32u *pBufsize, cudaDeviceProp &devProp);
+NCVStatus nppsStCompactGetSize_32u(Ncv32u srcLen, Ncv32u *pBufsize, hipDeviceProp_t &devProp);
 
 
 /**
  * Calculates the size of the temporary buffer for vector compaction. 32-bit signed values
  * \see nppsStCompactGetSize_32u
  */
-NCVStatus nppsStCompactGetSize_32s(Ncv32u srcLen, Ncv32u *pBufsize, cudaDeviceProp &devProp);
+NCVStatus nppsStCompactGetSize_32s(Ncv32u srcLen, Ncv32u *pBufsize, hipDeviceProp_t &devProp);
 
 
 /**
  * Calculates the size of the temporary buffer for vector compaction. 32-bit float values
  * \see nppsStCompactGetSize_32u
  */
-NCVStatus nppsStCompactGetSize_32f(Ncv32u srcLen, Ncv32u *pBufsize, cudaDeviceProp &devProp);
+NCVStatus nppsStCompactGetSize_32f(Ncv32u srcLen, Ncv32u *pBufsize, hipDeviceProp_t &devProp);
 
 
 /**
@@ -840,7 +840,7 @@ CV_EXPORTS
 NCVStatus nppsStCompact_32u(Ncv32u *d_src, Ncv32u srcLen,
                             Ncv32u *d_dst, Ncv32u *p_dstLen,
                             Ncv32u elemRemove, Ncv8u *pBuffer,
-                            Ncv32u bufSize, cudaDeviceProp &devProp);
+                            Ncv32u bufSize, hipDeviceProp_t &devProp);
 
 
 /**
@@ -851,7 +851,7 @@ CV_EXPORTS
 NCVStatus nppsStCompact_32s(Ncv32s *d_src, Ncv32u srcLen,
                             Ncv32s *d_dst, Ncv32u *p_dstLen,
                             Ncv32s elemRemove, Ncv8u *pBuffer,
-                            Ncv32u bufSize, cudaDeviceProp &devProp);
+                            Ncv32u bufSize, hipDeviceProp_t &devProp);
 
 
 /**
@@ -862,7 +862,7 @@ CV_EXPORTS
 NCVStatus nppsStCompact_32f(Ncv32f *d_src, Ncv32u srcLen,
                             Ncv32f *d_dst, Ncv32u *p_dstLen,
                             Ncv32f elemRemove, Ncv8u *pBuffer,
-                            Ncv32u bufSize, cudaDeviceProp &devProp);
+                            Ncv32u bufSize, hipDeviceProp_t &devProp);
 
 
 /**

@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -118,10 +119,10 @@ namespace cv { namespace cuda { namespace device
             const dim3 block(NEEDLE_MAP_SCALE);
             const dim3 grid(u_avg.cols, u_avg.rows);
 
-            NeedleMapAverageKernel<<<grid, block>>>(u, v, u_avg, v_avg);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((NeedleMapAverageKernel), dim3(grid), dim3(block), 0, 0, u, v, u_avg, v_avg);
+            cudaSafeCall( hipGetLastError() );
 
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
         }
 
         __global__ void NeedleMapVertexKernel(const PtrStepSzf u_avg, const PtrStepf v_avg, float* vertex_data, float* color_data, float max_flow, float xscale, float yscale)
@@ -209,10 +210,10 @@ namespace cv { namespace cuda { namespace device
             const dim3 block(16);
             const dim3 grid(divUp(u_avg.cols, block.x), divUp(u_avg.rows, block.y));
 
-            NeedleMapVertexKernel<<<grid, block>>>(u_avg, v_avg, vertex_buffer, color_data, max_flow, xscale, yscale);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((NeedleMapVertexKernel), dim3(grid), dim3(block), 0, 0, u_avg, v_avg, vertex_buffer, color_data, max_flow, xscale, yscale);
+            cudaSafeCall( hipGetLastError() );
 
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
         }
     }
 }}}

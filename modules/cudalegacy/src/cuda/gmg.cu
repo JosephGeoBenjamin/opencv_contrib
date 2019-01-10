@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -62,15 +63,15 @@ namespace cv { namespace cuda { namespace device {
         void loadConstants(int width, int height, float minVal, float maxVal, int quantizationLevels, float backgroundPrior,
                            float decisionThreshold, int maxFeatures, int numInitializationFrames)
         {
-            cudaSafeCall( cudaMemcpyToSymbol(c_width, &width, sizeof(width)) );
-            cudaSafeCall( cudaMemcpyToSymbol(c_height, &height, sizeof(height)) );
-            cudaSafeCall( cudaMemcpyToSymbol(c_minVal, &minVal, sizeof(minVal)) );
-            cudaSafeCall( cudaMemcpyToSymbol(c_maxVal, &maxVal, sizeof(maxVal)) );
-            cudaSafeCall( cudaMemcpyToSymbol(c_quantizationLevels, &quantizationLevels, sizeof(quantizationLevels)) );
-            cudaSafeCall( cudaMemcpyToSymbol(c_backgroundPrior, &backgroundPrior, sizeof(backgroundPrior)) );
-            cudaSafeCall( cudaMemcpyToSymbol(c_decisionThreshold, &decisionThreshold, sizeof(decisionThreshold)) );
-            cudaSafeCall( cudaMemcpyToSymbol(c_maxFeatures, &maxFeatures, sizeof(maxFeatures)) );
-            cudaSafeCall( cudaMemcpyToSymbol(c_numInitializationFrames, &numInitializationFrames, sizeof(numInitializationFrames)) );
+            cudaSafeCall( hipMemcpyToSymbol(c_width, &width, sizeof(width)) );
+            cudaSafeCall( hipMemcpyToSymbol(c_height, &height, sizeof(height)) );
+            cudaSafeCall( hipMemcpyToSymbol(c_minVal, &minVal, sizeof(minVal)) );
+            cudaSafeCall( hipMemcpyToSymbol(c_maxVal, &maxVal, sizeof(maxVal)) );
+            cudaSafeCall( hipMemcpyToSymbol(c_quantizationLevels, &quantizationLevels, sizeof(quantizationLevels)) );
+            cudaSafeCall( hipMemcpyToSymbol(c_backgroundPrior, &backgroundPrior, sizeof(backgroundPrior)) );
+            cudaSafeCall( hipMemcpyToSymbol(c_decisionThreshold, &decisionThreshold, sizeof(decisionThreshold)) );
+            cudaSafeCall( hipMemcpyToSymbol(c_maxFeatures, &maxFeatures, sizeof(maxFeatures)) );
+            cudaSafeCall( hipMemcpyToSymbol(c_numInitializationFrames, &numInitializationFrames, sizeof(numInitializationFrames)) );
         }
 
         __device__ float findFeature(const int color, const PtrStepi& colors, const PtrStepf& weights, const int x, const int y, const int nfeatures)
@@ -225,32 +226,32 @@ namespace cv { namespace cuda { namespace device {
 
         template <typename SrcT>
         void update_gpu(PtrStepSzb frame, PtrStepb fgmask, PtrStepSzi colors, PtrStepf weights, PtrStepi nfeatures,
-                        int frameNum, float learningRate, bool updateBackgroundModel, cudaStream_t stream)
+                        int frameNum, float learningRate, bool updateBackgroundModel, hipStream_t stream)
         {
             const dim3 block(32, 8);
             const dim3 grid(divUp(frame.cols, block.x), divUp(frame.rows, block.y));
 
-            cudaSafeCall( cudaFuncSetCacheConfig(update<SrcT>, cudaFuncCachePreferL1) );
+            cudaSafeCall( hipFuncSetCacheConfig(update<SrcT>, hipFuncCachePreferL1) );
 
-            update<SrcT><<<grid, block, 0, stream>>>((PtrStepSz<SrcT>) frame, fgmask, colors, weights, nfeatures, frameNum, learningRate, updateBackgroundModel);
+            hipLaunchKernelGGL((update<SrcT>), dim3(grid), dim3(block), 0, stream, (PtrStepSz<SrcT>) frame, fgmask, colors, weights, nfeatures, frameNum, learningRate, updateBackgroundModel);
 
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
-        template void update_gpu<uchar  >(PtrStepSzb frame, PtrStepb fgmask, PtrStepSzi colors, PtrStepf weights, PtrStepi nfeatures, int frameNum, float learningRate, bool updateBackgroundModel, cudaStream_t stream);
-        template void update_gpu<uchar3 >(PtrStepSzb frame, PtrStepb fgmask, PtrStepSzi colors, PtrStepf weights, PtrStepi nfeatures, int frameNum, float learningRate, bool updateBackgroundModel, cudaStream_t stream);
-        template void update_gpu<uchar4 >(PtrStepSzb frame, PtrStepb fgmask, PtrStepSzi colors, PtrStepf weights, PtrStepi nfeatures, int frameNum, float learningRate, bool updateBackgroundModel, cudaStream_t stream);
+        template void update_gpu<uchar  >(PtrStepSzb frame, PtrStepb fgmask, PtrStepSzi colors, PtrStepf weights, PtrStepi nfeatures, int frameNum, float learningRate, bool updateBackgroundModel, hipStream_t stream);
+        template void update_gpu<uchar3 >(PtrStepSzb frame, PtrStepb fgmask, PtrStepSzi colors, PtrStepf weights, PtrStepi nfeatures, int frameNum, float learningRate, bool updateBackgroundModel, hipStream_t stream);
+        template void update_gpu<uchar4 >(PtrStepSzb frame, PtrStepb fgmask, PtrStepSzi colors, PtrStepf weights, PtrStepi nfeatures, int frameNum, float learningRate, bool updateBackgroundModel, hipStream_t stream);
 
-        template void update_gpu<ushort >(PtrStepSzb frame, PtrStepb fgmask, PtrStepSzi colors, PtrStepf weights, PtrStepi nfeatures, int frameNum, float learningRate, bool updateBackgroundModel, cudaStream_t stream);
-        template void update_gpu<ushort3>(PtrStepSzb frame, PtrStepb fgmask, PtrStepSzi colors, PtrStepf weights, PtrStepi nfeatures, int frameNum, float learningRate, bool updateBackgroundModel, cudaStream_t stream);
-        template void update_gpu<ushort4>(PtrStepSzb frame, PtrStepb fgmask, PtrStepSzi colors, PtrStepf weights, PtrStepi nfeatures, int frameNum, float learningRate, bool updateBackgroundModel, cudaStream_t stream);
+        template void update_gpu<ushort >(PtrStepSzb frame, PtrStepb fgmask, PtrStepSzi colors, PtrStepf weights, PtrStepi nfeatures, int frameNum, float learningRate, bool updateBackgroundModel, hipStream_t stream);
+        template void update_gpu<ushort3>(PtrStepSzb frame, PtrStepb fgmask, PtrStepSzi colors, PtrStepf weights, PtrStepi nfeatures, int frameNum, float learningRate, bool updateBackgroundModel, hipStream_t stream);
+        template void update_gpu<ushort4>(PtrStepSzb frame, PtrStepb fgmask, PtrStepSzi colors, PtrStepf weights, PtrStepi nfeatures, int frameNum, float learningRate, bool updateBackgroundModel, hipStream_t stream);
 
-        template void update_gpu<float  >(PtrStepSzb frame, PtrStepb fgmask, PtrStepSzi colors, PtrStepf weights, PtrStepi nfeatures, int frameNum, float learningRate, bool updateBackgroundModel, cudaStream_t stream);
-        template void update_gpu<float3 >(PtrStepSzb frame, PtrStepb fgmask, PtrStepSzi colors, PtrStepf weights, PtrStepi nfeatures, int frameNum, float learningRate, bool updateBackgroundModel, cudaStream_t stream);
-        template void update_gpu<float4 >(PtrStepSzb frame, PtrStepb fgmask, PtrStepSzi colors, PtrStepf weights, PtrStepi nfeatures, int frameNum, float learningRate, bool updateBackgroundModel, cudaStream_t stream);
+        template void update_gpu<float  >(PtrStepSzb frame, PtrStepb fgmask, PtrStepSzi colors, PtrStepf weights, PtrStepi nfeatures, int frameNum, float learningRate, bool updateBackgroundModel, hipStream_t stream);
+        template void update_gpu<float3 >(PtrStepSzb frame, PtrStepb fgmask, PtrStepSzi colors, PtrStepf weights, PtrStepi nfeatures, int frameNum, float learningRate, bool updateBackgroundModel, hipStream_t stream);
+        template void update_gpu<float4 >(PtrStepSzb frame, PtrStepb fgmask, PtrStepSzi colors, PtrStepf weights, PtrStepi nfeatures, int frameNum, float learningRate, bool updateBackgroundModel, hipStream_t stream);
     }
 }}}
 

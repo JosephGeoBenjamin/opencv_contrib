@@ -57,10 +57,10 @@ namespace cv { namespace cuda { namespace device
 {
     namespace ccl
     {
-        void labelComponents(const PtrStepSzb& edges, PtrStepSzi comps, int flags, cudaStream_t stream);
+        void labelComponents(const PtrStepSzb& edges, PtrStepSzi comps, int flags, hipStream_t stream);
 
         template<typename T>
-        void computeEdges(const PtrStepSzb& image, PtrStepSzb edges, const float4& lo, const float4& hi, cudaStream_t stream);
+        void computeEdges(const PtrStepSzb& image, PtrStepSzb edges, const float4& lo, const float4& hi, hipStream_t stream);
     }
 }}}
 
@@ -78,7 +78,7 @@ void cv::cuda::connectivityMask(const GpuMat& image, GpuMat& mask, const cv::Sca
 
     int depth = image.depth();
 
-    typedef void (*func_t)(const PtrStepSzb& image, PtrStepSzb edges, const float4& lo, const float4& hi, cudaStream_t stream);
+    typedef void (*func_t)(const PtrStepSzb& image, PtrStepSzb edges, const float4& lo, const float4& hi, hipStream_t stream);
 
     static const func_t suppotLookup[8][4] =
     {   //    1,    2,     3,     4
@@ -98,7 +98,7 @@ void cv::cuda::connectivityMask(const GpuMat& image, GpuMat& mask, const cv::Sca
     if (image.size() != mask.size() || mask.type() != CV_8UC1)
         mask.create(image.size(), CV_8UC1);
 
-    cudaStream_t stream = StreamAccessor::getStream(s);
+    hipStream_t stream = StreamAccessor::getStream(s);
     float4 culo = scalarToCudaType(lo), cuhi = scalarToCudaType(hi);
     f(image, mask, culo, cuhi, stream);
 }
@@ -112,7 +112,7 @@ void cv::cuda::labelComponents(const GpuMat& mask, GpuMat& components, int flags
 
     components.create(mask.size(), CV_32SC1);
 
-    cudaStream_t stream = StreamAccessor::getStream(s);
+    hipStream_t stream = StreamAccessor::getStream(s);
     device::ccl::labelComponents(mask, components, flags, stream);
 }
 
@@ -176,7 +176,7 @@ void cv::cuda::graphcut(GpuMat& terminals, GpuMat& leftTransp, GpuMat& rightTran
 
     ensureSizeIsEnough(1, bufsz, CV_8U, buf);
 
-    cudaStream_t stream = StreamAccessor::getStream(s);
+    hipStream_t stream = StreamAccessor::getStream(s);
 
     NppStreamHandler h(stream);
 
@@ -199,7 +199,7 @@ void cv::cuda::graphcut(GpuMat& terminals, GpuMat& leftTransp, GpuMat& rightTran
 #endif
 
     if (stream == 0)
-        cudaSafeCall( cudaDeviceSynchronize() );
+        cudaSafeCall( hipDeviceSynchronize() );
 }
 
 void cv::cuda::graphcut(GpuMat& terminals, GpuMat& leftTransp, GpuMat& rightTransp, GpuMat& top, GpuMat& topLeft, GpuMat& topRight,
@@ -248,7 +248,7 @@ void cv::cuda::graphcut(GpuMat& terminals, GpuMat& leftTransp, GpuMat& rightTran
 
     ensureSizeIsEnough(1, bufsz, CV_8U, buf);
 
-    cudaStream_t stream = StreamAccessor::getStream(s);
+    hipStream_t stream = StreamAccessor::getStream(s);
 
     NppStreamHandler h(stream);
 
@@ -277,7 +277,7 @@ void cv::cuda::graphcut(GpuMat& terminals, GpuMat& leftTransp, GpuMat& rightTran
 #endif
 
     if (stream == 0)
-        cudaSafeCall( cudaDeviceSynchronize() );
+        cudaSafeCall( hipDeviceSynchronize() );
 }
 
 #endif /* !defined (HAVE_HIP) */

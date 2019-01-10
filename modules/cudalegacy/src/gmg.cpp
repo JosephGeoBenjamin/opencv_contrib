@@ -59,7 +59,7 @@ namespace cv { namespace cuda { namespace device {
 
         template <typename SrcT>
         void update_gpu(PtrStepSzb frame, PtrStepb fgmask, PtrStepSzi colors, PtrStepf weights, PtrStepi nfeatures,
-                        int frameNum,  float learningRate, bool updateBackgroundModel, cudaStream_t stream);
+                        int frameNum,  float learningRate, bool updateBackgroundModel, hipStream_t stream);
     }
 }}}
 
@@ -170,7 +170,7 @@ namespace
         using namespace cv::cuda::device::gmg;
 
         typedef void (*func_t)(PtrStepSzb frame, PtrStepb fgmask, PtrStepSzi colors, PtrStepf weights, PtrStepi nfeatures,
-                               int frameNum, float learningRate, bool updateBackgroundModel, cudaStream_t stream);
+                               int frameNum, float learningRate, bool updateBackgroundModel, hipStream_t stream);
         static const func_t funcs[6][4] =
         {
             {update_gpu<uchar>, 0, update_gpu<uchar3>, update_gpu<uchar4>},

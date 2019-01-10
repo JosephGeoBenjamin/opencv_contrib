@@ -49,7 +49,7 @@
     #define WIN32_LEAN_AND_MEAN
 #endif
 
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 #include "opencv2/core/cvstd.hpp"
 #include "opencv2/core/utility.hpp"
 
@@ -99,7 +99,7 @@ namespace NcvCTprep
 //==============================================================================
 
 
-#if !defined(__align__) && !defined(__CUDACC__)
+#if !defined(__align__) && !defined(__HIPCC__)
     #if defined(_WIN32) || defined(_WIN64)
         #define __align__(n)         __declspec(align(n))
     #elif defined(__unix__)
@@ -118,7 +118,7 @@ namespace NcvCTprep
 typedef               bool NcvBool;
 typedef          long long Ncv64s;
 
-#if defined(__APPLE__) && !defined(__CUDACC__)
+#if defined(__APPLE__) && !defined(__HIPCC__)
     typedef uint64_t Ncv64u;
 #else
     typedef unsigned long long Ncv64u;
@@ -292,18 +292,18 @@ CV_EXPORTS void ncvSetDebugOutputHandler(NCVDebugOutputHandler* func);
 #define ncvAssertCUDAReturn(cudacall, errCode) \
     do \
     { \
-        cudaError_t res = cudacall; \
-        cv::String msg = cv::format("cudaError_t=%d", (int)res); \
-        ncvAssertPrintReturn(cudaSuccess==res, msg.c_str(), errCode); \
+        hipError_t res = cudacall; \
+        cv::String msg = cv::format("hipError_t=%d", (int)res); \
+        ncvAssertPrintReturn(hipSuccess==res, msg.c_str(), errCode); \
     } while (0)
 
 
 #define ncvAssertCUDALastErrorReturn(errCode) \
     do \
     { \
-        cudaError_t res = cudaGetLastError(); \
-        cv::String msg = cv::format("cudaError_t=%d", (int)res); \
-        ncvAssertPrintReturn(cudaSuccess==res, msg.c_str(), errCode); \
+        hipError_t res = hipGetLastError(); \
+        cv::String msg = cv::format("hipError_t=%d", (int)res); \
+        ncvAssertPrintReturn(hipSuccess==res, msg.c_str(), errCode); \
     } while (0)
 
 
@@ -551,12 +551,12 @@ private:
 */
 CV_EXPORTS NCVStatus memSegCopyHelper(void *dst, NCVMemoryType dstType,
                                        const void *src, NCVMemoryType srcType,
-                                       size_t sz, cudaStream_t cuStream);
+                                       size_t sz, hipStream_t cuStream);
 
 
 CV_EXPORTS NCVStatus memSegCopyHelper2D(void *dst, Ncv32u dstPitch, NCVMemoryType dstType,
                                          const void *src, Ncv32u srcPitch, NCVMemoryType srcType,
-                                         Ncv32u widthbytes, Ncv32u height, cudaStream_t cuStream);
+                                         Ncv32u widthbytes, Ncv32u height, hipStream_t cuStream);
 
 
 /**
@@ -583,7 +583,7 @@ public:
         _memtype = NCVMemoryTypeNone;
     }
 
-    NCVStatus copySolid(NCVVector<T> &dst, cudaStream_t cuStream, size_t howMuch=0) const
+    NCVStatus copySolid(NCVVector<T> &dst, hipStream_t cuStream, size_t howMuch=0) const
     {
         if (howMuch == 0)
         {
@@ -763,7 +763,7 @@ public:
     }
 
     //a side effect of this function is that it copies everything in a single chunk, so the "padding" will be overwritten
-    NCVStatus copySolid(NCVMatrix<T> &dst, cudaStream_t cuStream, size_t howMuch=0) const
+    NCVStatus copySolid(NCVMatrix<T> &dst, hipStream_t cuStream, size_t howMuch=0) const
     {
         if (howMuch == 0)
         {
@@ -791,7 +791,7 @@ public:
         return ncvStat;
     }
 
-    NCVStatus copy2D(NCVMatrix<T> &dst, NcvSize32u roi, cudaStream_t cuStream) const
+    NCVStatus copy2D(NCVMatrix<T> &dst, NcvSize32u roi, hipStream_t cuStream) const
     {
         ncvAssertReturn(this->width() >= roi.width && this->height() >= roi.height &&
                         dst.width() >= roi.width && dst.height() >= roi.height, NCV_MEM_COPY_ERROR);
@@ -1003,11 +1003,11 @@ CV_EXPORTS NCVStatus ncvDrawRects_32u_host(Ncv32u *h_dst, Ncv32u dstStride, Ncv3
 
 
 CV_EXPORTS NCVStatus ncvDrawRects_8u_device(Ncv8u *d_dst, Ncv32u dstStride, Ncv32u dstWidth, Ncv32u dstHeight,
-                                             NcvRect32u *d_rects, Ncv32u numRects, Ncv8u color, cudaStream_t cuStream);
+                                             NcvRect32u *d_rects, Ncv32u numRects, Ncv8u color, hipStream_t cuStream);
 
 
 CV_EXPORTS NCVStatus ncvDrawRects_32u_device(Ncv32u *d_dst, Ncv32u dstStride, Ncv32u dstWidth, Ncv32u dstHeight,
-                                              NcvRect32u *d_rects, Ncv32u numRects, Ncv32u color, cudaStream_t cuStream);
+                                              NcvRect32u *d_rects, Ncv32u numRects, Ncv32u color, hipStream_t cuStream);
 
 
 #define CLAMP(x,a,b)        ( (x) > (b) ? (b) : ( (x) < (a) ? (a) : (x) ) )

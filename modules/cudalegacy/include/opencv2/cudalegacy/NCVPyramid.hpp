@@ -54,8 +54,8 @@ namespace cv { namespace cuda { namespace device
 {
     namespace pyramid
     {
-        CV_EXPORTS void downsampleX2(PtrStepSzb src, PtrStepSzb dst, int depth, int cn, cudaStream_t stream);
-        CV_EXPORTS void interpolateFrom1(PtrStepSzb src, PtrStepSzb dst, int depth, int cn, cudaStream_t stream);
+        CV_EXPORTS void downsampleX2(PtrStepSzb src, PtrStepSzb dst, int depth, int cn, hipStream_t stream);
+        CV_EXPORTS void interpolateFrom1(PtrStepSzb src, PtrStepSzb dst, int depth, int cn, hipStream_t stream);
     }
 }}}
 
@@ -90,13 +90,13 @@ public:
     NCVImagePyramid(const NCVMatrix<T> &img,
                     Ncv8u nLayers,
                     INCVMemAllocator &alloc,
-                    cudaStream_t cuStream);
+                    hipStream_t cuStream);
     ~NCVImagePyramid();
     NcvBool isInitialized() const;
     NCVStatus getLayer(NCVMatrix<T> &outImg,
                        NcvSize32u outRoi,
                        NcvBool bTrilinear,
-                       cudaStream_t cuStream) const;
+                       hipStream_t cuStream) const;
 
 private:
 

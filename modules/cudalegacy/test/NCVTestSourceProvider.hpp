@@ -61,9 +61,9 @@ public:
         ncvAssertPrintReturn(rangeLow < rangeHigh, "NCVTestSourceProvider ctor:: Invalid range", );
 
         int devId;
-        cudaDeviceProp devProp;
-        ncvAssertPrintReturn(cudaSuccess == cudaGetDevice(&devId), "Error returned from cudaGetDevice", );
-        ncvAssertPrintReturn(cudaSuccess == cudaGetDeviceProperties(&devProp, devId), "Error returned from cudaGetDeviceProperties", );
+        hipDeviceProp_t devProp;
+        ncvAssertPrintReturn(hipSuccess == hipGetDevice(&devId), "Error returned from hipGetDevice", );
+        ncvAssertPrintReturn(hipSuccess == hipGetDeviceProperties(&devProp, devId), "Error returned from hipGetDeviceProperties", );
 
         //Ncv32u maxWpitch = alignUp(maxWidth * sizeof(T), devProp.textureAlignment);
 
@@ -98,9 +98,9 @@ public:
         ncvAssertPrintReturn(!image.empty(), "NCVTestSourceProvider ctor:: PGM file error", );
 
         int devId;
-        cudaDeviceProp devProp;
-        ncvAssertPrintReturn(cudaSuccess == cudaGetDevice(&devId), "Error returned from cudaGetDevice", );
-        ncvAssertPrintReturn(cudaSuccess == cudaGetDeviceProperties(&devProp, devId), "Error returned from cudaGetDeviceProperties", );
+        hipDeviceProp_t devProp;
+        ncvAssertPrintReturn(hipSuccess == hipGetDevice(&devId), "Error returned from hipGetDevice", );
+        ncvAssertPrintReturn(hipSuccess == hipGetDeviceProperties(&devProp, devId), "Error returned from hipGetDeviceProperties", );
 
         allocatorCPU.reset(new NCVMemNativeAllocator(NCVMemoryTypeHostPinned, static_cast<Ncv32u>(devProp.textureAlignment)));
         data.reset(new NCVMatrixAlloc<T>(*this->allocatorCPU.get(), image.cols, image.rows));

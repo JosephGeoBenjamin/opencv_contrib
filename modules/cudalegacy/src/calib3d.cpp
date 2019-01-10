@@ -59,12 +59,12 @@ namespace cv { namespace cuda { namespace device
 {
     namespace transform_points
     {
-        void call(const PtrStepSz<float3> src, const float* rot, const float* transl, PtrStepSz<float3> dst, cudaStream_t stream);
+        void call(const PtrStepSz<float3> src, const float* rot, const float* transl, PtrStepSz<float3> dst, hipStream_t stream);
     }
 
     namespace project_points
     {
-        void call(const PtrStepSz<float3> src, const float* rot, const float* transl, const float* proj, PtrStepSz<float2> dst, cudaStream_t stream);
+        void call(const PtrStepSz<float3> src, const float* rot, const float* transl, const float* proj, PtrStepSz<float2> dst, hipStream_t stream);
     }
 
     namespace solve_pnp_ransac
@@ -82,7 +82,7 @@ using namespace ::cv::cuda::device;
 
 namespace
 {
-    void transformPointsCaller(const GpuMat& src, const Mat& rvec, const Mat& tvec, GpuMat& dst, cudaStream_t stream)
+    void transformPointsCaller(const GpuMat& src, const Mat& rvec, const Mat& tvec, GpuMat& dst, hipStream_t stream)
     {
         CV_Assert(src.rows == 1 && src.cols > 0 && src.type() == CV_32FC3);
         CV_Assert(rvec.size() == Size(3, 1) && rvec.type() == CV_32F);
@@ -104,7 +104,7 @@ void cv::cuda::transformPoints(const GpuMat& src, const Mat& rvec, const Mat& tv
 
 namespace
 {
-    void projectPointsCaller(const GpuMat& src, const Mat& rvec, const Mat& tvec, const Mat& camera_mat, const Mat& dist_coef, GpuMat& dst, cudaStream_t stream)
+    void projectPointsCaller(const GpuMat& src, const Mat& rvec, const Mat& tvec, const Mat& camera_mat, const Mat& dist_coef, GpuMat& dst, hipStream_t stream)
     {
         CV_Assert(src.rows == 1 && src.cols > 0 && src.type() == CV_32FC3);
         CV_Assert(rvec.size() == Size(3, 1) && rvec.type() == CV_32F);

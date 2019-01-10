@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -88,33 +89,33 @@ inline int iDivUp(int a, int b)
 // Texture references
 /////////////////////////////////////////////////////////////////////////////////////////
 
-texture<float, 2, cudaReadModeElementType> tex_coarse;
-texture<float, 2, cudaReadModeElementType> tex_fine;
+texture<float, 2, hipReadModeElementType> tex_coarse;
+texture<float, 2, hipReadModeElementType> tex_fine;
 
-texture<float, 2, cudaReadModeElementType> tex_I1;
-texture<float, 2, cudaReadModeElementType> tex_I0;
+texture<float, 2, hipReadModeElementType> tex_I1;
+texture<float, 2, hipReadModeElementType> tex_I0;
 
-texture<float, 2, cudaReadModeElementType> tex_Ix;
-texture<float, 2, cudaReadModeElementType> tex_Ixx;
-texture<float, 2, cudaReadModeElementType> tex_Ix0;
+texture<float, 2, hipReadModeElementType> tex_Ix;
+texture<float, 2, hipReadModeElementType> tex_Ixx;
+texture<float, 2, hipReadModeElementType> tex_Ix0;
 
-texture<float, 2, cudaReadModeElementType> tex_Iy;
-texture<float, 2, cudaReadModeElementType> tex_Iyy;
-texture<float, 2, cudaReadModeElementType> tex_Iy0;
+texture<float, 2, hipReadModeElementType> tex_Iy;
+texture<float, 2, hipReadModeElementType> tex_Iyy;
+texture<float, 2, hipReadModeElementType> tex_Iy0;
 
-texture<float, 2, cudaReadModeElementType> tex_Ixy;
+texture<float, 2, hipReadModeElementType> tex_Ixy;
 
-texture<float, 1, cudaReadModeElementType> tex_u;
-texture<float, 1, cudaReadModeElementType> tex_v;
-texture<float, 1, cudaReadModeElementType> tex_du;
-texture<float, 1, cudaReadModeElementType> tex_dv;
-texture<float, 1, cudaReadModeElementType> tex_numerator_dudv;
-texture<float, 1, cudaReadModeElementType> tex_numerator_u;
-texture<float, 1, cudaReadModeElementType> tex_numerator_v;
-texture<float, 1, cudaReadModeElementType> tex_inv_denominator_u;
-texture<float, 1, cudaReadModeElementType> tex_inv_denominator_v;
-texture<float, 1, cudaReadModeElementType> tex_diffusivity_x;
-texture<float, 1, cudaReadModeElementType> tex_diffusivity_y;
+texture<float, 1, hipReadModeElementType> tex_u;
+texture<float, 1, hipReadModeElementType> tex_v;
+texture<float, 1, hipReadModeElementType> tex_du;
+texture<float, 1, hipReadModeElementType> tex_dv;
+texture<float, 1, hipReadModeElementType> tex_numerator_dudv;
+texture<float, 1, hipReadModeElementType> tex_numerator_u;
+texture<float, 1, hipReadModeElementType> tex_numerator_v;
+texture<float, 1, hipReadModeElementType> tex_inv_denominator_u;
+texture<float, 1, hipReadModeElementType> tex_inv_denominator_v;
+texture<float, 1, hipReadModeElementType> tex_diffusivity_x;
+texture<float, 1, hipReadModeElementType> tex_diffusivity_y;
 
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -145,12 +146,12 @@ __global__ void pointwise_add(float *d_res, const float *d_op1, const float *d_o
 /// \param op2   term #2 (device memory)
 /// \param count vector size
 ///////////////////////////////////////////////////////////////////////////////
-static void add(float *res, const float *op1, const float *op2, const int count, cudaStream_t stream)
+static void add(float *res, const float *op1, const float *op2, const int count, hipStream_t stream)
 {
     dim3 threads(256);
     dim3 blocks(iDivUp(count, threads.x));
 
-    pointwise_add<<<blocks, threads, 0, stream>>>(res, op1, op2, count);
+    hipLaunchKernelGGL((pointwise_add), dim3(blocks), dim3(threads), 0, stream, res, op1, op2, count);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -160,7 +161,7 @@ static void add(float *res, const float *op1, const float *op2, const int count,
 /// \param rhs   increment (device memory)
 /// \param count vector size
 ///////////////////////////////////////////////////////////////////////////////
-static void add(float *res, const float *rhs, const int count, cudaStream_t stream)
+static void add(float *res, const float *rhs, const int count, hipStream_t stream)
 {
     add(res, res, rhs, count, stream);
 }
@@ -191,12 +192,12 @@ __global__ void scaleVector(float *d_res, const float *d_src, float scale, const
 /// \param len    vector size (number of elements)
 /// \param stream CUDA stream
 ///////////////////////////////////////////////////////////////////////////////
-static void ScaleVector(float *d_res, const float *d_src, float scale, const int len, cudaStream_t stream)
+static void ScaleVector(float *d_res, const float *d_src, float scale, const int len, hipStream_t stream)
 {
     dim3 threads(256);
     dim3 blocks(iDivUp(len, threads.x));
 
-    scaleVector<<<blocks, threads, 0, stream>>>(d_res, d_src, scale, len);
+    hipLaunchKernelGGL((scaleVector), dim3(blocks), dim3(threads), 0, stream, d_res, d_src, scale, len);
 }
 
 const int SOR_TILE_WIDTH = 32;
@@ -625,18 +626,18 @@ template<int isBlack> __global__ void sor_pass(float *new_du,
 // utility functions
 ///////////////////////////////////////////////////////////////////////////////
 
-void initTexture1D(texture<float, 1, cudaReadModeElementType> &tex)
+void initTexture1D(texture<float, 1, hipReadModeElementType> &tex)
 {
-    tex.addressMode[0] = cudaAddressModeClamp;
-    tex.filterMode = cudaFilterModePoint;
+    tex.addressMode[0] = hipAddressModeClamp;
+    tex.filterMode = hipFilterModePoint;
     tex.normalized = false;
 }
 
-void initTexture2D(texture<float, 2, cudaReadModeElementType> &tex)
+void initTexture2D(texture<float, 2, hipReadModeElementType> &tex)
 {
-    tex.addressMode[0] = cudaAddressModeMirror;
-    tex.addressMode[1] = cudaAddressModeMirror;
-    tex.filterMode = cudaFilterModeLinear;
+    tex.addressMode[0] = hipAddressModeMirror;
+    tex.addressMode[1] = hipAddressModeMirror;
+    tex.filterMode = hipFilterModeLinear;
     tex.normalized = true;
 }
 
@@ -715,7 +716,7 @@ NCVStatus NCVBroxOpticalFlow(const NCVBroxOpticalFlowDescriptor desc,
                              const NCVMatrix<Ncv32f> &frame1,
                              NCVMatrix<Ncv32f> &uOut,
                              NCVMatrix<Ncv32f> &vOut,
-                             cudaStream_t stream)
+                             hipStream_t stream)
 {
     ncvAssertPrintReturn(desc.alpha > 0.0f                   , "Invalid alpha"                      , NCV_INCONSISTENT_INPUT);
     ncvAssertPrintReturn(desc.gamma >= 0.0f                  , "Invalid gamma"                      , NCV_INCONSISTENT_INPUT);
@@ -735,10 +736,10 @@ NCVStatus NCVBroxOpticalFlow(const NCVBroxOpticalFlowDescriptor desc,
     bool kSkipProcessing = gpu_mem_allocator.isCounting();
 
     int cuda_device;
-    ncvAssertCUDAReturn(cudaGetDevice(&cuda_device), NCV_CUDA_ERROR);
+    ncvAssertCUDAReturn(hipGetDevice(&cuda_device), NCV_CUDA_ERROR);
 
-    cudaDeviceProp device_props;
-    ncvAssertCUDAReturn(cudaGetDeviceProperties(&device_props, cuda_device), NCV_CUDA_ERROR);
+    hipDeviceProp_t device_props;
+    ncvAssertCUDAReturn(hipGetDeviceProperties(&device_props, cuda_device), NCV_CUDA_ERROR);
 
     Ncv32u alignmentValue = gpu_mem_allocator.alignment ();
 
@@ -802,8 +803,8 @@ NCVStatus NCVBroxOpticalFlow(const NCVBroxOpticalFlowDescriptor desc,
     {
         const float derivativeFilterHost[kDFilterSize] = {1.0f, -8.0f, 0.0f, 8.0f, -1.0f};
 
-        ncvAssertCUDAReturn(cudaMemcpy(derivativeFilter.ptr(), derivativeFilterHost, sizeof(float) * kDFilterSize,
-            cudaMemcpyHostToDevice), NCV_CUDA_ERROR);
+        ncvAssertCUDAReturn(hipMemcpy(derivativeFilter.ptr(), derivativeFilterHost, sizeof(float) * kDFilterSize,
+            hipMemcpyHostToDevice), NCV_CUDA_ERROR);
 
         InitTextures();
     }
@@ -811,7 +812,7 @@ NCVStatus NCVBroxOpticalFlow(const NCVBroxOpticalFlowDescriptor desc,
     //prepare image pyramid
     ImagePyramid pyr(desc.number_of_outer_iterations);
 
-    cudaChannelFormatDesc channel_desc = cudaCreateChannelDesc<float>();
+    hipChannelFormatDesc channel_desc = hipCreateChannelDesc<float>();
 
     float scale = 1.0f;
 
@@ -829,11 +830,11 @@ NCVStatus NCVBroxOpticalFlow(const NCVBroxOpticalFlowDescriptor desc,
         size_t src_width_in_bytes = kSourceWidth * sizeof(float);
         size_t src_pitch_in_bytes = frame0.pitch();
 
-        ncvAssertCUDAReturn( cudaMemcpy2DAsync(pI0->ptr(), dst_width_in_bytes, frame0.ptr(),
-            src_pitch_in_bytes, src_width_in_bytes, kSourceHeight, cudaMemcpyDeviceToDevice, stream), NCV_CUDA_ERROR );
+        ncvAssertCUDAReturn( hipMemcpy2DAsync(pI0->ptr(), dst_width_in_bytes, frame0.ptr(),
+            src_pitch_in_bytes, src_width_in_bytes, kSourceHeight, hipMemcpyDeviceToDevice, stream), NCV_CUDA_ERROR );
 
-        ncvAssertCUDAReturn( cudaMemcpy2DAsync(pI1->ptr(), dst_width_in_bytes, frame1.ptr(),
-            src_pitch_in_bytes, src_width_in_bytes, kSourceHeight, cudaMemcpyDeviceToDevice, stream), NCV_CUDA_ERROR );
+        ncvAssertCUDAReturn( hipMemcpy2DAsync(pI1->ptr(), dst_width_in_bytes, frame1.ptr(),
+            src_pitch_in_bytes, src_width_in_bytes, kSourceHeight, hipMemcpyDeviceToDevice, stream), NCV_CUDA_ERROR );
     }
 
     FloatVector* I0 = pI0.release();
@@ -870,7 +871,7 @@ NCVStatus NCVBroxOpticalFlow(const NCVBroxOpticalFlowDescriptor desc,
 
         if (!kSkipProcessing)
         {
-            ncvAssertCUDAReturn(cudaStreamSynchronize(stream), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipStreamSynchronize(stream), NCV_CUDA_ERROR);
 
             NcvSize32u srcSize (prev_level_width, prev_level_height);
             NcvSize32u dstSize (level_width, level_height);
@@ -905,14 +906,14 @@ NCVStatus NCVBroxOpticalFlow(const NCVBroxOpticalFlowDescriptor desc,
     if (!kSkipProcessing)
     {
         //initial values for flow is 0
-        ncvAssertCUDAReturn(cudaMemsetAsync(u.ptr(), 0, kSizeInPixelsAligned * sizeof(float), stream), NCV_CUDA_ERROR);
-        ncvAssertCUDAReturn(cudaMemsetAsync(v.ptr(), 0, kSizeInPixelsAligned * sizeof(float), stream), NCV_CUDA_ERROR);
+        ncvAssertCUDAReturn(hipMemsetAsync(u.ptr(), 0, kSizeInPixelsAligned * sizeof(float), stream), NCV_CUDA_ERROR);
+        ncvAssertCUDAReturn(hipMemsetAsync(v.ptr(), 0, kSizeInPixelsAligned * sizeof(float), stream), NCV_CUDA_ERROR);
 
         //select images with lowest resolution
         size_t pitch = alignUp(pyr.w.back(), kStrideAlignmentFloat) * sizeof(float);
-        ncvAssertCUDAReturn(cudaBindTexture2D(0, tex_I0, pyr.img0.back()->ptr(), channel_desc, pyr.w.back(), pyr.h.back(), pitch), NCV_CUDA_ERROR);
-        ncvAssertCUDAReturn(cudaBindTexture2D(0, tex_I1, pyr.img1.back()->ptr(), channel_desc, pyr.w.back(), pyr.h.back(), pitch), NCV_CUDA_ERROR);
-        ncvAssertCUDAReturn(cudaStreamSynchronize(stream), NCV_CUDA_ERROR);
+        ncvAssertCUDAReturn(hipBindTexture2D(0, tex_I0, pyr.img0.back()->ptr(), channel_desc, pyr.w.back(), pyr.h.back(), pitch), NCV_CUDA_ERROR);
+        ncvAssertCUDAReturn(hipBindTexture2D(0, tex_I1, pyr.img1.back()->ptr(), channel_desc, pyr.w.back(), pyr.h.back(), pitch), NCV_CUDA_ERROR);
+        ncvAssertCUDAReturn(hipStreamSynchronize(stream), NCV_CUDA_ERROR);
 
         FloatVector* ptrU = &u;
         FloatVector* ptrV = &v;
@@ -938,11 +939,11 @@ NCVStatus NCVBroxOpticalFlow(const NCVBroxOpticalFlowDescriptor desc,
             const int kLevelSizeInPixels = kLevelStride * kLevelHeight;
 
             //initial guess for du and dv
-            ncvAssertCUDAReturn(cudaMemsetAsync(du.ptr(), 0, kLevelSizeInBytes, stream), NCV_CUDA_ERROR);
-            ncvAssertCUDAReturn(cudaMemsetAsync(dv.ptr(), 0, kLevelSizeInBytes, stream), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipMemsetAsync(du.ptr(), 0, kLevelSizeInBytes, stream), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipMemsetAsync(dv.ptr(), 0, kLevelSizeInBytes, stream), NCV_CUDA_ERROR);
 
             //texture format descriptor
-            cudaChannelFormatDesc ch_desc = cudaCreateChannelDesc<float>();
+            hipChannelFormatDesc ch_desc = hipCreateChannelDesc<float>();
 
             I0 = *img0Iter;
             I1 = *img1Iter;
@@ -950,8 +951,8 @@ NCVStatus NCVBroxOpticalFlow(const NCVBroxOpticalFlowDescriptor desc,
             ++img0Iter;
             ++img1Iter;
 
-            ncvAssertCUDAReturn(cudaBindTexture2D(0, tex_I0, I0->ptr(), ch_desc, kLevelWidth, kLevelHeight, kLevelStride*sizeof(float)), NCV_CUDA_ERROR);
-            ncvAssertCUDAReturn(cudaBindTexture2D(0, tex_I1, I1->ptr(), ch_desc, kLevelWidth, kLevelHeight, kLevelStride*sizeof(float)), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipBindTexture2D(0, tex_I0, I0->ptr(), ch_desc, kLevelWidth, kLevelHeight, kLevelStride*sizeof(float)), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipBindTexture2D(0, tex_I1, I1->ptr(), ch_desc, kLevelWidth, kLevelHeight, kLevelStride*sizeof(float)), NCV_CUDA_ERROR);
 
             //compute derivatives
             dim3 dBlocks(iDivUp(kLevelWidth, 32), iDivUp(kLevelHeight, 6));
@@ -991,20 +992,20 @@ NCVStatus NCVBroxOpticalFlow(const NCVBroxOpticalFlowDescriptor desc,
             ncvAssertReturnNcvStat( nppiStFilterRowBorder_32f_C1R (Iy.ptr(), srcSize, nSrcStep, Ixy.ptr(), srcSize, nSrcStep, oROI,
                 nppStBorderMirror, derivativeFilter.ptr(), kDFilterSize, kDFilterSize/2, 1.0f/12.0f) );
 
-            ncvAssertCUDAReturn(cudaBindTexture2D(0, tex_Ix,  Ix.ptr(),  ch_desc, kLevelWidth, kLevelHeight, kPitchTex), NCV_CUDA_ERROR);
-            ncvAssertCUDAReturn(cudaBindTexture2D(0, tex_Ixx, Ixx.ptr(), ch_desc, kLevelWidth, kLevelHeight, kPitchTex), NCV_CUDA_ERROR);
-            ncvAssertCUDAReturn(cudaBindTexture2D(0, tex_Ix0, Ix0.ptr(), ch_desc, kLevelWidth, kLevelHeight, kPitchTex), NCV_CUDA_ERROR);
-            ncvAssertCUDAReturn(cudaBindTexture2D(0, tex_Iy,  Iy.ptr(),  ch_desc, kLevelWidth, kLevelHeight, kPitchTex), NCV_CUDA_ERROR);
-            ncvAssertCUDAReturn(cudaBindTexture2D(0, tex_Iyy, Iyy.ptr(), ch_desc, kLevelWidth, kLevelHeight, kPitchTex), NCV_CUDA_ERROR);
-            ncvAssertCUDAReturn(cudaBindTexture2D(0, tex_Iy0, Iy0.ptr(), ch_desc, kLevelWidth, kLevelHeight, kPitchTex), NCV_CUDA_ERROR);
-            ncvAssertCUDAReturn(cudaBindTexture2D(0, tex_Ixy, Ixy.ptr(), ch_desc, kLevelWidth, kLevelHeight, kPitchTex), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipBindTexture2D(0, tex_Ix,  Ix.ptr(),  ch_desc, kLevelWidth, kLevelHeight, kPitchTex), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipBindTexture2D(0, tex_Ixx, Ixx.ptr(), ch_desc, kLevelWidth, kLevelHeight, kPitchTex), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipBindTexture2D(0, tex_Ix0, Ix0.ptr(), ch_desc, kLevelWidth, kLevelHeight, kPitchTex), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipBindTexture2D(0, tex_Iy,  Iy.ptr(),  ch_desc, kLevelWidth, kLevelHeight, kPitchTex), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipBindTexture2D(0, tex_Iyy, Iyy.ptr(), ch_desc, kLevelWidth, kLevelHeight, kPitchTex), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipBindTexture2D(0, tex_Iy0, Iy0.ptr(), ch_desc, kLevelWidth, kLevelHeight, kPitchTex), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipBindTexture2D(0, tex_Ixy, Ixy.ptr(), ch_desc, kLevelWidth, kLevelHeight, kPitchTex), NCV_CUDA_ERROR);
 
             //    flow
-            ncvAssertCUDAReturn(cudaBindTexture(0, tex_u, ptrU->ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
-            ncvAssertCUDAReturn(cudaBindTexture(0, tex_v, ptrV->ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipBindTexture(0, tex_u, ptrU->ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipBindTexture(0, tex_v, ptrV->ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
             //    flow increments
-            ncvAssertCUDAReturn(cudaBindTexture(0, tex_du, du.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
-            ncvAssertCUDAReturn(cudaBindTexture(0, tex_dv, dv.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipBindTexture(0, tex_du, du.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipBindTexture(0, tex_dv, dv.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
 
             dim3 psor_blocks(iDivUp(kLevelWidth, PSOR_TILE_WIDTH), iDivUp(kLevelHeight, PSOR_TILE_HEIGHT));
             dim3 psor_threads(PSOR_TILE_WIDTH, PSOR_TILE_HEIGHT);
@@ -1014,12 +1015,11 @@ NCVStatus NCVBroxOpticalFlow(const NCVBroxOpticalFlowDescriptor desc,
 
             // inner loop
             // lagged nonlinearity fixed point iteration
-            ncvAssertCUDAReturn(cudaStreamSynchronize(stream), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipStreamSynchronize(stream), NCV_CUDA_ERROR);
             for (Ncv32u current_inner_iteration = 0; current_inner_iteration < desc.number_of_inner_iterations; ++current_inner_iteration)
             {
                 //compute coefficients
-                prepare_sor_stage_1_tex<<<psor_blocks, psor_threads, 0, stream>>>
-                    (diffusivity_x.ptr(),
+                hipLaunchKernelGGL((prepare_sor_stage_1_tex), dim3(psor_blocks), dim3(psor_threads), 0, stream, diffusivity_x.ptr(),
                      diffusivity_y.ptr(),
                      denom_u.ptr(),
                      denom_v.ptr(),
@@ -1034,40 +1034,39 @@ NCVStatus NCVBroxOpticalFlow(const NCVBroxOpticalFlowDescriptor desc,
 
                 ncvAssertCUDALastErrorReturn(NCV_CUDA_ERROR);
 
-                ncvAssertCUDAReturn(cudaBindTexture(0, tex_diffusivity_x, diffusivity_x.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
-                ncvAssertCUDAReturn(cudaBindTexture(0, tex_diffusivity_y, diffusivity_y.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
+                ncvAssertCUDAReturn(hipBindTexture(0, tex_diffusivity_x, diffusivity_x.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
+                ncvAssertCUDAReturn(hipBindTexture(0, tex_diffusivity_y, diffusivity_y.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
 
-                ncvAssertCUDAReturn(cudaBindTexture(0, tex_numerator_dudv, num_dudv.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
+                ncvAssertCUDAReturn(hipBindTexture(0, tex_numerator_dudv, num_dudv.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
 
-                ncvAssertCUDAReturn(cudaBindTexture(0, tex_numerator_u, num_u.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
-                ncvAssertCUDAReturn(cudaBindTexture(0, tex_numerator_v, num_v.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
+                ncvAssertCUDAReturn(hipBindTexture(0, tex_numerator_u, num_u.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
+                ncvAssertCUDAReturn(hipBindTexture(0, tex_numerator_v, num_v.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
 
-                prepare_sor_stage_2<<<psor_blocks, psor_threads, 0, stream>>>(denom_u.ptr(), denom_v.ptr(), kLevelWidth, kLevelHeight, kLevelStride);
+                hipLaunchKernelGGL((prepare_sor_stage_2), dim3(psor_blocks), dim3(psor_threads), 0, stream, denom_u.ptr(), denom_v.ptr(), kLevelWidth, kLevelHeight, kLevelStride);
 
                 ncvAssertCUDALastErrorReturn(NCV_CUDA_ERROR);
 
                 //    linear system coefficients
-                ncvAssertCUDAReturn(cudaBindTexture(0, tex_diffusivity_x, diffusivity_x.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
-                ncvAssertCUDAReturn(cudaBindTexture(0, tex_diffusivity_y, diffusivity_y.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
+                ncvAssertCUDAReturn(hipBindTexture(0, tex_diffusivity_x, diffusivity_x.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
+                ncvAssertCUDAReturn(hipBindTexture(0, tex_diffusivity_y, diffusivity_y.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
 
-                ncvAssertCUDAReturn(cudaBindTexture(0, tex_numerator_dudv, num_dudv.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
+                ncvAssertCUDAReturn(hipBindTexture(0, tex_numerator_dudv, num_dudv.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
 
-                ncvAssertCUDAReturn(cudaBindTexture(0, tex_numerator_u, num_u.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
-                ncvAssertCUDAReturn(cudaBindTexture(0, tex_numerator_v, num_v.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
+                ncvAssertCUDAReturn(hipBindTexture(0, tex_numerator_u, num_u.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
+                ncvAssertCUDAReturn(hipBindTexture(0, tex_numerator_v, num_v.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
 
-                ncvAssertCUDAReturn(cudaBindTexture(0, tex_inv_denominator_u, denom_u.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
-                ncvAssertCUDAReturn(cudaBindTexture(0, tex_inv_denominator_v, denom_v.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
+                ncvAssertCUDAReturn(hipBindTexture(0, tex_inv_denominator_u, denom_u.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
+                ncvAssertCUDAReturn(hipBindTexture(0, tex_inv_denominator_v, denom_v.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
 
                 //solve linear system
                 for (Ncv32u solver_iteration = 0; solver_iteration < desc.number_of_solver_iterations; ++solver_iteration)
                 {
                     float omega = 1.99f;
 
-                    ncvAssertCUDAReturn(cudaBindTexture(0, tex_du, du.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
-                    ncvAssertCUDAReturn(cudaBindTexture(0, tex_dv, dv.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
+                    ncvAssertCUDAReturn(hipBindTexture(0, tex_du, du.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
+                    ncvAssertCUDAReturn(hipBindTexture(0, tex_dv, dv.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
 
-                    sor_pass<0><<<sor_blocks, sor_threads, 0, stream>>>
-                        (du_new.ptr(),
+                    hipLaunchKernelGGL((sor_pass<0>), dim3(sor_blocks), dim3(sor_threads), 0, stream, du_new.ptr(),
                         dv_new.ptr(),
                         denom_u.ptr(),
                         denom_v.ptr(),
@@ -1081,11 +1080,10 @@ NCVStatus NCVBroxOpticalFlow(const NCVBroxOpticalFlowDescriptor desc,
 
                     ncvAssertCUDALastErrorReturn(NCV_CUDA_ERROR);
 
-                    ncvAssertCUDAReturn(cudaBindTexture(0, tex_du, du_new.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
-                    ncvAssertCUDAReturn(cudaBindTexture(0, tex_dv, dv_new.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
+                    ncvAssertCUDAReturn(hipBindTexture(0, tex_du, du_new.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
+                    ncvAssertCUDAReturn(hipBindTexture(0, tex_dv, dv_new.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
 
-                    sor_pass<1><<<sor_blocks, sor_threads, 0, stream>>>
-                        (du.ptr(),
+                    hipLaunchKernelGGL((sor_pass<1>), dim3(sor_blocks), dim3(sor_threads), 0, stream, du.ptr(),
                         dv.ptr(),
                         denom_u.ptr(),
                         denom_v.ptr(),
@@ -1099,8 +1097,8 @@ NCVStatus NCVBroxOpticalFlow(const NCVBroxOpticalFlowDescriptor desc,
 
                     ncvAssertCUDALastErrorReturn(NCV_CUDA_ERROR);
 
-                    ncvAssertCUDAReturn(cudaBindTexture(0, tex_du, du.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
-                    ncvAssertCUDAReturn(cudaBindTexture(0, tex_dv, dv.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
+                    ncvAssertCUDAReturn(hipBindTexture(0, tex_du, du.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
+                    ncvAssertCUDAReturn(hipBindTexture(0, tex_dv, dv.ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);
                 }//end of solver loop
             }// end of inner loop
 
@@ -1147,17 +1145,17 @@ NCVStatus NCVBroxOpticalFlow(const NCVBroxOpticalFlowDescriptor desc,
         }
 
         // end of warping iterations
-        ncvAssertCUDAReturn(cudaStreamSynchronize(stream), (int)NCV_CUDA_ERROR);
+        ncvAssertCUDAReturn(hipStreamSynchronize(stream), (int)NCV_CUDA_ERROR);
 
-        ncvAssertCUDAReturn( cudaMemcpy2DAsync
+        ncvAssertCUDAReturn( hipMemcpy2DAsync
             (uOut.ptr(), uOut.pitch(), ptrU->ptr(),
-            kSourcePitch, kSourceWidth*sizeof(float), kSourceHeight, cudaMemcpyDeviceToDevice, stream), (int)NCV_CUDA_ERROR );
+            kSourcePitch, kSourceWidth*sizeof(float), kSourceHeight, hipMemcpyDeviceToDevice, stream), (int)NCV_CUDA_ERROR );
 
-        ncvAssertCUDAReturn( cudaMemcpy2DAsync
+        ncvAssertCUDAReturn( hipMemcpy2DAsync
             (vOut.ptr(), vOut.pitch(), ptrV->ptr(),
-            kSourcePitch, kSourceWidth*sizeof(float), kSourceHeight, cudaMemcpyDeviceToDevice, stream), (int)NCV_CUDA_ERROR );
+            kSourcePitch, kSourceWidth*sizeof(float), kSourceHeight, hipMemcpyDeviceToDevice, stream), (int)NCV_CUDA_ERROR );
 
-        ncvAssertCUDAReturn(cudaStreamSynchronize(stream), (int)NCV_CUDA_ERROR);
+        ncvAssertCUDAReturn(hipStreamSynchronize(stream), (int)NCV_CUDA_ERROR);
     }
 
     return NCV_SUCCESS;

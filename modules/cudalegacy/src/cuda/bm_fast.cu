@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -225,7 +226,7 @@ namespace optflowbm_fast
             up_col_sums.data = buffer.data + blockIdx.y * search_window * search_window;
             up_col_sums.step = buffer.step;
 
-            extern __shared__ int dist_sums[]; //search_window * search_window
+            HIP_DYNAMIC_SHARED( int, dist_sums) //search_window * search_window
 
             int first = 0;
 
@@ -273,7 +274,7 @@ namespace optflowbm_fast
     }
 
     template <typename T>
-    void calc(PtrStepSzb I0, PtrStepSzb I1, PtrStepSzf velx, PtrStepSzf vely, PtrStepi buffer, int search_window, int block_window, cudaStream_t stream)
+    void calc(PtrStepSzb I0, PtrStepSzb I1, PtrStepSzf velx, PtrStepSzf vely, PtrStepi buffer, int search_window, int block_window, hipStream_t stream)
     {
         FastOptFlowBM<T> fbm(search_window, block_window, I0, I1, buffer);
 
@@ -282,14 +283,14 @@ namespace optflowbm_fast
 
         size_t smem = search_window * search_window * sizeof(int);
 
-        optflowbm_fast_kernel<<<grid, block, smem, stream>>>(fbm, velx, vely);
-        cudaSafeCall ( cudaGetLastError () );
+        hipLaunchKernelGGL((optflowbm_fast_kernel), dim3(grid), dim3(block), smem, stream, fbm, velx, vely);
+        cudaSafeCall ( hipGetLastError () );
 
         if (stream == 0)
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
     }
 
-    template void calc<uchar>(PtrStepSzb I0, PtrStepSzb I1, PtrStepSzf velx, PtrStepSzf vely, PtrStepi buffer, int search_window, int block_window, cudaStream_t stream);
+    template void calc<uchar>(PtrStepSzb I0, PtrStepSzb I1, PtrStepSzf velx, PtrStepSzf vely, PtrStepi buffer, int search_window, int block_window, hipStream_t stream);
 }
 
 #endif // !defined CUDA_DISABLER

@@ -54,7 +54,7 @@
 #include <algorithm>
 #include <fstream>
 
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 
 #include "opencv2/cudalegacy.hpp"
 
@@ -84,8 +84,8 @@ public:
         testName(testName_)
     {
         int devId;
-        ncvAssertPrintReturn(cudaSuccess == cudaGetDevice(&devId), "Error returned from cudaGetDevice", );
-        ncvAssertPrintReturn(cudaSuccess == cudaGetDeviceProperties(&this->devProp, devId), "Error returned from cudaGetDeviceProperties", );
+        ncvAssertPrintReturn(hipSuccess == hipGetDevice(&devId), "Error returned from hipGetDevice", );
+        ncvAssertPrintReturn(hipSuccess == hipGetDeviceProperties(&this->devProp, devId), "Error returned from hipGetDeviceProperties", );
     }
 
     virtual bool init() = 0;
@@ -150,7 +150,7 @@ public:
 
 protected:
 
-    cudaDeviceProp devProp;
+    hipDeviceProp_t devProp;
     std::unique_ptr<INCVMemAllocator> allocatorGPU;
     std::unique_ptr<INCVMemAllocator> allocatorCPU;
 

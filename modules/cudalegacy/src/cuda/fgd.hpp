@@ -50,7 +50,7 @@ namespace fgd
     struct BGPixelStat
     {
     public:
-#ifdef __CUDACC__
+#ifdef __HIPCC__
         __device__ float& Pbc(int i, int j);
         __device__ float& Pbcc(int i, int j);
 
@@ -103,7 +103,7 @@ namespace fgd
         size_t cctable_v2_step_;
     };
 
-#ifdef __CUDACC__
+#ifdef __HIPCC__
     __device__ __forceinline__ float& BGPixelStat::Pbc(int i, int j)
     {
         return *((float*)(Pbc_data_ + i * Pbc_step_) + j);
@@ -167,23 +167,23 @@ namespace fgd
     void calcDiffHistogram_gpu(cv::cuda::PtrStepSzb prevFrame, cv::cuda::PtrStepSzb curFrame,
                                unsigned int* hist0, unsigned int* hist1, unsigned int* hist2,
                                unsigned int* partialBuf0, unsigned int* partialBuf1, unsigned int* partialBuf2,
-                               bool cc20, cudaStream_t stream);
+                               bool cc20, hipStream_t stream);
 
     template <typename PT, typename CT>
-    void calcDiffThreshMask_gpu(cv::cuda::PtrStepSzb prevFrame, cv::cuda::PtrStepSzb curFrame, uchar3 bestThres, cv::cuda::PtrStepSzb changeMask, cudaStream_t stream);
+    void calcDiffThreshMask_gpu(cv::cuda::PtrStepSzb prevFrame, cv::cuda::PtrStepSzb curFrame, uchar3 bestThres, cv::cuda::PtrStepSzb changeMask, hipStream_t stream);
 
     void setBGPixelStat(const BGPixelStat& stat);
 
     template <typename PT, typename CT, typename OT>
     void bgfgClassification_gpu(cv::cuda::PtrStepSzb prevFrame, cv::cuda::PtrStepSzb curFrame,
                                 cv::cuda::PtrStepSzb Ftd, cv::cuda::PtrStepSzb Fbd, cv::cuda::PtrStepSzb foreground,
-                                int deltaC, int deltaCC, float alpha2, int N1c, int N1cc, cudaStream_t stream);
+                                int deltaC, int deltaCC, float alpha2, int N1c, int N1cc, hipStream_t stream);
 
     template <typename PT, typename CT, typename OT>
     void updateBackgroundModel_gpu(cv::cuda::PtrStepSzb prevFrame, cv::cuda::PtrStepSzb curFrame,
                                    cv::cuda::PtrStepSzb Ftd, cv::cuda::PtrStepSzb Fbd, cv::cuda::PtrStepSzb foreground, cv::cuda::PtrStepSzb background,
                                    int deltaC, int deltaCC, float alpha1, float alpha2, float alpha3, int N1c, int N1cc, int N2c, int N2cc, float T,
-                                   cudaStream_t stream);
+                                   hipStream_t stream);
 }
 
 #endif // __FGD_BGFG_COMMON_HPP__

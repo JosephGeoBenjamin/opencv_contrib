@@ -156,7 +156,7 @@ namespace
         typedef void (*func_t)(PtrStepSzb prevFrame, PtrStepSzb curFrame,
                                unsigned int* hist0, unsigned int* hist1, unsigned int* hist2,
                                unsigned int* partialBuf0, unsigned int* partialBuf1, unsigned int* partialBuf2,
-                               bool cc20, cudaStream_t stream);
+                               bool cc20, hipStream_t stream);
         static const func_t funcs[4][4] =
         {
             {0,0,0,0},
@@ -218,7 +218,7 @@ namespace
 
     void calcDiffThreshMask(const GpuMat& prevFrame, const GpuMat& curFrame, Vec3d bestThres, GpuMat& changeMask)
     {
-        typedef void (*func_t)(PtrStepSzb prevFrame, PtrStepSzb curFrame, uchar3 bestThres, PtrStepSzb changeMask, cudaStream_t stream);
+        typedef void (*func_t)(PtrStepSzb prevFrame, PtrStepSzb curFrame, uchar3 bestThres, PtrStepSzb changeMask, hipStream_t stream);
         static const func_t funcs[4][4] =
         {
             {0,0,0,0},
@@ -270,7 +270,7 @@ namespace
                            const FGDParams& params, int out_cn)
     {
         typedef void (*func_t)(PtrStepSzb prevFrame, PtrStepSzb curFrame, PtrStepSzb Ftd, PtrStepSzb Fbd, PtrStepSzb foreground,
-                               int deltaC, int deltaCC, float alpha2, int N1c, int N1cc, cudaStream_t stream);
+                               int deltaC, int deltaCC, float alpha2, int N1c, int N1cc, hipStream_t stream);
         static const func_t funcs[4][4][4] =
         {
             {
@@ -429,7 +429,7 @@ namespace
     {
         typedef void (*func_t)(PtrStepSzb prevFrame, PtrStepSzb curFrame, PtrStepSzb Ftd, PtrStepSzb Fbd,
                                PtrStepSzb foreground, PtrStepSzb background,
-                               int deltaC, int deltaCC, float alpha1, float alpha2, float alpha3, int N1c, int N1cc, int N2c, int N2cc, float T, cudaStream_t stream);
+                               int deltaC, int deltaCC, float alpha1, float alpha2, float alpha3, int N1c, int N1cc, int N2c, int N2cc, float T, hipStream_t stream);
         static const func_t funcs[4][4][4] =
         {
             {

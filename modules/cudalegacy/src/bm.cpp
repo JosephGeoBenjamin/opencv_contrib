@@ -54,7 +54,7 @@ void cv::cuda::calcOpticalFlowBM(const GpuMat&, const GpuMat&, Size, Size, Size,
 namespace optflowbm
 {
     void calc(PtrStepSzb prev, PtrStepSzb curr, PtrStepSzf velx, PtrStepSzf vely, int2 blockSize, int2 shiftSize, bool usePrevious,
-              int maxX, int maxY, int acceptLevel, int escapeLevel, const short2* ss, int ssCount, cudaStream_t stream);
+              int maxX, int maxY, int acceptLevel, int escapeLevel, const short2* ss, int ssCount, hipStream_t stream);
 }
 
 void cv::cuda::calcOpticalFlowBM(const GpuMat& prev, const GpuMat& curr, Size blockSize, Size shiftSize, Size maxRange, bool usePrevious, GpuMat& velx, GpuMat& vely, GpuMat& buf, Stream& st)
@@ -178,13 +178,13 @@ void cv::cuda::calcOpticalFlowBM(const GpuMat& prev, const GpuMat& curr, Size bl
         }
     }
 
-    const cudaStream_t stream = StreamAccessor::getStream(st);
+    const hipStream_t stream = StreamAccessor::getStream(st);
 
     ensureSizeIsEnough(1, ssCount, CV_16SC2, buf);
     if (stream == 0)
-        cudaSafeCall( cudaMemcpy(buf.data, &ss[0], ssCount * sizeof(short2), cudaMemcpyHostToDevice) );
+        cudaSafeCall( hipMemcpy(buf.data, &ss[0], ssCount * sizeof(short2), hipMemcpyHostToDevice) );
     else
-        cudaSafeCall( cudaMemcpyAsync(buf.data, &ss[0], ssCount * sizeof(short2), cudaMemcpyHostToDevice, stream) );
+        cudaSafeCall( hipMemcpyAsync(buf.data, &ss[0], ssCount * sizeof(short2), hipMemcpyHostToDevice, stream) );
 
     const int maxX = prev.cols - blockSize.width;
     const int maxY = prev.rows - blockSize.height;
