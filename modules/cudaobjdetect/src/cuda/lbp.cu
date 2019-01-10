@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -132,7 +133,7 @@ namespace cv { namespace cuda { namespace device
         __global__ void disjoin(int4* candidates, int4* objects, unsigned int n, int groupThreshold, float grouping_eps, unsigned int* nclasses)
         {
             unsigned int tid = threadIdx.x;
-            extern __shared__ int sbuff[];
+            HIP_DYNAMIC_SHARED( int, sbuff)
 
             int* labels = sbuff;
             int* rrects = sbuff + n;
@@ -188,8 +189,8 @@ namespace cv { namespace cuda { namespace device
             if (!ncandidates) return;
             int block = ncandidates;
             int smem  = block * ( sizeof(int) + sizeof(int4) );
-            disjoin<InSameComponint><<<1, block, smem>>>(candidates, objects, ncandidates, groupThreshold, grouping_eps, nclasses);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((disjoin<InSameComponint>), dim3(1), dim3(block), smem, 0, candidates, objects, ncandidates, groupThreshold, grouping_eps, nclasses);
+            cudaSafeCall( hipGetLastError() );
         }
 
         struct Cascade
@@ -293,9 +294,9 @@ namespace cv { namespace cuda { namespace device
         {
             const int block = 128;
             int grid = divUp(workAmount, block);
-            cudaFuncSetCacheConfig(lbp_cascade, cudaFuncCachePreferL1);
+            hipFuncSetCacheConfig(lbp_cascade, hipFuncCachePreferL1);
             Cascade cascade((Stage*)mstages.ptr(), nstages, (ClNode*)mnodes.ptr(), mleaves.ptr(), msubsets.ptr(), (uchar4*)mfeatures.ptr(), subsetSize);
-            lbp_cascade<<<grid, block>>>(cascade, frameW, frameH, windowW, windowH, initialScale, factor, workAmount, integral.ptr(), (int)integral.step / sizeof(int), objects, classified);
+            hipLaunchKernelGGL((lbp_cascade), dim3(grid), dim3(block), 0, 0, cascade, frameW, frameH, windowW, windowH, initialScale, factor, workAmount, integral.ptr(), (int)integral.step / sizeof(int), objects, classified);
         }
     }
 }}}

@@ -134,7 +134,7 @@ namespace
         Ptr<NCVMemStackAllocator> gpuAllocator;
         Ptr<NCVMemStackAllocator> cpuAllocator;
 
-        cudaDeviceProp devProp;
+        hipDeviceProp_t devProp;
         NCVStatus ncvStat;
 
         Ptr<NCVMemNativeAllocator> gpuCascadeAllocator;
@@ -229,7 +229,7 @@ namespace
     NCVStatus HaarCascade_Impl::load(const String& classifierFile)
     {
         int devId = cv::cuda::getDevice();
-        ncvAssertCUDAReturn(cudaGetDeviceProperties(&devProp, devId), NCV_CUDA_ERROR);
+        ncvAssertCUDAReturn(hipGetDeviceProperties(&devProp, devId), NCV_CUDA_ERROR);
 
         // Load the classifier from file (assuming its size is about 1 mb) using a simple allocator
         gpuCascadeAllocator = makePtr<NCVMemNativeAllocator>(NCVMemoryTypeDevice, static_cast<int>(devProp.textureAlignment));
@@ -302,7 +302,7 @@ namespace
             *d_haarStages, *d_haarNodes, *d_haarFeatures, haar.ClassifierSize, 4, 1.2f, 1, 0, gpuCounter, cpuCounter, devProp, 0);
 
         ncvAssertReturnNcvStat(ncvStat);
-        ncvAssertCUDAReturn(cudaStreamSynchronize(0), NCV_CUDA_ERROR);
+        ncvAssertCUDAReturn(hipStreamSynchronize(0), NCV_CUDA_ERROR);
 
         gpuAllocator = makePtr<NCVMemStackAllocator>(NCVMemoryTypeDevice, gpuCounter.maxSize(), static_cast<int>(devProp.textureAlignment));
         cpuAllocator = makePtr<NCVMemStackAllocator>(NCVMemoryTypeHostPinned, cpuCounter.maxSize(), static_cast<int>(devProp.textureAlignment));
@@ -359,7 +359,7 @@ namespace
             flags,
             *gpuAllocator, *cpuAllocator, devProp, 0);
         ncvAssertReturnNcvStat(ncvStat);
-        ncvAssertCUDAReturn(cudaStreamSynchronize(0), NCV_CUDA_ERROR);
+        ncvAssertCUDAReturn(hipStreamSynchronize(0), NCV_CUDA_ERROR);
 
         return NCV_SUCCESS;
     }
@@ -546,7 +546,7 @@ namespace
 
         unsigned int classified = 0;
         GpuMat dclassified(1, 1, CV_32S);
-        cudaSafeCall( cudaMemcpy(dclassified.ptr(), &classified, sizeof(int), cudaMemcpyHostToDevice) );
+        cudaSafeCall( hipMemcpy(dclassified.ptr(), &classified, sizeof(int), hipMemcpyHostToDevice) );
 
         PyrLavel level(0, scaleFactor_, image.size(), NxM, minObjectSize_);
 
@@ -590,11 +590,11 @@ namespace
         if (minNeighbors_ <= 0  || objects.empty())
             return;
 
-        cudaSafeCall( cudaMemcpy(&classified, dclassified.ptr(), sizeof(int), cudaMemcpyDeviceToHost) );
+        cudaSafeCall( hipMemcpy(&classified, dclassified.ptr(), sizeof(int), hipMemcpyDeviceToHost) );
         device::lbp::connectedConmonents(candidates, classified, objects, minNeighbors_, grouping_eps, dclassified.ptr<unsigned int>());
 
-        cudaSafeCall( cudaMemcpy(&classified, dclassified.ptr(), sizeof(int), cudaMemcpyDeviceToHost) );
-        cudaSafeCall( cudaDeviceSynchronize() );
+        cudaSafeCall( hipMemcpy(&classified, dclassified.ptr(), sizeof(int), hipMemcpyDeviceToHost) );
+        cudaSafeCall( hipDeviceSynchronize() );
 
         if (classified > 0)
         {
@@ -788,8 +788,8 @@ namespace
             roiSize.width = frame.width;
             roiSize.height = frame.height;
 
-            cudaDeviceProp prop;
-            cudaSafeCall( cudaGetDeviceProperties(&prop, cv::cuda::getDevice()) );
+            hipDeviceProp_t prop;
+            cudaSafeCall( hipGetDeviceProperties(&prop, cv::cuda::getDevice()) );
 
             Ncv32u bufSize;
             ncvSafeCall( nppiStIntegralGetSize_8u32u(roiSize, &bufSize, prop) );
