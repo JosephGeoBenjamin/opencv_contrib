@@ -173,20 +173,20 @@ namespace cv { namespace cuda { namespace device
             case 1:
                 for (int i = 0; i < iters; ++i)
                 {
-                    hipLaunchKernelGGL((disp_bilateral_filter<1>), dim3(grid), dim3(threads), 0, stream, 0, disp.data, disp.step/sizeof(T), img.data, img.step, disp.rows, disp.cols, table_color, table_space, table_step, radius, edge_disc, max_disc);
+                    hipLaunchKernelGGL((disp_bilateral_filter<1,T>), dim3(grid), dim3(threads), 0, stream, 0, disp.data, disp.step/sizeof(T), img.data, img.step, disp.rows, disp.cols, table_color, table_space, table_step, radius, edge_disc, max_disc);
                     cudaSafeCall( hipGetLastError() );
 
-                    hipLaunchKernelGGL((disp_bilateral_filter<1>), dim3(grid), dim3(threads), 0, stream, 1, disp.data, disp.step/sizeof(T), img.data, img.step, disp.rows, disp.cols, table_color, table_space, table_step, radius, edge_disc, max_disc);
+                    hipLaunchKernelGGL((disp_bilateral_filter<1,T>), dim3(grid), dim3(threads), 0, stream, 1, disp.data, disp.step/sizeof(T), img.data, img.step, disp.rows, disp.cols, table_color, table_space, table_step, radius, edge_disc, max_disc);
                     cudaSafeCall( hipGetLastError() );
                 }
                 break;
             case 3:
                 for (int i = 0; i < iters; ++i)
                 {
-                    hipLaunchKernelGGL((disp_bilateral_filter<3>), dim3(grid), dim3(threads), 0, stream, 0, disp.data, disp.step/sizeof(T), img.data, img.step, disp.rows, disp.cols, table_color, table_space, table_step, radius, edge_disc, max_disc);
+                    hipLaunchKernelGGL((disp_bilateral_filter<3,T>), dim3(grid), dim3(threads), 0, stream, 0, disp.data, disp.step/sizeof(T), img.data, img.step, disp.rows, disp.cols, table_color, table_space, table_step, radius, edge_disc, max_disc);
                     cudaSafeCall( hipGetLastError() );
 
-                    hipLaunchKernelGGL((disp_bilateral_filter<3>), dim3(grid), dim3(threads), 0, stream, 1, disp.data, disp.step/sizeof(T), img.data, img.step, disp.rows, disp.cols, table_color, table_space, table_step, radius, edge_disc, max_disc);
+                    hipLaunchKernelGGL((disp_bilateral_filter<3,T>), dim3(grid), dim3(threads), 0, stream, 1, disp.data, disp.step/sizeof(T), img.data, img.step, disp.rows, disp.cols, table_color, table_space, table_step, radius, edge_disc, max_disc);
                     cudaSafeCall( hipGetLastError() );
                 }
                 break;
