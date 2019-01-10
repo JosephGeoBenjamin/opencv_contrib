@@ -294,7 +294,11 @@ namespace cv { namespace cuda { namespace device
         {
             const int block = 128;
             int grid = divUp(workAmount, block);
+
+#ifdef HIP_TODO
             hipFuncSetCacheConfig(lbp_cascade, hipFuncCachePreferL1);
+#endif //HIP_TODO
+
             Cascade cascade((Stage*)mstages.ptr(), nstages, (ClNode*)mnodes.ptr(), mleaves.ptr(), msubsets.ptr(), (uchar4*)mfeatures.ptr(), subsetSize);
             hipLaunchKernelGGL((lbp_cascade), dim3(grid), dim3(block), 0, 0, cascade, frameW, frameH, windowW, windowH, initialScale, factor, workAmount, integral.ptr(), (int)integral.step / sizeof(int), objects, classified);
         }

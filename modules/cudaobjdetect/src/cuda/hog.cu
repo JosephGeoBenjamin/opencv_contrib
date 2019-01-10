@@ -105,25 +105,25 @@ namespace cv { namespace cuda { namespace device
                               int ncells_block_x, int ncells_block_y,
                               const hipStream_t& stream)
         {
-            cudaSafeCall(hipMemcpyToSymbolAsync(cnbins,               &nbins,               sizeof(nbins),               0, hipMemcpyHostToDevice, stream));
-            cudaSafeCall(hipMemcpyToSymbolAsync(cblock_stride_x,      &block_stride_x,      sizeof(block_stride_x),      0, hipMemcpyHostToDevice, stream));
-            cudaSafeCall(hipMemcpyToSymbolAsync(cblock_stride_y,      &block_stride_y,      sizeof(block_stride_y),      0, hipMemcpyHostToDevice, stream));
-            cudaSafeCall(hipMemcpyToSymbolAsync(cnblocks_win_x,       &nblocks_win_x,       sizeof(nblocks_win_x),       0, hipMemcpyHostToDevice, stream));
-            cudaSafeCall(hipMemcpyToSymbolAsync(cnblocks_win_y,       &nblocks_win_y,       sizeof(nblocks_win_y),       0, hipMemcpyHostToDevice, stream));
-            cudaSafeCall(hipMemcpyToSymbolAsync(cncells_block_x,      &ncells_block_x,      sizeof(ncells_block_x),      0, hipMemcpyHostToDevice, stream));
-            cudaSafeCall(hipMemcpyToSymbolAsync(cncells_block_y,      &ncells_block_y,      sizeof(ncells_block_y),      0, hipMemcpyHostToDevice, stream));
+            cudaSafeCall(hipMemcpyToSymbolAsync(&cnbins,               &nbins,               sizeof(nbins),               0, hipMemcpyHostToDevice, stream));
+            cudaSafeCall(hipMemcpyToSymbolAsync(&cblock_stride_x,      &block_stride_x,      sizeof(block_stride_x),      0, hipMemcpyHostToDevice, stream));
+            cudaSafeCall(hipMemcpyToSymbolAsync(&cblock_stride_y,      &block_stride_y,      sizeof(block_stride_y),      0, hipMemcpyHostToDevice, stream));
+            cudaSafeCall(hipMemcpyToSymbolAsync(&cnblocks_win_x,       &nblocks_win_x,       sizeof(nblocks_win_x),       0, hipMemcpyHostToDevice, stream));
+            cudaSafeCall(hipMemcpyToSymbolAsync(&cnblocks_win_y,       &nblocks_win_y,       sizeof(nblocks_win_y),       0, hipMemcpyHostToDevice, stream));
+            cudaSafeCall(hipMemcpyToSymbolAsync(&cncells_block_x,      &ncells_block_x,      sizeof(ncells_block_x),      0, hipMemcpyHostToDevice, stream));
+            cudaSafeCall(hipMemcpyToSymbolAsync(&cncells_block_y,      &ncells_block_y,      sizeof(ncells_block_y),      0, hipMemcpyHostToDevice, stream));
 
             int block_hist_size = nbins * ncells_block_x * ncells_block_y;
-            cudaSafeCall(hipMemcpyToSymbolAsync(cblock_hist_size,     &block_hist_size,     sizeof(block_hist_size),     0, hipMemcpyHostToDevice, stream));
+            cudaSafeCall(hipMemcpyToSymbolAsync(&cblock_hist_size,     &block_hist_size,     sizeof(block_hist_size),     0, hipMemcpyHostToDevice, stream));
 
             int block_hist_size_2up = power_2up(block_hist_size);
-            cudaSafeCall(hipMemcpyToSymbolAsync(cblock_hist_size_2up, &block_hist_size_2up, sizeof(block_hist_size_2up), 0, hipMemcpyHostToDevice, stream));
+            cudaSafeCall(hipMemcpyToSymbolAsync(&cblock_hist_size_2up, &block_hist_size_2up, sizeof(block_hist_size_2up), 0, hipMemcpyHostToDevice, stream));
 
             int descr_width = nblocks_win_x * block_hist_size;
-            cudaSafeCall(hipMemcpyToSymbolAsync(cdescr_width,         &descr_width,         sizeof(descr_width),         0, hipMemcpyHostToDevice, stream));
+            cudaSafeCall(hipMemcpyToSymbolAsync(&cdescr_width,         &descr_width,         sizeof(descr_width),         0, hipMemcpyHostToDevice, stream));
 
             int descr_size = descr_width * nblocks_win_y;
-            cudaSafeCall(hipMemcpyToSymbolAsync(cdescr_size,          &descr_size,          sizeof(descr_size),          0, hipMemcpyHostToDevice, stream));
+            cudaSafeCall(hipMemcpyToSymbolAsync(&cdescr_size,          &descr_size,          sizeof(descr_size),          0, hipMemcpyHostToDevice, stream));
         }
 
 
@@ -441,8 +441,10 @@ namespace cv { namespace cuda { namespace device
            dim3 threads(nthreads, 1, nblocks);
            dim3 grid(divUp(img_win_width, nblocks), img_win_height);
 
+#ifdef HIP_TODO
            cudaSafeCall(hipFuncSetCacheConfig(compute_confidence_hists_kernel_many_blocks<nthreads, nblocks>,
                                                                                    hipFuncCachePreferL1));
+#endif //HIP_TODO
 
            int img_block_width = (width - ncells_block_x * cell_size_x + block_stride_x) /
                                                        block_stride_x;
@@ -503,7 +505,10 @@ namespace cv { namespace cuda { namespace device
             dim3 threads(nthreads, 1, nblocks);
             dim3 grid(divUp(img_win_width, nblocks), img_win_height);
 
+#ifdef HIP_TODO
             cudaSafeCall(hipFuncSetCacheConfig(classify_hists_kernel_many_blocks<nthreads, nblocks>, hipFuncCachePreferL1));
+#endif //HIP_TODO
+
 
             int img_block_width = (width - ncells_block_x * cell_size_x + block_stride_x) / block_stride_x;
             hipLaunchKernelGGL((classify_hists_kernel_many_blocks<nthreads, nblocks>), dim3(grid), dim3(threads), 0, 0,
@@ -859,13 +864,13 @@ namespace cv { namespace cuda { namespace device
             int colOfs = 0;
 
             hipChannelFormatDesc desc = hipCreateChannelDesc<T>();
-            cudaSafeCall( cudaBindTexture2D(&texOfs, tex, src.data, desc, src.cols, src.rows, src.step) );
+            cudaSafeCall( hipBindTexture2D(&texOfs, tex, src.data, desc, src.cols, src.rows, src.step) );
 
             if (texOfs != 0)
             {
                 colOfs = static_cast<int>( texOfs/sizeof(T) );
                 cudaSafeCall( hipUnbindTexture(tex) );
-                cudaSafeCall( cudaBindTexture2D(&texOfs, tex, src.data, desc, src.cols, src.rows, src.step) );
+                cudaSafeCall( hipBindTexture2D(&texOfs, tex, src.data, desc, src.cols, src.rows, src.step) );
             }
 
             dim3 threads(32, 8);
