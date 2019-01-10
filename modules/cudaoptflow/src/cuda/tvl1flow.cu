@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -66,16 +67,16 @@ namespace tvl1flow
         dy(y, x) = 0.5f * (src(::min(y + 1, src.rows - 1), x) - src(::max(y - 1, 0), x));
     }
 
-    void centeredGradient(PtrStepSzf src, PtrStepSzf dx, PtrStepSzf dy, cudaStream_t stream)
+    void centeredGradient(PtrStepSzf src, PtrStepSzf dx, PtrStepSzf dy, hipStream_t stream)
     {
         const dim3 block(32, 8);
         const dim3 grid(divUp(src.cols, block.x), divUp(src.rows, block.y));
 
-        centeredGradientKernel<<<grid, block, 0, stream>>>(src, dx, dy);
-        cudaSafeCall( cudaGetLastError() );
+        hipLaunchKernelGGL((centeredGradientKernel), dim3(grid), dim3(block), 0, stream, src, dx, dy);
+        cudaSafeCall( hipGetLastError() );
 
         if (!stream)
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
     }
 }
 
@@ -101,9 +102,9 @@ namespace tvl1flow
         }
     }
 
-    texture<float, cudaTextureType2D, cudaReadModeElementType> tex_I1 (false, cudaFilterModePoint, cudaAddressModeClamp);
-    texture<float, cudaTextureType2D, cudaReadModeElementType> tex_I1x(false, cudaFilterModePoint, cudaAddressModeClamp);
-    texture<float, cudaTextureType2D, cudaReadModeElementType> tex_I1y(false, cudaFilterModePoint, cudaAddressModeClamp);
+    texture<float, hipTextureType2D, hipReadModeElementType> tex_I1 (false, hipFilterModePoint, hipAddressModeClamp);
+    texture<float, hipTextureType2D, hipReadModeElementType> tex_I1x(false, hipFilterModePoint, hipAddressModeClamp);
+    texture<float, hipTextureType2D, hipReadModeElementType> tex_I1y(false, hipFilterModePoint, hipAddressModeClamp);
 
     __global__ void warpBackwardKernel(const PtrStepSzf I0, const PtrStepf u1, const PtrStepf u2, PtrStepf I1w, PtrStepf I1wx, PtrStepf I1wy, PtrStepf grad, PtrStepf rho)
     {
@@ -168,7 +169,7 @@ namespace tvl1flow
     void warpBackward(PtrStepSzf I0, PtrStepSzf I1, PtrStepSzf I1x, PtrStepSzf I1y,
                       PtrStepSzf u1, PtrStepSzf u2, PtrStepSzf I1w, PtrStepSzf I1wx,
                       PtrStepSzf I1wy, PtrStepSzf grad, PtrStepSzf rho,
-                      cudaStream_t stream)
+                      hipStream_t stream)
     {
         const dim3 block(32, 8);
         const dim3 grid(divUp(I0.cols, block.x), divUp(I0.rows, block.y));
@@ -177,11 +178,11 @@ namespace tvl1flow
         bindTexture(&tex_I1x, I1x);
         bindTexture(&tex_I1y, I1y);
 
-        warpBackwardKernel<<<grid, block, 0, stream>>>(I0, u1, u2, I1w, I1wx, I1wy, grad, rho);
-        cudaSafeCall( cudaGetLastError() );
+        hipLaunchKernelGGL((warpBackwardKernel), dim3(grid), dim3(block), 0, stream, I0, u1, u2, I1w, I1wx, I1wy, grad, rho);
+        cudaSafeCall( hipGetLastError() );
 
         if (!stream)
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
     }
 }
 
@@ -298,16 +299,16 @@ namespace tvl1flow
                    PtrStepSzf p11, PtrStepSzf p12, PtrStepSzf p21, PtrStepSzf p22, PtrStepSzf p31, PtrStepSzf p32,
                    PtrStepSzf u1, PtrStepSzf u2, PtrStepSzf u3, PtrStepSzf error,
                    float l_t, float theta, float gamma, bool calcError,
-                   cudaStream_t stream)
+                   hipStream_t stream)
     {
         const dim3 block(32, 8);
         const dim3 grid(divUp(I1wx.cols, block.x), divUp(I1wx.rows, block.y));
 
-        estimateUKernel<<<grid, block, 0, stream>>>(I1wx, I1wy, grad, rho_c, p11, p12, p21, p22, p31, p32, u1, u2, u3, error, l_t, theta, gamma, calcError);
-        cudaSafeCall( cudaGetLastError() );
+        hipLaunchKernelGGL((estimateUKernel), dim3(grid), dim3(block), 0, stream, I1wx, I1wy, grad, rho_c, p11, p12, p21, p22, p31, p32, u1, u2, u3, error, l_t, theta, gamma, calcError);
+        cudaSafeCall( hipGetLastError() );
 
         if (!stream)
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
     }
 }
 
@@ -356,16 +357,16 @@ namespace tvl1flow
     void estimateDualVariables(PtrStepSzf u1, PtrStepSzf u2, PtrStepSzf u3,
                                PtrStepSzf p11, PtrStepSzf p12, PtrStepSzf p21, PtrStepSzf p22, PtrStepSzf p31, PtrStepSzf p32,
                                float taut, float gamma,
-                               cudaStream_t stream)
+                               hipStream_t stream)
     {
         const dim3 block(32, 8);
         const dim3 grid(divUp(u1.cols, block.x), divUp(u1.rows, block.y));
 
-        estimateDualVariablesKernel<<<grid, block, 0, stream>>>(u1, u2, u3, p11, p12, p21, p22, p31, p32, taut, gamma);
-        cudaSafeCall( cudaGetLastError() );
+        hipLaunchKernelGGL((estimateDualVariablesKernel), dim3(grid), dim3(block), 0, stream, u1, u2, u3, p11, p12, p21, p22, p31, p32, taut, gamma);
+        cudaSafeCall( hipGetLastError() );
 
         if (!stream)
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
     }
 }
 

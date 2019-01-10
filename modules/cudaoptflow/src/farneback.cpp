@@ -63,31 +63,31 @@ namespace cv { namespace cuda { namespace device { namespace optflow_farneback
             int polyN, const float *g, const float *xg, const float *xxg,
             float ig11, float ig03, float ig33, float ig55);
 
-    void polynomialExpansionGpu(const PtrStepSzf &src, int polyN, PtrStepSzf dst, cudaStream_t stream);
+    void polynomialExpansionGpu(const PtrStepSzf &src, int polyN, PtrStepSzf dst, hipStream_t stream);
 
     void setUpdateMatricesConsts();
 
     void updateMatricesGpu(
             const PtrStepSzf flowx, const PtrStepSzf flowy, const PtrStepSzf R0, const PtrStepSzf R1,
-            PtrStepSzf M, cudaStream_t stream);
+            PtrStepSzf M, hipStream_t stream);
 
     void updateFlowGpu(
-            const PtrStepSzf M, PtrStepSzf flowx, PtrStepSzf flowy, cudaStream_t stream);
+            const PtrStepSzf M, PtrStepSzf flowx, PtrStepSzf flowy, hipStream_t stream);
 
-    void boxFilter5Gpu(const PtrStepSzf src, int ksizeHalf, PtrStepSzf dst, cudaStream_t stream);
+    void boxFilter5Gpu(const PtrStepSzf src, int ksizeHalf, PtrStepSzf dst, hipStream_t stream);
 
-    void boxFilter5Gpu_CC11(const PtrStepSzf src, int ksizeHalf, PtrStepSzf dst, cudaStream_t stream);
+    void boxFilter5Gpu_CC11(const PtrStepSzf src, int ksizeHalf, PtrStepSzf dst, hipStream_t stream);
 
     void setGaussianBlurKernel(const float *gKer, int ksizeHalf);
 
     void gaussianBlurGpu(
-            const PtrStepSzf src, int ksizeHalf, PtrStepSzf dst, int borderType, cudaStream_t stream);
+            const PtrStepSzf src, int ksizeHalf, PtrStepSzf dst, int borderType, hipStream_t stream);
 
     void gaussianBlur5Gpu(
-            const PtrStepSzf src, int ksizeHalf, PtrStepSzf dst, int borderType, cudaStream_t stream);
+            const PtrStepSzf src, int ksizeHalf, PtrStepSzf dst, int borderType, hipStream_t stream);
 
     void gaussianBlur5Gpu_CC11(
-            const PtrStepSzf src, int ksizeHalf, PtrStepSzf dst, int borderType, cudaStream_t stream);
+            const PtrStepSzf src, int ksizeHalf, PtrStepSzf dst, int borderType, hipStream_t stream);
 
 }}}}
 

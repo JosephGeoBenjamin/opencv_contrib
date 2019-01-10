@@ -55,20 +55,20 @@ Ptr<cv::cuda::DensePyrLKOpticalFlow> cv::cuda::DensePyrLKOpticalFlow::create(Siz
 
 namespace pyrlk
 {
-    void loadConstants(int* winSize, int iters, cudaStream_t stream);
-    void loadWinSize(int* winSize, int* halfWinSize, cudaStream_t stream);
-    void loadIters(int* iters, cudaStream_t stream);
+    void loadConstants(int* winSize, int iters, hipStream_t stream);
+    void loadWinSize(int* winSize, int* halfWinSize, hipStream_t stream);
+    void loadIters(int* iters, hipStream_t stream);
     template<typename T, int cn> struct pyrLK_caller
     {
         static void sparse(PtrStepSz<typename device::TypeVec<T, cn>::vec_type> I, PtrStepSz<typename device::TypeVec<T, cn>::vec_type> J, const float2* prevPts, float2* nextPts, uchar* status, float* err, int ptcount,
-            int level, dim3 block, dim3 patch, cudaStream_t stream);
+            int level, dim3 block, dim3 patch, hipStream_t stream);
 
         static void dense(PtrStepSzf I, PtrStepSzf J, PtrStepSzf u, PtrStepSzf v, PtrStepSzf prevU, PtrStepSzf prevV,
-            PtrStepSzf err, int2 winSize, cudaStream_t stream);
+            PtrStepSzf err, int2 winSize, hipStream_t stream);
     };
 
     template<typename T, int cn> void dispatcher(GpuMat I, GpuMat J, const float2* prevPts, float2* nextPts, uchar* status, float* err, int ptcount,
-        int level, dim3 block, dim3 patch, cudaStream_t stream)
+        int level, dim3 block, dim3 patch, hipStream_t stream)
     {
         pyrLK_caller<T, cn>::sparse(I, J, prevPts, nextPts, status, err, ptcount, level, block, patch, stream);
     }
@@ -182,7 +182,7 @@ namespace
         dim3 block, patch;
         calcPatchSize(Size(winSize_[0], winSize_[1]), block, patch);
         CV_Assert(patch.x > 0 && patch.x < 6 && patch.y > 0 && patch.y < 6);
-        cudaStream_t stream_ = StreamAccessor::getStream(stream);
+        hipStream_t stream_ = StreamAccessor::getStream(stream);
         pyrlk::loadWinSize(winSize_, halfWinSize_, stream_);
         pyrlk::loadIters(&iters_, stream_);
 
@@ -190,7 +190,7 @@ namespace
         const int type = prevPyr[0].depth();
 
         typedef void(*func_t)(GpuMat I, GpuMat J, const float2* prevPts, float2* nextPts, uchar* status, float* err, int ptcount,
-            int level, dim3 block, dim3 patch, cudaStream_t stream);
+            int level, dim3 block, dim3 patch, hipStream_t stream);
 
         // Current int datatype is disabled due to pyrDown not implementing it
         // while ushort does work, it has significantly worse performance, and thus doesn't pass accuracy tests.
@@ -273,7 +273,7 @@ namespace
         vPyr[0].setTo(Scalar::all(0), stream);
         uPyr[1].setTo(Scalar::all(0), stream);
         vPyr[1].setTo(Scalar::all(0), stream);
-        cudaStream_t stream_ = StreamAccessor::getStream(stream);
+        hipStream_t stream_ = StreamAccessor::getStream(stream);
         pyrlk::loadWinSize(winSize_, halfWinSize_, stream_);
         pyrlk::loadIters(&iters_, stream_);
         int2 winSize2i = make_int2(winSize_[0], winSize_[1]);

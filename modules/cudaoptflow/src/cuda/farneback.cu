@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -72,7 +73,7 @@ namespace cv { namespace cuda { namespace device { namespace optflow_farneback
 
         if (y < height)
         {
-            extern __shared__ float smem[];
+            HIP_DYNAMIC_SHARED( float, smem)
             volatile float *row = smem + tx;
             int xWarped = ::min(::max(x, 0), width - 1);
 
@@ -123,31 +124,31 @@ namespace cv { namespace cuda { namespace device { namespace optflow_farneback
             int polyN, const float *g, const float *xg, const float *xxg,
             float ig11, float ig03, float ig33, float ig55)
     {
-        cudaSafeCall(cudaMemcpyToSymbol(c_g, g, (polyN + 1) * sizeof(*g)));
-        cudaSafeCall(cudaMemcpyToSymbol(c_xg, xg, (polyN + 1) * sizeof(*xg)));
-        cudaSafeCall(cudaMemcpyToSymbol(c_xxg, xxg, (polyN + 1) * sizeof(*xxg)));
-        cudaSafeCall(cudaMemcpyToSymbol(c_ig11, &ig11, sizeof(ig11)));
-        cudaSafeCall(cudaMemcpyToSymbol(c_ig03, &ig03, sizeof(ig03)));
-        cudaSafeCall(cudaMemcpyToSymbol(c_ig33, &ig33, sizeof(ig33)));
-        cudaSafeCall(cudaMemcpyToSymbol(c_ig55, &ig55, sizeof(ig55)));
+        cudaSafeCall(hipMemcpyToSymbol(c_g, g, (polyN + 1) * sizeof(*g)));
+        cudaSafeCall(hipMemcpyToSymbol(c_xg, xg, (polyN + 1) * sizeof(*xg)));
+        cudaSafeCall(hipMemcpyToSymbol(c_xxg, xxg, (polyN + 1) * sizeof(*xxg)));
+        cudaSafeCall(hipMemcpyToSymbol(c_ig11, &ig11, sizeof(ig11)));
+        cudaSafeCall(hipMemcpyToSymbol(c_ig03, &ig03, sizeof(ig03)));
+        cudaSafeCall(hipMemcpyToSymbol(c_ig33, &ig33, sizeof(ig33)));
+        cudaSafeCall(hipMemcpyToSymbol(c_ig55, &ig55, sizeof(ig55)));
     }
 
 
-    void polynomialExpansionGpu(const PtrStepSzf &src, int polyN, PtrStepSzf dst, cudaStream_t stream)
+    void polynomialExpansionGpu(const PtrStepSzf &src, int polyN, PtrStepSzf dst, hipStream_t stream)
     {
         dim3 block(256);
         dim3 grid(divUp(src.cols, block.x - 2*polyN), src.rows);
         int smem = 3 * block.x * sizeof(float);
 
         if (polyN == 5)
-            polynomialExpansion<5><<<grid, block, smem, stream>>>(src.rows, src.cols, src, dst);
+            hipLaunchKernelGGL((polynomialExpansion<5>), dim3(grid), dim3(block), smem, stream, src.rows, src.cols, src, dst);
         else if (polyN == 7)
-            polynomialExpansion<7><<<grid, block, smem, stream>>>(src.rows, src.cols, src, dst);
+            hipLaunchKernelGGL((polynomialExpansion<7>), dim3(grid), dim3(block), smem, stream, src.rows, src.cols, src, dst);
 
-        cudaSafeCall(cudaGetLastError());
+        cudaSafeCall(hipGetLastError());
 
         if (stream == 0)
-            cudaSafeCall(cudaDeviceSynchronize());
+            cudaSafeCall(hipDeviceSynchronize());
     }
 
 
@@ -244,23 +245,23 @@ namespace cv { namespace cuda { namespace device { namespace optflow_farneback
     void setUpdateMatricesConsts()
     {
         static const float border[BORDER_SIZE + 1] = {0.14f, 0.14f, 0.4472f, 0.4472f, 0.4472f, 1.f};
-        cudaSafeCall(cudaMemcpyToSymbol(c_border, border, (BORDER_SIZE + 1) * sizeof(*border)));
+        cudaSafeCall(hipMemcpyToSymbol(c_border, border, (BORDER_SIZE + 1) * sizeof(*border)));
     }
 
 
     void updateMatricesGpu(
             const PtrStepSzf flowx, const PtrStepSzf flowy, const PtrStepSzf R0, const PtrStepSzf R1,
-            PtrStepSzf M, cudaStream_t stream)
+            PtrStepSzf M, hipStream_t stream)
     {
         dim3 block(32, 8);
         dim3 grid(divUp(flowx.cols, block.x), divUp(flowx.rows, block.y));
 
-        updateMatrices<<<grid, block, 0, stream>>>(flowx.rows, flowx.cols, flowx, flowy, R0, R1, M);
+        hipLaunchKernelGGL((updateMatrices), dim3(grid), dim3(block), 0, stream, flowx.rows, flowx.cols, flowx, flowy, R0, R1, M);
 
-        cudaSafeCall(cudaGetLastError());
+        cudaSafeCall(hipGetLastError());
 
         if (stream == 0)
-            cudaSafeCall(cudaDeviceSynchronize());
+            cudaSafeCall(hipDeviceSynchronize());
     }
 
 
@@ -286,17 +287,17 @@ namespace cv { namespace cuda { namespace device { namespace optflow_farneback
     }
 
 
-    void updateFlowGpu(const PtrStepSzf M, PtrStepSzf flowx, PtrStepSzf flowy, cudaStream_t stream)
+    void updateFlowGpu(const PtrStepSzf M, PtrStepSzf flowx, PtrStepSzf flowy, hipStream_t stream)
     {
         dim3 block(32, 8);
         dim3 grid(divUp(flowx.cols, block.x), divUp(flowx.rows, block.y));
 
-        updateFlow<<<grid, block, 0, stream>>>(flowx.rows, flowx.cols, M, flowx, flowy);
+        hipLaunchKernelGGL((updateFlow), dim3(grid), dim3(block), 0, stream, flowx.rows, flowx.cols, M, flowx, flowy);
 
-        cudaSafeCall(cudaGetLastError());
+        cudaSafeCall(hipGetLastError());
 
         if (stream == 0)
-            cudaSafeCall(cudaDeviceSynchronize());
+            cudaSafeCall(hipDeviceSynchronize());
     }
 
 
@@ -307,7 +308,7 @@ namespace cv { namespace cuda { namespace device { namespace optflow_farneback
         const int y = by * bdy + ty;
         const int x = bx * bdx + tx;
 
-        extern __shared__ float smem[];
+        HIP_DYNAMIC_SHARED( float, smem)
         volatile float *row = smem + ty * (bdx + 2*ksizeHalf);
 
         if (y < height)
@@ -338,19 +339,19 @@ namespace cv { namespace cuda { namespace device { namespace optflow_farneback
     }
 
 
-    void boxFilterGpu(const PtrStepSzf src, int ksizeHalf, PtrStepSzf dst, cudaStream_t stream)
+    void boxFilterGpu(const PtrStepSzf src, int ksizeHalf, PtrStepSzf dst, hipStream_t stream)
     {
         dim3 block(256);
         dim3 grid(divUp(src.cols, block.x), divUp(src.rows, block.y));
         int smem = (block.x + 2*ksizeHalf) * block.y * sizeof(float);
 
         float boxAreaInv = 1.f / ((1 + 2*ksizeHalf) * (1 + 2*ksizeHalf));
-        boxFilter<<<grid, block, smem, stream>>>(src.rows, src.cols, src, ksizeHalf, boxAreaInv, dst);
+        hipLaunchKernelGGL((boxFilter), dim3(grid), dim3(block), smem, stream, src.rows, src.cols, src, ksizeHalf, boxAreaInv, dst);
 
-        cudaSafeCall(cudaGetLastError());
+        cudaSafeCall(hipGetLastError());
 
         if (stream == 0)
-            cudaSafeCall(cudaDeviceSynchronize());
+            cudaSafeCall(hipDeviceSynchronize());
     }*/
 
 
@@ -361,7 +362,7 @@ namespace cv { namespace cuda { namespace device { namespace optflow_farneback
         const int y = by * bdy + ty;
         const int x = bx * bdx + tx;
 
-        extern __shared__ float smem[];
+        HIP_DYNAMIC_SHARED( float, smem)
 
         const int smw = bdx + 2*ksizeHalf; // shared memory "width"
         volatile float *row = smem + 5 * ty * smw;
@@ -412,7 +413,7 @@ namespace cv { namespace cuda { namespace device { namespace optflow_farneback
     }
 
 
-    void boxFilter5Gpu(const PtrStepSzf src, int ksizeHalf, PtrStepSzf dst, cudaStream_t stream)
+    void boxFilter5Gpu(const PtrStepSzf src, int ksizeHalf, PtrStepSzf dst, hipStream_t stream)
     {
         int height = src.rows / 5;
         int width = src.cols;
@@ -422,16 +423,16 @@ namespace cv { namespace cuda { namespace device { namespace optflow_farneback
         int smem = (block.x + 2*ksizeHalf) * 5 * block.y * sizeof(float);
 
         float boxAreaInv = 1.f / ((1 + 2*ksizeHalf) * (1 + 2*ksizeHalf));
-        boxFilter5<<<grid, block, smem, stream>>>(height, width, src, ksizeHalf, boxAreaInv, dst);
+        hipLaunchKernelGGL((boxFilter5), dim3(grid), dim3(block), smem, stream, height, width, src, ksizeHalf, boxAreaInv, dst);
 
-        cudaSafeCall(cudaGetLastError());
+        cudaSafeCall(hipGetLastError());
 
         if (stream == 0)
-            cudaSafeCall(cudaDeviceSynchronize());
+            cudaSafeCall(hipDeviceSynchronize());
     }
 
 
-    void boxFilter5Gpu_CC11(const PtrStepSzf src, int ksizeHalf, PtrStepSzf dst, cudaStream_t stream)
+    void boxFilter5Gpu_CC11(const PtrStepSzf src, int ksizeHalf, PtrStepSzf dst, hipStream_t stream)
     {
         int height = src.rows / 5;
         int width = src.cols;
@@ -441,12 +442,12 @@ namespace cv { namespace cuda { namespace device { namespace optflow_farneback
         int smem = (block.x + 2*ksizeHalf) * 5 * block.y * sizeof(float);
 
         float boxAreaInv = 1.f / ((1 + 2*ksizeHalf) * (1 + 2*ksizeHalf));
-        boxFilter5<<<grid, block, smem, stream>>>(height, width, src, ksizeHalf, boxAreaInv, dst);
+        hipLaunchKernelGGL((boxFilter5), dim3(grid), dim3(block), smem, stream, height, width, src, ksizeHalf, boxAreaInv, dst);
 
-        cudaSafeCall(cudaGetLastError());
+        cudaSafeCall(hipGetLastError());
 
         if (stream == 0)
-            cudaSafeCall(cudaDeviceSynchronize());
+            cudaSafeCall(hipDeviceSynchronize());
     }
 
 
@@ -460,7 +461,7 @@ namespace cv { namespace cuda { namespace device { namespace optflow_farneback
         const int y = by * bdy + ty;
         const int x = bx * bdx + tx;
 
-        extern __shared__ float smem[];
+        HIP_DYNAMIC_SHARED( float, smem)
         volatile float *row = smem + ty * (bdx + 2*ksizeHalf);
 
         if (y < height)
@@ -494,12 +495,12 @@ namespace cv { namespace cuda { namespace device { namespace optflow_farneback
 
     void setGaussianBlurKernel(const float *gKer, int ksizeHalf)
     {
-        cudaSafeCall(cudaMemcpyToSymbol(c_gKer, gKer, (ksizeHalf + 1) * sizeof(*gKer)));
+        cudaSafeCall(hipMemcpyToSymbol(c_gKer, gKer, (ksizeHalf + 1) * sizeof(*gKer)));
     }
 
 
     template <typename Border>
-    void gaussianBlurCaller(const PtrStepSzf src, int ksizeHalf, PtrStepSzf dst, cudaStream_t stream)
+    void gaussianBlurCaller(const PtrStepSzf src, int ksizeHalf, PtrStepSzf dst, hipStream_t stream)
     {
         int height = src.rows;
         int width = src.cols;
@@ -509,19 +510,19 @@ namespace cv { namespace cuda { namespace device { namespace optflow_farneback
         int smem = (block.x + 2*ksizeHalf) * block.y * sizeof(float);
         Border b(height, width);
 
-        gaussianBlur<<<grid, block, smem, stream>>>(height, width, src, ksizeHalf, b, dst);
+        hipLaunchKernelGGL((gaussianBlur), dim3(grid), dim3(block), smem, stream, height, width, src, ksizeHalf, b, dst);
 
-        cudaSafeCall(cudaGetLastError());
+        cudaSafeCall(hipGetLastError());
 
         if (stream == 0)
-            cudaSafeCall(cudaDeviceSynchronize());
+            cudaSafeCall(hipDeviceSynchronize());
     }
 
 
     void gaussianBlurGpu(
-            const PtrStepSzf src, int ksizeHalf, PtrStepSzf dst, int borderMode, cudaStream_t stream)
+            const PtrStepSzf src, int ksizeHalf, PtrStepSzf dst, int borderMode, hipStream_t stream)
     {
-        typedef void (*caller_t)(const PtrStepSzf, int, PtrStepSzf, cudaStream_t);
+        typedef void (*caller_t)(const PtrStepSzf, int, PtrStepSzf, hipStream_t);
 
         static const caller_t callers[] =
         {
@@ -544,7 +545,7 @@ namespace cv { namespace cuda { namespace device { namespace optflow_farneback
         const int y = by * bdy + ty;
         const int x = bx * bdx + tx;
 
-        extern __shared__ float smem[];
+        HIP_DYNAMIC_SHARED( float, smem)
 
         const int smw = bdx + 2*ksizeHalf; // shared memory "width"
         volatile float *row = smem + 5 * ty * smw;
@@ -597,7 +598,7 @@ namespace cv { namespace cuda { namespace device { namespace optflow_farneback
 
     template <typename Border, int blockDimX>
     void gaussianBlur5Caller(
-            const PtrStepSzf src, int ksizeHalf, PtrStepSzf dst, cudaStream_t stream)
+            const PtrStepSzf src, int ksizeHalf, PtrStepSzf dst, hipStream_t stream)
     {
         int height = src.rows / 5;
         int width = src.cols;
@@ -607,19 +608,19 @@ namespace cv { namespace cuda { namespace device { namespace optflow_farneback
         int smem = (block.x + 2*ksizeHalf) * 5 * block.y * sizeof(float);
         Border b(height, width);
 
-        gaussianBlur5<<<grid, block, smem, stream>>>(height, width, src, ksizeHalf, b, dst);
+        hipLaunchKernelGGL((gaussianBlur5), dim3(grid), dim3(block), smem, stream, height, width, src, ksizeHalf, b, dst);
 
-        cudaSafeCall(cudaGetLastError());
+        cudaSafeCall(hipGetLastError());
 
         if (stream == 0)
-            cudaSafeCall(cudaDeviceSynchronize());
+            cudaSafeCall(hipDeviceSynchronize());
     }
 
 
     void gaussianBlur5Gpu(
-            const PtrStepSzf src, int ksizeHalf, PtrStepSzf dst, int borderMode, cudaStream_t stream)
+            const PtrStepSzf src, int ksizeHalf, PtrStepSzf dst, int borderMode, hipStream_t stream)
     {
-        typedef void (*caller_t)(const PtrStepSzf, int, PtrStepSzf, cudaStream_t);
+        typedef void (*caller_t)(const PtrStepSzf, int, PtrStepSzf, hipStream_t);
 
         static const caller_t callers[] =
         {
@@ -634,9 +635,9 @@ namespace cv { namespace cuda { namespace device { namespace optflow_farneback
     }
 
     void gaussianBlur5Gpu_CC11(
-            const PtrStepSzf src, int ksizeHalf, PtrStepSzf dst, int borderMode, cudaStream_t stream)
+            const PtrStepSzf src, int ksizeHalf, PtrStepSzf dst, int borderMode, hipStream_t stream)
     {
-        typedef void (*caller_t)(const PtrStepSzf, int, PtrStepSzf, cudaStream_t);
+        typedef void (*caller_t)(const PtrStepSzf, int, PtrStepSzf, hipStream_t);
 
         static const caller_t callers[] =
         {
