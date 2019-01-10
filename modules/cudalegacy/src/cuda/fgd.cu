@@ -105,21 +105,21 @@ namespace fgd
         #pragma unroll
         for (int i = 0; i < (HISTOGRAM_THREADBLOCK_MEMORY / HISTOGRAM_THREADBLOCK_SIZE); ++i)
         {
-           s_Hist0[threadIdx.x + i * HISTOGRAM_THREADBLOCK_SIZE] = 0;
-           s_Hist1[threadIdx.x + i * HISTOGRAM_THREADBLOCK_SIZE] = 0;
-           s_Hist2[threadIdx.x + i * HISTOGRAM_THREADBLOCK_SIZE] = 0;
+           s_Hist0[hipThreadIdx_x + i * HISTOGRAM_THREADBLOCK_SIZE] = 0;
+           s_Hist1[hipThreadIdx_x + i * HISTOGRAM_THREADBLOCK_SIZE] = 0;
+           s_Hist2[hipThreadIdx_x + i * HISTOGRAM_THREADBLOCK_SIZE] = 0;
         }
         __syncthreads();
 
-        const unsigned int warpId = threadIdx.x >> LOG_WARP_SIZE;
+        const unsigned int warpId = hipThreadIdx_x >> LOG_WARP_SIZE;
 
         unsigned int* s_WarpHist0 = s_Hist0 + warpId * HISTOGRAM_BIN_COUNT;
         unsigned int* s_WarpHist1 = s_Hist1 + warpId * HISTOGRAM_BIN_COUNT;
         unsigned int* s_WarpHist2 = s_Hist2 + warpId * HISTOGRAM_BIN_COUNT;
 
-        const unsigned int tag = threadIdx.x << (UINT_BITS - LOG_WARP_SIZE);
+        const unsigned int tag = hipThreadIdx_x << (UINT_BITS - LOG_WARP_SIZE);
         const int dataCount = prevFrame.rows * prevFrame.cols;
-        for (unsigned int pos = blockIdx.x * HISTOGRAM_THREADBLOCK_SIZE + threadIdx.x; pos < dataCount; pos += HISTOGRAM_THREADBLOCK_SIZE * PARTIAL_HISTOGRAM_COUNT)
+        for (unsigned int pos = hipBlockIdx_x * HISTOGRAM_THREADBLOCK_SIZE + hipThreadIdx_x; pos < dataCount; pos += HISTOGRAM_THREADBLOCK_SIZE * PARTIAL_HISTOGRAM_COUNT)
         {
             const unsigned int y = pos / prevFrame.cols;
             const unsigned int x = pos % prevFrame.cols;
@@ -140,7 +140,7 @@ namespace fgd
         __syncthreads();
 
         //Merge per-warp histograms into per-block and write to global memory
-        for (unsigned int bin = threadIdx.x; bin < HISTOGRAM_BIN_COUNT; bin += HISTOGRAM_THREADBLOCK_SIZE)
+        for (unsigned int bin = hipThreadIdx_x; bin < HISTOGRAM_BIN_COUNT; bin += HISTOGRAM_THREADBLOCK_SIZE)
         {
             unsigned int sum0 = 0;
             unsigned int sum1 = 0;
@@ -160,9 +160,9 @@ namespace fgd
                 #endif
             }
 
-            partialBuf0[blockIdx.x * HISTOGRAM_BIN_COUNT + bin] = sum0;
-            partialBuf1[blockIdx.x * HISTOGRAM_BIN_COUNT + bin] = sum1;
-            partialBuf2[blockIdx.x * HISTOGRAM_BIN_COUNT + bin] = sum2;
+            partialBuf0[hipBlockIdx_x * HISTOGRAM_BIN_COUNT + bin] = sum0;
+            partialBuf1[hipBlockIdx_x * HISTOGRAM_BIN_COUNT + bin] = sum1;
+            partialBuf2[hipBlockIdx_x * HISTOGRAM_BIN_COUNT + bin] = sum2;
         }
     }
 
@@ -173,11 +173,11 @@ namespace fgd
         unsigned int sum2 = 0;
 
         #pragma unroll
-        for (unsigned int i = threadIdx.x; i < PARTIAL_HISTOGRAM_COUNT; i += MERGE_THREADBLOCK_SIZE)
+        for (unsigned int i = hipThreadIdx_x; i < PARTIAL_HISTOGRAM_COUNT; i += MERGE_THREADBLOCK_SIZE)
         {
-            sum0 += partialBuf0[blockIdx.x + i * HISTOGRAM_BIN_COUNT];
-            sum1 += partialBuf1[blockIdx.x + i * HISTOGRAM_BIN_COUNT];
-            sum2 += partialBuf2[blockIdx.x + i * HISTOGRAM_BIN_COUNT];
+            sum0 += partialBuf0[hipBlockIdx_x + i * HISTOGRAM_BIN_COUNT];
+            sum1 += partialBuf1[hipBlockIdx_x + i * HISTOGRAM_BIN_COUNT];
+            sum2 += partialBuf2[hipBlockIdx_x + i * HISTOGRAM_BIN_COUNT];
         }
 
         __shared__ unsigned int data0[MERGE_THREADBLOCK_SIZE];
@@ -185,13 +185,13 @@ namespace fgd
         __shared__ unsigned int data2[MERGE_THREADBLOCK_SIZE];
 
         plus<unsigned int> op;
-        reduce<MERGE_THREADBLOCK_SIZE>(smem_tuple(data0, data1, data2), thrust::tie(sum0, sum1, sum2), threadIdx.x, thrust::make_tuple(op, op, op));
+        reduce<MERGE_THREADBLOCK_SIZE>(smem_tuple(data0, data1, data2), thrust::tie(sum0, sum1, sum2), hipThreadIdx_x, thrust::make_tuple(op, op, op));
 
-        if(threadIdx.x == 0)
+        if(hipThreadIdx_x == 0)
         {
-            hist0[blockIdx.x] = sum0;
-            hist1[blockIdx.x] = sum1;
-            hist2[blockIdx.x] = sum2;
+            hist0[hipBlockIdx_x] = sum0;
+            hist1[hipBlockIdx_x] = sum1;
+            hist2[hipBlockIdx_x] = sum2;
         }
     }
 
@@ -204,7 +204,7 @@ namespace fgd
         const int HISTOGRAM_WARP_COUNT = cc20 ? 6 : 4;
         const int HISTOGRAM_THREADBLOCK_SIZE = HISTOGRAM_WARP_COUNT * WARP_SIZE;
 
-        hipLaunchKernelGGL((calcPartialHistogram<PT, CT>), dim3(PARTIAL_HISTOGRAM_COUNT), dim3(HISTOGRAM_THREADBLOCK_SIZE), 0, stream, 
+        hipLaunchKernelGGL((calcPartialHistogram<PT, CT>), dim3(PARTIAL_HISTOGRAM_COUNT), dim3(HISTOGRAM_THREADBLOCK_SIZE), 0, stream,
                 (PtrStepSz<PT>)prevFrame, (PtrStepSz<CT>)curFrame, partialBuf0, partialBuf1, partialBuf2);
         cudaSafeCall( hipGetLastError() );
 
@@ -226,8 +226,8 @@ namespace fgd
     template <typename PT, typename CT>
     __global__ void calcDiffThreshMask(const PtrStepSz<PT> prevFrame, const PtrStep<CT> curFrame, uchar3 bestThres, PtrStepb changeMask)
     {
-        const int y = blockIdx.y * blockDim.y + threadIdx.y;
-        const int x = blockIdx.x * blockDim.x + threadIdx.x;
+        const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
+        const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
 
         if (y > prevFrame.rows || x > prevFrame.cols)
             return;
@@ -294,8 +294,8 @@ namespace fgd
                                        const PtrStepb Ftd, const PtrStepb Fbd, PtrStepb foreground,
                                        int deltaC, int deltaCC, float alpha2, int N1c, int N1cc)
     {
-        const int i = blockIdx.y * blockDim.y + threadIdx.y;
-        const int j = blockIdx.x * blockDim.x + threadIdx.x;
+        const int i = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
+        const int j = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
 
         if (i > prevFrame.rows || j > prevFrame.cols)
             return;
@@ -403,8 +403,8 @@ namespace fgd
                                           PtrStepb foreground, PtrStep<OT> background,
                                           int deltaC, int deltaCC, float alpha1, float alpha2, float alpha3, int N1c, int N1cc, int N2c, int N2cc, float T)
     {
-        const int i = blockIdx.y * blockDim.y + threadIdx.y;
-        const int j = blockIdx.x * blockDim.x + threadIdx.x;
+        const int i = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
+        const int j = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
 
         if (i > rows || j > cols)
             return;
@@ -768,7 +768,7 @@ namespace fgd
 
             cudaSafeCall( hipFuncSetCacheConfig(updateBackgroundModel<PT, CT, OT, PtrStep<PT>, PtrStep<CT>, PtrStepb, PtrStepb>, hipFuncCachePreferL1) );
 
-            hipLaunchKernelGGL((updateBackgroundModel<PT, CT, OT, PtrStep<PT>, PtrStep<CT>, PtrStepb, PtrStepb>), dim3(grid), dim3(block), 0, stream, 
+            hipLaunchKernelGGL((updateBackgroundModel<PT, CT, OT, PtrStep<PT>, PtrStep<CT>, PtrStepb, PtrStepb>), dim3(grid), dim3(block), 0, stream,
                 prevFrame.cols, prevFrame.rows,
                 prevFrame, curFrame,
                 Ftd, Fbd, foreground, background,

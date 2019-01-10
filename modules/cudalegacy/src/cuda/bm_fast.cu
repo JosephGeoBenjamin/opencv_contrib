@@ -94,7 +94,7 @@ namespace optflowbm_fast
 
         __device__ __forceinline__ void initSums_BruteForce(int i, int j, int* dist_sums, PtrStepi& col_sums, PtrStepi& up_col_sums) const
         {
-            for (int index = threadIdx.x; index < search_window * search_window; index += STRIDE)
+            for (int index = hipThreadIdx_x; index < search_window * search_window; index += STRIDE)
             {
                 dist_sums[index] = 0;
 
@@ -130,7 +130,7 @@ namespace optflowbm_fast
 
         __device__ __forceinline__ void shiftRight_FirstRow(int i, int j, int first, int* dist_sums, PtrStepi& col_sums, PtrStepi& up_col_sums) const
         {
-            for (int index = threadIdx.x; index < search_window * search_window; index += STRIDE)
+            for (int index = hipThreadIdx_x; index < search_window * search_window; index += STRIDE)
             {
                 int y = index / search_window;
                 int x = index - y * search_window;
@@ -161,7 +161,7 @@ namespace optflowbm_fast
             T a_up   = I0(ay - block_radius - 1, ax);
             T a_down = I0(ay + block_radius, ax);
 
-            for(int index = threadIdx.x; index < search_window * search_window; index += STRIDE)
+            for(int index = hipThreadIdx_x; index < search_window * search_window; index += STRIDE)
             {
                 int y = index / search_window;
                 int x = index - y * search_window;
@@ -185,7 +185,7 @@ namespace optflowbm_fast
             int bestDist = numeric_limits<int>::max();
             int bestInd = -1;
 
-            for (int index = threadIdx.x; index < search_window * search_window; index += STRIDE)
+            for (int index = hipThreadIdx_x; index < search_window * search_window; index += STRIDE)
             {
                 int curDist = dist_sums[index];
                 if (curDist < bestDist)
@@ -198,9 +198,9 @@ namespace optflowbm_fast
             __shared__ int cta_dist_buffer[CTA_SIZE];
             __shared__ int cta_ind_buffer[CTA_SIZE];
 
-            reduceKeyVal<CTA_SIZE>(cta_dist_buffer, bestDist, cta_ind_buffer, bestInd, threadIdx.x, less<int>());
+            reduceKeyVal<CTA_SIZE>(cta_dist_buffer, bestDist, cta_ind_buffer, bestInd, hipThreadIdx_x, less<int>());
 
-            if (threadIdx.x == 0)
+            if (hipThreadIdx_x == 0)
             {
                 int y = bestInd / search_window;
                 int x = bestInd - y * search_window;
@@ -212,18 +212,18 @@ namespace optflowbm_fast
 
         __device__ __forceinline__ void operator()(PtrStepf velx, PtrStepf vely) const
         {
-            int tbx = blockIdx.x * TILE_COLS;
-            int tby = blockIdx.y * TILE_ROWS;
+            int tbx = hipBlockIdx_x * TILE_COLS;
+            int tby = hipBlockIdx_y * TILE_ROWS;
 
             int tex = ::min(tbx + TILE_COLS, I0.cols);
             int tey = ::min(tby + TILE_ROWS, I0.rows);
 
             PtrStepi col_sums;
-            col_sums.data = buffer.ptr(I0.cols + blockIdx.x * block_window) + blockIdx.y * search_window * search_window;
+            col_sums.data = buffer.ptr(I0.cols + hipBlockIdx_x * block_window) + hipBlockIdx_y * search_window * search_window;
             col_sums.step = buffer.step;
 
             PtrStepi up_col_sums;
-            up_col_sums.data = buffer.data + blockIdx.y * search_window * search_window;
+            up_col_sums.data = buffer.data + hipBlockIdx_y * search_window * search_window;
             up_col_sums.step = buffer.step;
 
             HIP_DYNAMIC_SHARED( int, dist_sums) //search_window * search_window

@@ -187,8 +187,8 @@ __global__ void kernelDownsampleX2(T *d_src,
                                    Ncv32u dstPitch,
                                    NcvSize32u dstRoi)
 {
-    Ncv32u i = blockIdx.y * blockDim.y + threadIdx.y;
-    Ncv32u j = blockIdx.x * blockDim.x + threadIdx.x;
+    Ncv32u i = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
+    Ncv32u j = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
 
     if (i < dstRoi.height && j < dstRoi.width)
     {
@@ -256,8 +256,8 @@ __global__ void kernelInterpolateFrom1(T *d_srcTop,
                                        Ncv32u dstPitch,
                                        NcvSize32u dstRoi)
 {
-    Ncv32u i = blockIdx.y * blockDim.y + threadIdx.y;
-    Ncv32u j = blockIdx.x * blockDim.x + threadIdx.x;
+    Ncv32u i = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
+    Ncv32u j = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
 
     if (i < dstRoi.height && j < dstRoi.width)
     {

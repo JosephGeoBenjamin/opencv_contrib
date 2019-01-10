@@ -145,11 +145,11 @@ namespace cv { namespace cuda { namespace device
                 const int num_points, const float3* object, const float2* image,
                 const float dist_threshold, int* g_num_inliers)
         {
-            const float3* const &rot_mat = crot_matrices + blockIdx.x * 3;
-            const float3 &transl_vec = ctransl_vectors[blockIdx.x];
+            const float3* const &rot_mat = crot_matrices + hipBlockIdx_x * 3;
+            const float3 &transl_vec = ctransl_vectors[hipBlockIdx_x];
             int num_inliers = 0;
 
-            for (int i = threadIdx.x; i < num_points; i += blockDim.x)
+            for (int i = hipThreadIdx_x; i < num_points; i += hipBlockDim_x)
             {
                 float3 p = object[i];
                 p = make_float3(
@@ -164,10 +164,10 @@ namespace cv { namespace cuda { namespace device
             }
 
             __shared__ int s_num_inliers[BLOCK_SIZE];
-            reduce<BLOCK_SIZE>(s_num_inliers, num_inliers, threadIdx.x, plus<int>());
+            reduce<BLOCK_SIZE>(s_num_inliers, num_inliers, hipThreadIdx_x, plus<int>());
 
-            if (threadIdx.x == 0)
-                g_num_inliers[blockIdx.x] = num_inliers;
+            if (hipThreadIdx_x == 0)
+                g_num_inliers[hipBlockIdx_x] = num_inliers;
         }
 
         void computeHypothesisScores(
@@ -181,7 +181,7 @@ namespace cv { namespace cuda { namespace device
             dim3 threads(256);
             dim3 grid(num_hypotheses);
 
-            hipLaunchKernelGGL((computeHypothesisScoresKernel<256>), dim3(grid), dim3(threads), 0, 0, 
+            hipLaunchKernelGGL((computeHypothesisScoresKernel<256>), dim3(grid), dim3(threads), 0, 0,
                     num_points, object, image, dist_threshold, hypothesis_scores);
             cudaSafeCall( hipGetLastError() );
 

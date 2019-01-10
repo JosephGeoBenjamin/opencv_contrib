@@ -73,8 +73,8 @@ namespace optflowbm
                                   const int maxX, const int maxY, const int acceptLevel, const int escapeLevel,
                                   const short2* ss, const int ssCount)
     {
-        const int j = blockIdx.x * blockDim.x + threadIdx.x;
-        const int i = blockIdx.y * blockDim.y + threadIdx.y;
+        const int j = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+        const int i = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
         if (i >= velx.rows || j >= velx.cols)
             return;

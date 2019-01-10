@@ -110,7 +110,7 @@ inline __device__ T warpScanInclusive(T idata, volatile T *s_Data)
 
     return idata;
 #else
-    Ncv32u pos = 2 * threadIdx.x - (threadIdx.x & (K_WARP_SIZE - 1));
+    Ncv32u pos = 2 * hipThreadIdx_x - (hipThreadIdx_x & (K_WARP_SIZE - 1));
     s_Data[pos] = 0;
     pos += K_WARP_SIZE;
     s_Data[pos] = idata;
@@ -126,7 +126,7 @@ inline __device__ T warpScanInclusive(T idata, volatile T *s_Data)
 }
 inline __device__ Ncv64u warpScanInclusive(Ncv64u idata, volatile Ncv64u *s_Data)
 {
-    Ncv32u pos = 2 * threadIdx.x - (threadIdx.x & (K_WARP_SIZE - 1));
+    Ncv32u pos = 2 * hipThreadIdx_x - (hipThreadIdx_x & (K_WARP_SIZE - 1));
     s_Data[pos] = 0;
     pos += K_WARP_SIZE;
     s_Data[pos] = idata;
@@ -159,25 +159,25 @@ inline __device__ T blockScanInclusive(T idata, volatile T *s_Data)
         //Save top elements of each warp for exclusive warp scan
         //sync to wait for warp scans to complete (because s_Data is being overwritten)
         __syncthreads();
-        if( (threadIdx.x & (K_WARP_SIZE - 1)) == (K_WARP_SIZE - 1) )
+        if( (hipThreadIdx_x & (K_WARP_SIZE - 1)) == (K_WARP_SIZE - 1) )
         {
-            s_Data[threadIdx.x >> K_LOG2_WARP_SIZE] = warpResult;
+            s_Data[hipThreadIdx_x >> K_LOG2_WARP_SIZE] = warpResult;
         }
 
         //wait for warp scans to complete
         __syncthreads();
 
-        if( threadIdx.x < (tiNumScanThreads / K_WARP_SIZE) )
+        if( hipThreadIdx_x < (tiNumScanThreads / K_WARP_SIZE) )
         {
             //grab top warp elements
-            T val = s_Data[threadIdx.x];
+            T val = s_Data[hipThreadIdx_x];
             //calculate exclusive scan and write back to shared memory
-            s_Data[threadIdx.x] = warpScanExclusive(val, s_Data);
+            s_Data[hipThreadIdx_x] = warpScanExclusive(val, s_Data);
         }
 
         //return updated warp scans with exclusive scan results
         __syncthreads();
-        return warpResult + s_Data[threadIdx.x >> K_LOG2_WARP_SIZE];
+        return warpResult + s_Data[hipThreadIdx_x >> K_LOG2_WARP_SIZE];
     }
     else
     {
@@ -229,7 +229,7 @@ inline __device__ T readElem(T *d_src, Ncv32u texOffs, Ncv32u srcStride, Ncv32u 
 template<>
 inline __device__ Ncv8u readElem<Ncv8u>(Ncv8u *d_src, Ncv32u texOffs, Ncv32u srcStride, Ncv32u curElemOffs)
 {
-    return tex1Dfetch(tex8u, texOffs + srcStride * blockIdx.x + curElemOffs);
+    return tex1Dfetch(tex8u, texOffs + srcStride * hipBlockIdx_x + curElemOffs);
 }
 
 
@@ -272,10 +272,10 @@ __global__ void scanRows(T_in *d_src, Ncv32u texOffs, Ncv32u srcWidth, Ncv32u sr
     //advance pointers to the current line
     if (sizeof(T_in) != 1)
     {
-        d_src += srcStride * blockIdx.x;
+        d_src += srcStride * hipBlockIdx_x;
     }
     //for initial image 8bit source we use texref tex8u
-    d_II += IIstride * blockIdx.x;
+    d_II += IIstride * hipBlockIdx_x;
 
     Ncv32u numBuckets = (srcWidth + NUM_SCAN_THREADS - 1) >> LOG2_NUM_SCAN_THREADS;
     Ncv32u offsetX = 0;
@@ -287,7 +287,7 @@ __global__ void scanRows(T_in *d_src, Ncv32u texOffs, Ncv32u srcWidth, Ncv32u sr
 
     while (numBuckets--)
     {
-        Ncv32u curElemOffs = offsetX + threadIdx.x;
+        Ncv32u curElemOffs = offsetX + hipThreadIdx_x;
         T_out curScanElem;
 
         T_in curElem;
@@ -312,14 +312,14 @@ __global__ void scanRows(T_in *d_src, Ncv32u texOffs, Ncv32u srcWidth, Ncv32u sr
 
         //remember last element for subsequent buckets adjustment
         __syncthreads();
-        if (threadIdx.x == NUM_SCAN_THREADS-1)
+        if (hipThreadIdx_x == NUM_SCAN_THREADS-1)
         {
             carryElem += curScanElem;
         }
         __syncthreads();
     }
 
-    if (offsetX == srcWidth && !threadIdx.x)
+    if (offsetX == srcWidth && !hipThreadIdx_x)
     {
         d_II[offsetX] = carryElem;
     }
@@ -729,8 +729,8 @@ template <class T, NcvBool tbCacheTexture>
 __global__ void decimate_C1R(T *d_src, Ncv32u srcStep, T *d_dst, Ncv32u dstStep,
                                       NcvSize32u dstRoi, Ncv32u scale)
 {
-    int curX = blockIdx.x * blockDim.x + threadIdx.x;
-    int curY = blockIdx.y * blockDim.y + threadIdx.y;
+    int curX = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+    int curY = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
     if (curX >= dstRoi.width || curY >= dstRoi.height)
     {
@@ -911,14 +911,14 @@ __global__ void rectStdDev_32f_C1R(Ncv32u *d_sum, Ncv32u sumStep,
                                    Ncv32f *d_norm, Ncv32u normStep,
                                    NcvSize32u roi, NcvRect32u rect, Ncv32f invRectArea)
 {
-    Ncv32u x_offs = blockIdx.x * NUM_RECTSTDDEV_THREADS + threadIdx.x;
+    Ncv32u x_offs = hipBlockIdx_x * NUM_RECTSTDDEV_THREADS + hipThreadIdx_x;
     if (x_offs >= roi.width)
     {
         return;
     }
 
-    Ncv32u sum_offset = blockIdx.y * sumStep + x_offs;
-    Ncv32u sqsum_offset = blockIdx.y * sqsumStep + x_offs;
+    Ncv32u sum_offset = hipBlockIdx_y * sumStep + x_offs;
+    Ncv32u sqsum_offset = hipBlockIdx_y * sqsumStep + x_offs;
 
     //OPT: try swapping order (could change cache hit/miss ratio)
     Ncv32u sum_tl = getElemSum<tbCacheTexture>(sum_offset + rect.y * sumStep + rect.x, d_sum);
@@ -965,7 +965,7 @@ __global__ void rectStdDev_32f_C1R(Ncv32u *d_sum, Ncv32u sumStep,
     //Ncv32f stddev = sqrtf(variance);
     Ncv32f stddev = __fsqrt_rn(variance);
 
-    d_norm[blockIdx.y * normStep + x_offs] = stddev;
+    d_norm[hipBlockIdx_y * normStep + x_offs] = stddev;
 }
 
 
@@ -1109,20 +1109,20 @@ __global__ void transpose(T *d_src, Ncv32u srcStride,
     Ncv32u blockIdx_x, blockIdx_y;
 
     // do diagonal reordering
-    if (gridDim.x == gridDim.y)
+    if (hipGridDim_x == hipGridDim_y)
     {
-        blockIdx_y = blockIdx.x;
-        blockIdx_x = (blockIdx.x + blockIdx.y) % gridDim.x;
+        blockIdx_y = hipBlockIdx_x;
+        blockIdx_x = (hipBlockIdx_x + hipBlockIdx_y) % hipGridDim_x;
     }
     else
     {
-        Ncv32u bid = blockIdx.x + gridDim.x * blockIdx.y;
-        blockIdx_y = bid % gridDim.y;
-        blockIdx_x = ((bid / gridDim.y) + blockIdx_y) % gridDim.x;
+        Ncv32u bid = hipBlockIdx_x + hipGridDim_x * hipBlockIdx_y;
+        blockIdx_y = bid % hipGridDim_y;
+        blockIdx_x = ((bid / hipGridDim_y) + blockIdx_y) % hipGridDim_x;
     }
 
-    Ncv32u xIndex = blockIdx_x * TRANSPOSE_TILE_DIM + threadIdx.x;
-    Ncv32u yIndex = blockIdx_y * TRANSPOSE_TILE_DIM + threadIdx.y;
+    Ncv32u xIndex = blockIdx_x * TRANSPOSE_TILE_DIM + hipThreadIdx_x;
+    Ncv32u yIndex = blockIdx_y * TRANSPOSE_TILE_DIM + hipThreadIdx_y;
     Ncv32u index_gmem = xIndex + yIndex * srcStride;
 
     if (xIndex < srcRoi.width)
@@ -1131,15 +1131,15 @@ __global__ void transpose(T *d_src, Ncv32u srcStride,
         {
             if (yIndex + i < srcRoi.height)
             {
-                tile[threadIdx.y+i][threadIdx.x] = d_src[index_gmem+i*srcStride];
+                tile[hipThreadIdx_y+i][hipThreadIdx_x] = d_src[index_gmem+i*srcStride];
             }
         }
     }
 
     __syncthreads();
 
-    xIndex = blockIdx_y * TRANSPOSE_TILE_DIM + threadIdx.x;
-    yIndex = blockIdx_x * TRANSPOSE_TILE_DIM + threadIdx.y;
+    xIndex = blockIdx_y * TRANSPOSE_TILE_DIM + hipThreadIdx_x;
+    yIndex = blockIdx_x * TRANSPOSE_TILE_DIM + hipThreadIdx_y;
     index_gmem = xIndex + yIndex * dstStride;
 
     if (xIndex < srcRoi.height)
@@ -1148,7 +1148,7 @@ __global__ void transpose(T *d_src, Ncv32u srcStride,
         {
             if (yIndex + i < srcRoi.width)
             {
-                d_dst[index_gmem+i*dstStride] = tile[threadIdx.x][threadIdx.y+i];
+                d_dst[index_gmem+i*dstStride] = tile[hipThreadIdx_x][hipThreadIdx_y+i];
             }
         }
     }
@@ -1264,10 +1264,10 @@ __global__ void removePass1Scan(Ncv32u *d_src, Ncv32u srcLen,
                                 Ncv32u *d_offsets, Ncv32u *d_blockSums,
                                 Ncv32u elemRemove)
 {
-    Ncv32u blockId = blockIdx.y * 65535 + blockIdx.x;
-    Ncv32u elemAddrIn = blockId * NUM_REMOVE_THREADS + threadIdx.x;
+    Ncv32u blockId = hipBlockIdx_y * 65535 + hipBlockIdx_x;
+    Ncv32u elemAddrIn = blockId * NUM_REMOVE_THREADS + hipThreadIdx_x;
 
-    if (elemAddrIn > srcLen + blockDim.x)
+    if (elemAddrIn > srcLen + hipBlockDim_x)
     {
         return;
     }
@@ -1292,7 +1292,7 @@ __global__ void removePass1Scan(Ncv32u *d_src, Ncv32u srcLen,
 
     if (elemAddrIn < srcLen)
     {
-        if (threadIdx.x == NUM_REMOVE_THREADS-1 && bWritePartial)
+        if (hipThreadIdx_x == NUM_REMOVE_THREADS-1 && bWritePartial)
         {
             d_blockSums[blockId] = localScanInc;
         }
@@ -1311,8 +1311,8 @@ __global__ void removePass1Scan(Ncv32u *d_src, Ncv32u srcLen,
 
 __global__ void removePass2Adjust(Ncv32u *d_offsets, Ncv32u srcLen, Ncv32u *d_blockSums)
 {
-    Ncv32u blockId = blockIdx.y * 65535 + blockIdx.x;
-    Ncv32u elemAddrIn = blockId * NUM_REMOVE_THREADS + threadIdx.x;
+    Ncv32u blockId = hipBlockIdx_y * 65535 + hipBlockIdx_x;
+    Ncv32u elemAddrIn = blockId * NUM_REMOVE_THREADS + hipThreadIdx_x;
     if (elemAddrIn >= srcLen)
     {
         return;
@@ -1330,8 +1330,8 @@ __global__ void removePass3Compact(Ncv32u *d_src, Ncv32u srcLen,
                                    Ncv32u *d_offsets, Ncv32u *d_dst,
                                    Ncv32u elemRemove, Ncv32u *dstLenValue)
 {
-    Ncv32u blockId = blockIdx.y * 65535 + blockIdx.x;
-    Ncv32u elemAddrIn = blockId * NUM_REMOVE_THREADS + threadIdx.x;
+    Ncv32u blockId = hipBlockIdx_y * 65535 + hipBlockIdx_x;
+    Ncv32u elemAddrIn = blockId * NUM_REMOVE_THREADS + hipThreadIdx_x;
     if (elemAddrIn >= srcLen)
     {
         return;
@@ -1661,8 +1661,8 @@ __global__ void FilterRowBorderMirror_32f_C1R(Ncv32u srcStep,
                                               Ncv32f multiplier)
 {
     // position within ROI
-    const int ix = blockDim.x * blockIdx.x + threadIdx.x;
-    const int iy = blockDim.y * blockIdx.y + threadIdx.y;
+    const int ix = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
+    const int iy = hipBlockDim_y * hipBlockIdx_y + hipThreadIdx_y;
 
     if (ix >= roi.width || iy >= roi.height)
     {
@@ -1695,8 +1695,8 @@ __global__ void FilterColumnBorderMirror_32f_C1R(Ncv32u srcStep,
                                                  Ncv32s nAnchor,
                                                  Ncv32f multiplier)
 {
-    const int ix = blockDim.x * blockIdx.x + threadIdx.x;
-    const int iy = blockDim.y * blockIdx.y + threadIdx.y;
+    const int ix = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
+    const int iy = hipBlockDim_y * hipBlockIdx_y + hipThreadIdx_y;
 
     if (ix >= roi.width || iy >= roi.height)
     {
@@ -1881,8 +1881,8 @@ __global__ void BlendFramesKernel(const float *u, const float *v,   // forward f
                                   int w, int h, int s,
                                   float theta, float *out)
 {
-    const int ix = threadIdx.x + blockDim.x * blockIdx.x;
-    const int iy = threadIdx.y + blockDim.y * blockIdx.y;
+    const int ix = hipThreadIdx_x + hipBlockDim_x * hipBlockIdx_x;
+    const int iy = hipThreadIdx_y + hipBlockDim_y * hipBlockIdx_y;
 
     const int pos = ix + s * iy;
 
@@ -2101,8 +2101,8 @@ __global__ void ForwardWarpKernel_PSF2x2(const float *u,
                                          float *normalization_factor,
                                          float *dst)
 {
-    int j = threadIdx.x + blockDim.x * blockIdx.x;
-    int i = threadIdx.y + blockDim.y * blockIdx.y;
+    int j = hipThreadIdx_x + hipBlockDim_x * hipBlockIdx_x;
+    int i = hipThreadIdx_y + hipBlockDim_y * hipBlockIdx_y;
 
     if (i >= h || j >= w) return;
 
@@ -2171,8 +2171,8 @@ __global__ void ForwardWarpKernel_PSF1x1(const float *u,
                                          const float time_scale,
                                          float *dst)
 {
-    int j = threadIdx.x + blockDim.x * blockIdx.x;
-    int i = threadIdx.y + blockDim.y * blockIdx.y;
+    int j = hipThreadIdx_x + hipBlockDim_x * hipBlockIdx_x;
+    int i = hipThreadIdx_y + hipBlockDim_y * hipBlockIdx_y;
 
     if (i >= h || j >= w) return;
 
@@ -2200,8 +2200,8 @@ __global__ void ForwardWarpKernel_PSF1x1(const float *u,
 
 __global__ void NormalizeKernel(const float *normalization_factor, int w, int h, int s, float *image)
 {
-    int i = threadIdx.y + blockDim.y * blockIdx.y;
-    int j = threadIdx.x + blockDim.x * blockIdx.x;
+    int i = hipThreadIdx_y + hipBlockDim_y * hipBlockIdx_y;
+    int j = hipThreadIdx_x + hipBlockDim_x * hipBlockIdx_x;
 
     if (i >= h || j >= w) return;
 
@@ -2217,8 +2217,8 @@ __global__ void NormalizeKernel(const float *normalization_factor, int w, int h,
 
 __global__ void MemsetKernel(const float value, int w, int h, float *image)
 {
-    int i = threadIdx.y + blockDim.y * blockIdx.y;
-    int j = threadIdx.x + blockDim.x * blockIdx.x;
+    int i = hipThreadIdx_y + hipBlockDim_y * hipBlockIdx_y;
+    int j = hipThreadIdx_x + hipBlockDim_x * hipBlockIdx_x;
 
     if (i >= h || j >= w) return;
 
@@ -2360,8 +2360,8 @@ __global__ void resizeSuperSample_32f(NcvSize32u srcSize,
                                       Ncv32f scaleY)
 {
     // position within dst ROI
-    const int ix = blockIdx.x * blockDim.x + threadIdx.x;
-    const int iy = blockIdx.y * blockDim.y + threadIdx.y;
+    const int ix = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+    const int iy = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
     if (ix >= dstROI.width || iy >= dstROI.height)
     {
@@ -2446,8 +2446,8 @@ __global__ void resizeBicubic(NcvSize32u srcSize,
                               Ncv32f scaleX,
                               Ncv32f scaleY)
 {
-    const int ix = blockIdx.x * blockDim.x + threadIdx.x;
-    const int iy = blockIdx.y * blockDim.y + threadIdx.y;
+    const int ix = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+    const int iy = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
     if (ix >= dstROI.width || iy >= dstROI.height)
     {

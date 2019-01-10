@@ -131,7 +131,7 @@ texture<float, 1, hipReadModeElementType> tex_diffusivity_y;
 ///////////////////////////////////////////////////////////////////////////////
 __global__ void pointwise_add(float *d_res, const float *d_op1, const float *d_op2, const int len)
 {
-    const int pos = blockIdx.x*blockDim.x + threadIdx.x;
+    const int pos = hipBlockIdx_x*hipBlockDim_x + hipThreadIdx_x;
 
     if(pos >= len) return;
 
@@ -175,7 +175,7 @@ static void add(float *res, const float *rhs, const int count, hipStream_t strea
 ///////////////////////////////////////////////////////////////////////////////
 __global__ void scaleVector(float *d_res, const float *d_src, float scale, const int len)
 {
-    const int pos = blockIdx.x * blockDim.x + threadIdx.x;
+    const int pos = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
 
     if (pos >= len) return;
 
@@ -305,22 +305,22 @@ __forceinline__ __device__ void load_array_element(float *smem, int is, int js, 
 template<int tex>
 __forceinline__ __device__ void load_array(float *smem, int ig, int jg, int w, int h, int p)
 {
-    const int i = threadIdx.x + 2;
-    const int j = threadIdx.y + 2;
+    const int i = hipThreadIdx_x + 2;
+    const int j = hipThreadIdx_y + 2;
     load_array_element<tex>(smem, i, j, ig, jg, w, h, p);//load current pixel
     __syncthreads();
-    if(threadIdx.y < 2)
+    if(hipThreadIdx_y < 2)
     {
         //load bottom shadow elements
         load_array_element<tex>(smem, i, j-2, ig, jg-2, w, h, p);
-        if(threadIdx.x < 2)
+        if(hipThreadIdx_x < 2)
         {
             //load bottom right shadow elements
             load_array_element<tex>(smem, i+PSOR_TILE_WIDTH, j-2, ig+PSOR_TILE_WIDTH, jg-2, w, h, p);
             //load middle right shadow elements
             load_array_element<tex>(smem, i+PSOR_TILE_WIDTH, j, ig+PSOR_TILE_WIDTH, jg, w, h, p);
         }
-        else if(threadIdx.x >= PSOR_TILE_WIDTH-2)
+        else if(hipThreadIdx_x >= PSOR_TILE_WIDTH-2)
         {
             //load bottom left shadow elements
             load_array_element<tex>(smem, i-PSOR_TILE_WIDTH, j-2, ig-PSOR_TILE_WIDTH, jg-2, w, h, p);
@@ -328,18 +328,18 @@ __forceinline__ __device__ void load_array(float *smem, int ig, int jg, int w, i
             load_array_element<tex>(smem, i-PSOR_TILE_WIDTH, j, ig-PSOR_TILE_WIDTH, jg, w, h, p);
         }
     }
-    else if(threadIdx.y >= PSOR_TILE_HEIGHT-2)
+    else if(hipThreadIdx_y >= PSOR_TILE_HEIGHT-2)
     {
         //load upper shadow elements
         load_array_element<tex>(smem, i, j+2, ig, jg+2, w, h, p);
-        if(threadIdx.x < 2)
+        if(hipThreadIdx_x < 2)
         {
             //load upper right shadow elements
             load_array_element<tex>(smem, i+PSOR_TILE_WIDTH, j+2, ig+PSOR_TILE_WIDTH, jg+2, w, h, p);
             //load middle right shadow elements
             load_array_element<tex>(smem, i+PSOR_TILE_WIDTH, j, ig+PSOR_TILE_WIDTH, jg, w, h, p);
         }
-        else if(threadIdx.x >= PSOR_TILE_WIDTH-2)
+        else if(hipThreadIdx_x >= PSOR_TILE_WIDTH-2)
         {
             //load upper left shadow elements
             load_array_element<tex>(smem, i-PSOR_TILE_WIDTH, j+2, ig-PSOR_TILE_WIDTH, jg+2, w, h, p);
@@ -350,12 +350,12 @@ __forceinline__ __device__ void load_array(float *smem, int ig, int jg, int w, i
     else
     {
         //load middle shadow elements
-        if(threadIdx.x < 2)
+        if(hipThreadIdx_x < 2)
         {
             //load middle right shadow elements
             load_array_element<tex>(smem, i+PSOR_TILE_WIDTH, j, ig+PSOR_TILE_WIDTH, jg, w, h, p);
         }
-        else if(threadIdx.x >= PSOR_TILE_WIDTH-2)
+        else if(hipThreadIdx_x >= PSOR_TILE_WIDTH-2)
         {
             //load middle left shadow elements
             load_array_element<tex>(smem, i-PSOR_TILE_WIDTH, j, ig-PSOR_TILE_WIDTH, jg, w, h, p);
@@ -397,13 +397,13 @@ __global__ void prepare_sor_stage_1_tex(float *diffusivity_x, float *diffusivity
     __shared__ float dv[PSOR_PITCH * PSOR_HEIGHT];
 
     //position within tile
-    const int i = threadIdx.x;
-    const int j = threadIdx.y;
+    const int i = hipThreadIdx_x;
+    const int j = hipThreadIdx_y;
     //position within smem arrays
     const int ijs = (j+2) * PSOR_PITCH + i + 2;
     //position within global memory
-    const int ig  = blockIdx.x * blockDim.x + threadIdx.x;
-    const int jg  = blockIdx.y * blockDim.y + threadIdx.y;
+    const int ig  = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+    const int jg  = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
     const int ijg = jg * s + ig;
     //position within texture
     float x = (float)ig + 0.5f;
@@ -469,13 +469,13 @@ __global__ void prepare_sor_stage_2(float *inv_denominator_u, float *inv_denomin
     __shared__ float sx[(PSOR_TILE_WIDTH+1) * (PSOR_TILE_HEIGHT+1)];
     __shared__ float sy[(PSOR_TILE_WIDTH+1) * (PSOR_TILE_HEIGHT+1)];
     //position within tile
-    const int i = threadIdx.x;
-    const int j = threadIdx.y;
+    const int i = hipThreadIdx_x;
+    const int j = hipThreadIdx_y;
     //position within smem arrays
     const int ijs = j*(PSOR_TILE_WIDTH+1) + i;
     //position within global memory
-    const int ig  = blockIdx.x * blockDim.x + threadIdx.x;
-    const int jg  = blockIdx.y * blockDim.y + threadIdx.y;
+    const int ig  = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+    const int jg  = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
     const int ijg = jg*s + ig;
     int inside = ig < w && jg < h;
     float denom_u;
@@ -508,7 +508,7 @@ __global__ void prepare_sor_stage_2(float *inv_denominator_u, float *inv_denomin
         }
     }
     int right = ijs + 1;
-    if(threadIdx.x == PSOR_TILE_WIDTH-1)
+    if(hipThreadIdx_x == PSOR_TILE_WIDTH-1)
     {
         if(ig < w-1 && inside)
         {
@@ -547,8 +547,8 @@ template<int isBlack> __global__ void sor_pass(float *new_du,
                                                int height,
                                                int stride)
 {
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
-    int j = blockIdx.y * blockDim.y + threadIdx.y;
+    int i = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+    int j = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
     if(i >= width || j >= height)
         return;

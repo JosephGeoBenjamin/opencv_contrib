@@ -59,58 +59,58 @@ namespace cv { namespace cuda { namespace device
             volatile float* u_col_sum = smem;
             volatile float* v_col_sum = u_col_sum + NEEDLE_MAP_SCALE;
 
-            const int x = blockIdx.x * NEEDLE_MAP_SCALE + threadIdx.x;
-            const int y = blockIdx.y * NEEDLE_MAP_SCALE;
+            const int x = hipBlockIdx_x * NEEDLE_MAP_SCALE + hipThreadIdx_x;
+            const int y = hipBlockIdx_y * NEEDLE_MAP_SCALE;
 
-            u_col_sum[threadIdx.x] = 0;
-            v_col_sum[threadIdx.x] = 0;
+            u_col_sum[hipThreadIdx_x] = 0;
+            v_col_sum[hipThreadIdx_x] = 0;
 
             #pragma unroll
             for(int i = 0; i < NEEDLE_MAP_SCALE; ++i)
             {
-                u_col_sum[threadIdx.x] += u(::min(y + i, u.rows - 1), x);
-                v_col_sum[threadIdx.x] += v(::min(y + i, u.rows - 1), x);
+                u_col_sum[hipThreadIdx_x] += u(::min(y + i, u.rows - 1), x);
+                v_col_sum[hipThreadIdx_x] += v(::min(y + i, u.rows - 1), x);
             }
 
-            if (threadIdx.x < 8)
+            if (hipThreadIdx_x < 8)
             {
                 // now add the column sums
-                const uint X = threadIdx.x;
+                const uint X = hipThreadIdx_x;
 
                 if (X | 0xfe == 0xfe)  // bit 0 is 0
                 {
-                    u_col_sum[threadIdx.x] += u_col_sum[threadIdx.x + 1];
-                    v_col_sum[threadIdx.x] += v_col_sum[threadIdx.x + 1];
+                    u_col_sum[hipThreadIdx_x] += u_col_sum[hipThreadIdx_x + 1];
+                    v_col_sum[hipThreadIdx_x] += v_col_sum[hipThreadIdx_x + 1];
                 }
 
                 if (X | 0xfe == 0xfc) // bits 0 & 1 == 0
                 {
-                    u_col_sum[threadIdx.x] += u_col_sum[threadIdx.x + 2];
-                    v_col_sum[threadIdx.x] += v_col_sum[threadIdx.x + 2];
+                    u_col_sum[hipThreadIdx_x] += u_col_sum[hipThreadIdx_x + 2];
+                    v_col_sum[hipThreadIdx_x] += v_col_sum[hipThreadIdx_x + 2];
                 }
 
                 if (X | 0xf8 == 0xf8)
                 {
-                    u_col_sum[threadIdx.x] += u_col_sum[threadIdx.x + 4];
-                    v_col_sum[threadIdx.x] += v_col_sum[threadIdx.x + 4];
+                    u_col_sum[hipThreadIdx_x] += u_col_sum[hipThreadIdx_x + 4];
+                    v_col_sum[hipThreadIdx_x] += v_col_sum[hipThreadIdx_x + 4];
                 }
 
                 if (X == 0)
                 {
-                    u_col_sum[threadIdx.x] += u_col_sum[threadIdx.x + 8];
-                    v_col_sum[threadIdx.x] += v_col_sum[threadIdx.x + 8];
+                    u_col_sum[hipThreadIdx_x] += u_col_sum[hipThreadIdx_x + 8];
+                    v_col_sum[hipThreadIdx_x] += v_col_sum[hipThreadIdx_x + 8];
                 }
             }
 
-            if (threadIdx.x == 0)
+            if (hipThreadIdx_x == 0)
             {
                 const float coeff = 1.0f / (NEEDLE_MAP_SCALE * NEEDLE_MAP_SCALE);
 
                 u_col_sum[0] *= coeff;
                 v_col_sum[0] *= coeff;
 
-                u_avg(blockIdx.y, blockIdx.x) = u_col_sum[0];
-                v_avg(blockIdx.y, blockIdx.x) = v_col_sum[0];
+                u_avg(hipBlockIdx_y, hipBlockIdx_x) = u_col_sum[0];
+                v_avg(hipBlockIdx_y, hipBlockIdx_x) = v_col_sum[0];
             }
         }
 
@@ -128,8 +128,8 @@ namespace cv { namespace cuda { namespace device
         __global__ void NeedleMapVertexKernel(const PtrStepSzf u_avg, const PtrStepf v_avg, float* vertex_data, float* color_data, float max_flow, float xscale, float yscale)
         {
             // test - just draw a triangle at each pixel
-            const int x = blockIdx.x * blockDim.x + threadIdx.x;
-            const int y = blockIdx.y * blockDim.y + threadIdx.y;
+            const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             const float arrow_x = x * NEEDLE_MAP_SCALE + NEEDLE_MAP_SCALE / 2.0f;
             const float arrow_y = y * NEEDLE_MAP_SCALE + NEEDLE_MAP_SCALE / 2.0f;

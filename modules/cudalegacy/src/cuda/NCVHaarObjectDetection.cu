@@ -106,7 +106,7 @@ __device__ Ncv32u warpScanInclusive(Ncv32u idata, volatile Ncv32u *s_Data)
 
     return idata;
 #else
-    Ncv32u pos = 2 * threadIdx.x - (threadIdx.x & (K_WARP_SIZE - 1));
+    Ncv32u pos = 2 * hipThreadIdx_x - (hipThreadIdx_x & (K_WARP_SIZE - 1));
     s_Data[pos] = 0;
     pos += K_WARP_SIZE;
     s_Data[pos] = idata;
@@ -137,25 +137,25 @@ __device__ Ncv32u scan1Inclusive(Ncv32u idata, volatile Ncv32u *s_Data)
         //Save top elements of each warp for exclusive warp scan
         //sync to wait for warp scans to complete (because s_Data is being overwritten)
         __syncthreads();
-        if( (threadIdx.x & (K_WARP_SIZE - 1)) == (K_WARP_SIZE - 1) )
+        if( (hipThreadIdx_x & (K_WARP_SIZE - 1)) == (K_WARP_SIZE - 1) )
         {
-            s_Data[threadIdx.x >> K_LOG2_WARP_SIZE] = warpResult;
+            s_Data[hipThreadIdx_x >> K_LOG2_WARP_SIZE] = warpResult;
         }
 
         //wait for warp scans to complete
         __syncthreads();
 
-        if( threadIdx.x < (tiNumScanThreads / K_WARP_SIZE) )
+        if( hipThreadIdx_x < (tiNumScanThreads / K_WARP_SIZE) )
         {
             //grab top warp elements
-            Ncv32u val = s_Data[threadIdx.x];
+            Ncv32u val = s_Data[hipThreadIdx_x];
             //calculate exclusive scan and write back to shared memory
-            s_Data[threadIdx.x] = warpScanExclusive(val, s_Data);
+            s_Data[hipThreadIdx_x] = warpScanExclusive(val, s_Data);
         }
 
         //return updated warp scans with exclusive scan results
         __syncthreads();
-        return warpResult + s_Data[threadIdx.x >> K_LOG2_WARP_SIZE];
+        return warpResult + s_Data[hipThreadIdx_x >> K_LOG2_WARP_SIZE];
     }
     else
     {
@@ -268,7 +268,7 @@ __device__ void compactBlockWriteOutAnchorParallel(Ncv32u threadPassFlag, Ncv32u
     Ncv32u incScan = scan1Inclusive<NUM_THREADS_ANCHORSPARALLEL>(threadPassFlag, shmem);
     __syncthreads();
 
-    if (threadIdx.x == NUM_THREADS_ANCHORSPARALLEL-1)
+    if (hipThreadIdx_x == NUM_THREADS_ANCHORSPARALLEL-1)
     {
         numPassed = incScan;
         outMaskOffset = atomicAdd(&d_outMaskPosition, incScan);
@@ -282,9 +282,9 @@ __device__ void compactBlockWriteOutAnchorParallel(Ncv32u threadPassFlag, Ncv32u
 
     __syncthreads();
 
-    if (threadIdx.x < numPassed)
+    if (hipThreadIdx_x < numPassed)
     {
-        vectorOut[outMaskOffset + threadIdx.x] = shmem[threadIdx.x];
+        vectorOut[outMaskOffset + hipThreadIdx_x] = shmem[hipThreadIdx_x];
     }
 #endif
 }
@@ -311,7 +311,7 @@ __global__ void applyHaarClassifierAnchorParallel(Ncv32u *d_IImg, Ncv32u IImgStr
 
     if (tbReadPixelIndexFromVector)
     {
-        maskOffset = (MAX_GRID_DIM * blockIdx.y + blockIdx.x) * NUM_THREADS_ANCHORSPARALLEL + threadIdx.x;
+        maskOffset = (MAX_GRID_DIM * hipBlockIdx_y + hipBlockIdx_x) * NUM_THREADS_ANCHORSPARALLEL + hipThreadIdx_x;
 
         if (maskOffset >= mask1Dlen)
         {
@@ -327,8 +327,8 @@ __global__ void applyHaarClassifierAnchorParallel(Ncv32u *d_IImg, Ncv32u IImgStr
     }
     else
     {
-        y_offs = blockIdx.y;
-        x_offs = blockIdx.x * NUM_THREADS_ANCHORSPARALLEL + threadIdx.x;
+        y_offs = hipBlockIdx_y;
+        x_offs = hipBlockIdx_x * NUM_THREADS_ANCHORSPARALLEL + hipThreadIdx_x;
 
         if (x_offs >= mask2Dstride)
         {
@@ -490,7 +490,7 @@ __global__ void applyHaarClassifierClassifierParallel(Ncv32u *d_IImg, Ncv32u IIm
                                                       Ncv32u mask1Dlen, Ncv32u mask2Dstride,
                                                       NcvSize32u anchorsRoi, Ncv32u startStageInc, Ncv32u endStageExc, Ncv32f scaleArea)
 {
-    Ncv32u maskOffset = MAX_GRID_DIM * blockIdx.y + blockIdx.x;
+    Ncv32u maskOffset = MAX_GRID_DIM * hipBlockIdx_y + hipBlockIdx_x;
 
     if (maskOffset >= mask1Dlen)
     {
@@ -511,7 +511,7 @@ __global__ void applyHaarClassifierClassifierParallel(Ncv32u *d_IImg, Ncv32u IIm
 
         HaarStage64 curStage = getStage(iStage, d_Stages);
         Ncv32s numRootNodesInStage = curStage.getNumClassifierRootNodes();
-        Ncv32u curRootNodeOffset = curStage.getStartClassifierRootNodeOffset() + threadIdx.x;
+        Ncv32u curRootNodeOffset = curStage.getStartClassifierRootNodeOffset() + hipThreadIdx_x;
         Ncv32f stageThreshold = curStage.getStageThreshold();
 
         Ncv32u numRootChunks = (numRootNodesInStage + NUM_THREADS_CLASSIFIERPARALLEL - 1) >> NUM_THREADS_CLASSIFIERPARALLEL_LOG2;
@@ -520,7 +520,7 @@ __global__ void applyHaarClassifierClassifierParallel(Ncv32u *d_IImg, Ncv32u IIm
         {
             NcvBool bMoreNodesToTraverse = true;
 
-            if (chunkId * NUM_THREADS_CLASSIFIERPARALLEL + threadIdx.x < numRootNodesInStage)
+            if (chunkId * NUM_THREADS_CLASSIFIERPARALLEL + hipThreadIdx_x < numRootNodesInStage)
             {
                 Ncv32u iNode = curRootNodeOffset;
 
@@ -607,7 +607,7 @@ __global__ void applyHaarClassifierClassifierParallel(Ncv32u *d_IImg, Ncv32u IIm
     {
         if (!bPass || d_inMask != d_outMask)
         {
-            if (!threadIdx.x)
+            if (!hipThreadIdx_x)
             {
                 d_outMask[maskOffset] = outMaskVal;
             }
@@ -616,7 +616,7 @@ __global__ void applyHaarClassifierClassifierParallel(Ncv32u *d_IImg, Ncv32u IIm
     else
     {
 #if __CUDA_ARCH__ && __CUDA_ARCH__ >= 110
-        if (bPass && !threadIdx.x)
+        if (bPass && !hipThreadIdx_x)
         {
             Ncv32u outMaskOffset = atomicAdd(&d_outMaskPosition, 1);
             d_outMask[outMaskOffset] = outMaskVal;
@@ -632,9 +632,9 @@ __global__ void initializeMaskVector(Ncv32u *d_inMask, Ncv32u *d_outMask,
                                      Ncv32u mask1Dlen, Ncv32u mask2Dstride,
                                      NcvSize32u anchorsRoi, Ncv32u step)
 {
-    Ncv32u y_offs = blockIdx.y;
-    Ncv32u x_offs = blockIdx.x * NUM_THREADS_ANCHORSPARALLEL + threadIdx.x;
-    Ncv32u outMaskOffset = y_offs * gridDim.x * blockDim.x + x_offs;
+    Ncv32u y_offs = hipBlockIdx_y;
+    Ncv32u x_offs = hipBlockIdx_x * NUM_THREADS_ANCHORSPARALLEL + hipThreadIdx_x;
+    Ncv32u outMaskOffset = y_offs * hipGridDim_x * hipBlockDim_x + x_offs;
 
     Ncv32u y_offs_upsc = step * y_offs;
     Ncv32u x_offs_upsc = step * x_offs;
@@ -1479,8 +1479,8 @@ __global__ void growDetectionsKernel(Ncv32u *pixelMask, Ncv32u numElements,
                                      NcvRect32u *hypotheses,
                                      Ncv32u rectWidth, Ncv32u rectHeight, Ncv32f curScale)
 {
-    Ncv32u blockId = blockIdx.y * 65535 + blockIdx.x;
-    Ncv32u elemAddr = blockId * NUM_GROW_THREADS + threadIdx.x;
+    Ncv32u blockId = hipBlockIdx_y * 65535 + hipBlockIdx_x;
+    Ncv32u elemAddr = blockId * NUM_GROW_THREADS + hipThreadIdx_x;
     if (elemAddr >= numElements)
     {
         return;

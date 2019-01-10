@@ -115,34 +115,34 @@ static __device__ Tdata subReduce(Tdata threadElem)
 
     __shared__ Tdata _reduceArr[nThreads];
     volatile Tdata *reduceArr = _reduceArr;
-    functor.assign(reduceArr + threadIdx.x, &threadElem);
+    functor.assign(reduceArr + hipThreadIdx_x, &threadElem);
     __syncthreads();
 
-    if (nThreads >= 256 && threadIdx.x < 128)
+    if (nThreads >= 256 && hipThreadIdx_x < 128)
     {
-        functor.reduce(reduceArr[threadIdx.x], reduceArr[threadIdx.x + 128]);
+        functor.reduce(reduceArr[hipThreadIdx_x], reduceArr[hipThreadIdx_x + 128]);
     }
     __syncthreads();
 
-    if (nThreads >= 128 && threadIdx.x < 64)
+    if (nThreads >= 128 && hipThreadIdx_x < 64)
     {
-        functor.reduce(reduceArr[threadIdx.x], reduceArr[threadIdx.x + 64]);
+        functor.reduce(reduceArr[hipThreadIdx_x], reduceArr[hipThreadIdx_x + 64]);
     }
     __syncthreads();
 
-    if (threadIdx.x < 32)
+    if (hipThreadIdx_x < 32)
     {
         if (nThreads >= 64)
         {
-            functor.reduce(reduceArr[threadIdx.x], reduceArr[threadIdx.x + 32]);
+            functor.reduce(reduceArr[hipThreadIdx_x], reduceArr[hipThreadIdx_x + 32]);
         }
-        if (nThreads >= 32 && threadIdx.x < 16)
+        if (nThreads >= 32 && hipThreadIdx_x < 16)
         {
-            functor.reduce(reduceArr[threadIdx.x], reduceArr[threadIdx.x + 16]);
-            functor.reduce(reduceArr[threadIdx.x], reduceArr[threadIdx.x + 8]);
-            functor.reduce(reduceArr[threadIdx.x], reduceArr[threadIdx.x + 4]);
-            functor.reduce(reduceArr[threadIdx.x], reduceArr[threadIdx.x + 2]);
-            functor.reduce(reduceArr[threadIdx.x], reduceArr[threadIdx.x + 1]);
+            functor.reduce(reduceArr[hipThreadIdx_x], reduceArr[hipThreadIdx_x + 16]);
+            functor.reduce(reduceArr[hipThreadIdx_x], reduceArr[hipThreadIdx_x + 8]);
+            functor.reduce(reduceArr[hipThreadIdx_x], reduceArr[hipThreadIdx_x + 4]);
+            functor.reduce(reduceArr[hipThreadIdx_x], reduceArr[hipThreadIdx_x + 2]);
+            functor.reduce(reduceArr[hipThreadIdx_x], reduceArr[hipThreadIdx_x + 1]);
         }
     }
 

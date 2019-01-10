@@ -174,8 +174,8 @@ namespace cv { namespace cuda { namespace device {
         __global__ void update(const PtrStep<SrcT> frame, PtrStepb fgmask, PtrStepi colors_, PtrStepf weights_, PtrStepi nfeatures_,
                                const int frameNum, const float learningRate, const bool updateBackgroundModel)
         {
-            const int x = blockIdx.x * blockDim.x + threadIdx.x;
-            const int y = blockIdx.y * blockDim.y + threadIdx.y;
+            const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (x >= c_width || y >= c_height)
                 return;

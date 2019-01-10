@@ -182,8 +182,8 @@ namespace cv { namespace cuda { namespace device
         template<typename T, typename F>
         __global__ void computeConnectivity(const PtrStepSz<T> image, PtrStepSzb components, F connected)
         {
-            int x = threadIdx.x + blockIdx.x * blockDim.x;
-            int y = threadIdx.y + blockIdx.y * blockDim.y;
+            int x = hipThreadIdx_x + hipBlockIdx_x * hipBlockDim_x;
+            int y = hipThreadIdx_y + hipBlockIdx_y * hipBlockDim_y;
 
             if (x >= image.cols || y >= image.rows) return;
 
@@ -232,8 +232,8 @@ namespace cv { namespace cuda { namespace device
 
         __global__ void lableTiles(const PtrStepSzb edges, PtrStepSzi comps)
         {
-            int x = threadIdx.x + blockIdx.x * TILE_COLS;
-            int y = threadIdx.y + blockIdx.y * TILE_ROWS;
+            int x = hipThreadIdx_x + hipBlockIdx_x * TILE_COLS;
+            int y = hipThreadIdx_y + hipBlockIdx_y * TILE_ROWS;
 
             if (x >= edges.cols || y >= edges.rows) return;
 
@@ -251,8 +251,8 @@ namespace cv { namespace cuda { namespace device
                 #pragma unroll
                 for (int j = 0; j < TPB_X; ++j)
                 {
-                    int yloc = threadIdx.y + CTA_SIZE_Y * i;
-                    int xloc = threadIdx.x + CTA_SIZE_X * j;
+                    int yloc = hipThreadIdx_y + CTA_SIZE_Y * i;
+                    int xloc = hipThreadIdx_x + CTA_SIZE_X * j;
                     component c = edges(bounds * (y + CTA_SIZE_Y * i), x + CTA_SIZE_X * j);
 
                     if (!xloc) c &= ~LEFT;
@@ -273,8 +273,8 @@ namespace cv { namespace cuda { namespace device
                     #pragma unroll
                     for (int j = 0; j < TPB_X; ++j)
                     {
-                        int yloc = threadIdx.y + CTA_SIZE_Y * i;
-                        int xloc = threadIdx.x + CTA_SIZE_X * j;
+                        int yloc = hipThreadIdx_y + CTA_SIZE_Y * i;
+                        int xloc = hipThreadIdx_x + CTA_SIZE_X * j;
 
                         old_labels[i][j]       = new_labels[i][j];
                         labelsTile[yloc][xloc] = new_labels[i][j];
@@ -288,8 +288,8 @@ namespace cv { namespace cuda { namespace device
                     #pragma unroll
                     for (int j = 0; j < TPB_X; ++j)
                     {
-                        int yloc = threadIdx.y + CTA_SIZE_Y * i;
-                        int xloc = threadIdx.x + CTA_SIZE_X * j;
+                        int yloc = hipThreadIdx_y + CTA_SIZE_Y * i;
+                        int xloc = hipThreadIdx_x + CTA_SIZE_X * j;
 
                         component c = edgesTile[yloc][xloc];
                         int label = new_labels[i][j];
@@ -355,8 +355,8 @@ namespace cv { namespace cuda { namespace device
                     int yloc = label / TILE_COLS;
                     int xloc = label - yloc * TILE_COLS;
 
-                    xloc += blockIdx.x * TILE_COLS;
-                    yloc += blockIdx.y * TILE_ROWS;
+                    xloc += hipBlockIdx_x * TILE_COLS;
+                    yloc += hipBlockIdx_y * TILE_ROWS;
 
                     label = yloc * edges.cols + xloc;
                     // do it for x too.
@@ -400,13 +400,13 @@ namespace cv { namespace cuda { namespace device
         __global__ void crossMerge(const int tilesNumY, const int tilesNumX, int tileSizeY, int tileSizeX,
             const PtrStepSzb edges, PtrStepSzi comps, const int yIncomplete, int xIncomplete)
         {
-            int tid = threadIdx.y * blockDim.x + threadIdx.x;
-            int stride = blockDim.y * blockDim.x;
+            int tid = hipThreadIdx_y * hipBlockDim_x + hipThreadIdx_x;
+            int stride = hipBlockDim_y * hipBlockDim_x;
 
-            int ybegin = blockIdx.y * (tilesNumY * tileSizeY);
+            int ybegin = hipBlockIdx_y * (tilesNumY * tileSizeY);
             int yend   = ybegin + tilesNumY * tileSizeY;
 
-            if (blockIdx.y == gridDim.y - 1)
+            if (hipBlockIdx_y == hipGridDim_y - 1)
             {
                 yend -= yIncomplete * tileSizeY;
                 yend -= tileSizeY;
@@ -415,10 +415,10 @@ namespace cv { namespace cuda { namespace device
                 yend += tileSizeY;
             }
 
-            int xbegin = blockIdx.x * tilesNumX * tileSizeX;
+            int xbegin = hipBlockIdx_x * tilesNumX * tileSizeX;
             int xend   = xbegin + tilesNumX * tileSizeX;
 
-            if (blockIdx.x == gridDim.x - 1)
+            if (hipBlockIdx_x == hipGridDim_x - 1)
             {
                 if (xIncomplete) yend = ybegin;
                 xend -= xIncomplete * tileSizeX;
@@ -428,7 +428,7 @@ namespace cv { namespace cuda { namespace device
                 xend += tileSizeX;
             }
 
-            if (blockIdx.y == (gridDim.y - 1) && yIncomplete)
+            if (hipBlockIdx_y == (hipGridDim_y - 1) && yIncomplete)
             {
                 xend = xbegin;
             }
@@ -488,8 +488,8 @@ namespace cv { namespace cuda { namespace device
 
         __global__ void flatten(const PtrStepSzb edges, PtrStepSzi comps)
         {
-            int x = threadIdx.x + blockIdx.x * blockDim.x;
-            int y = threadIdx.y + blockIdx.y * blockDim.y;
+            int x = hipThreadIdx_x + hipBlockIdx_x * hipBlockDim_x;
+            int y = hipThreadIdx_y + hipBlockIdx_y * hipBlockDim_y;
 
             if( x < comps.cols && y < comps.rows)
                 comps(y, x) = root(comps, comps(y, x));

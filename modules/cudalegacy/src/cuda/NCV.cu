@@ -66,7 +66,7 @@ __global__ void drawRects(T *d_dst,
                           Ncv32u numRects,
                           T color)
 {
-    Ncv32u blockId = blockIdx.y * 65535 + blockIdx.x;
+    Ncv32u blockId = hipBlockIdx_y * 65535 + hipBlockIdx_x;
     if (blockId > numRects * 4)
     {
         return;
@@ -88,7 +88,7 @@ __global__ void drawRects(T *d_dst,
         {
             for (Ncv32u chunkId = 0; chunkId < numChunks; chunkId++)
             {
-                Ncv32u ptY = pt0y + chunkId * NUMTHREADS_DRAWRECTS + threadIdx.x;
+                Ncv32u ptY = pt0y + chunkId * NUMTHREADS_DRAWRECTS + hipThreadIdx_x;
                 if (ptY < pt0y + curRect.height && ptY < dstHeight)
                 {
                     d_dst[ptY * dstStride + pt0x] = color;
@@ -107,7 +107,7 @@ __global__ void drawRects(T *d_dst,
         {
             for (Ncv32u chunkId = 0; chunkId < numChunks; chunkId++)
             {
-                Ncv32u ptX = pt0x + chunkId * NUMTHREADS_DRAWRECTS + threadIdx.x;
+                Ncv32u ptX = pt0x + chunkId * NUMTHREADS_DRAWRECTS + hipThreadIdx_x;
                 if (ptX < pt0x + curRect.width && ptX < dstWidth)
                 {
                     d_dst[pt0y * dstStride + ptX] = color;
