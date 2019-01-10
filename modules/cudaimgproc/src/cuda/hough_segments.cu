@@ -220,7 +220,7 @@ namespace cv { namespace cuda { namespace device
         int houghLinesProbabilistic_gpu(PtrStepSzb mask, PtrStepSzi accum, int4* out, int maxSize, float rho, float theta, int lineGap, int lineLength)
         {
             void* counterPtr;
-            
+
             cudaSafeCall( hipGetSymbolAddress(&counterPtr, &g_counter) );
 
             cudaSafeCall( hipMemset(counterPtr, 0, sizeof(int)) );
