@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -59,7 +60,7 @@ namespace cv { namespace cuda { namespace device
         ////////////////////////////////////////////////////////////////////////////////////////////////////////
         // cull
 
-        int cull_gpu(int* loc, float* response, int size, int n_points, cudaStream_t stream)
+        int cull_gpu(int* loc, float* response, int size, int n_points, hipStream_t stream)
         {
             thrust::device_ptr<int> loc_ptr(loc);
             thrust::device_ptr<float> response_ptr(response);
@@ -145,19 +146,19 @@ namespace cv { namespace cuda { namespace device
             }
         }
 
-        void HarrisResponses_gpu(PtrStepSzb img, const short2* loc, float* response, const int npoints, int blockSize, float harris_k, cudaStream_t stream)
+        void HarrisResponses_gpu(PtrStepSzb img, const short2* loc, float* response, const int npoints, int blockSize, float harris_k, hipStream_t stream)
         {
             dim3 block(32, 8);
 
             dim3 grid;
             grid.x = divUp(npoints, block.y);
 
-            HarrisResponses<<<grid, block, 0, stream>>>(img, loc, response, npoints, blockSize, harris_k);
+            hipLaunchKernelGGL((HarrisResponses), dim3(grid), dim3(block), 0, stream, img, loc, response, npoints, blockSize, harris_k);
 
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -167,7 +168,7 @@ namespace cv { namespace cuda { namespace device
 
         void loadUMax(const int* u_max, int count)
         {
-            cudaSafeCall( cudaMemcpyToSymbol(c_u_max, u_max, count * sizeof(int)) );
+            cudaSafeCall( hipMemcpyToSymbol(c_u_max, u_max, count * sizeof(int)) );
         }
 
         __global__ void IC_Angle(const PtrStepb image, const short2* loc_, float* angle, const int npoints, const int half_k)
@@ -227,19 +228,19 @@ namespace cv { namespace cuda { namespace device
             }
         }
 
-        void IC_Angle_gpu(PtrStepSzb image, const short2* loc, float* angle, int npoints, int half_k, cudaStream_t stream)
+        void IC_Angle_gpu(PtrStepSzb image, const short2* loc, float* angle, int npoints, int half_k, hipStream_t stream)
         {
             dim3 block(32, 8);
 
             dim3 grid;
             grid.x = divUp(npoints, block.y);
 
-            IC_Angle<<<grid, block, 0, stream>>>(image, loc, angle, npoints, half_k);
+            hipLaunchKernelGGL((IC_Angle), dim3(grid), dim3(block), 0, stream, image, loc, angle, npoints, half_k);
 
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -381,7 +382,7 @@ namespace cv { namespace cuda { namespace device
         }
 
         void computeOrbDescriptor_gpu(PtrStepb img, const short2* loc, const float* angle, const int npoints,
-            const int* pattern_x, const int* pattern_y, PtrStepb desc, int dsize, int WTA_K, cudaStream_t stream)
+            const int* pattern_x, const int* pattern_y, PtrStepb desc, int dsize, int WTA_K, hipStream_t stream)
         {
             dim3 block(32, 8);
 
@@ -392,22 +393,22 @@ namespace cv { namespace cuda { namespace device
             switch (WTA_K)
             {
             case 2:
-                computeOrbDescriptor<2><<<grid, block, 0, stream>>>(img, loc, angle, npoints, pattern_x, pattern_y, desc, dsize);
+                hipLaunchKernelGGL((computeOrbDescriptor<2>), dim3(grid), dim3(block), 0, stream, img, loc, angle, npoints, pattern_x, pattern_y, desc, dsize);
                 break;
 
             case 3:
-                computeOrbDescriptor<3><<<grid, block, 0, stream>>>(img, loc, angle, npoints, pattern_x, pattern_y, desc, dsize);
+                hipLaunchKernelGGL((computeOrbDescriptor<3>), dim3(grid), dim3(block), 0, stream, img, loc, angle, npoints, pattern_x, pattern_y, desc, dsize);
                 break;
 
             case 4:
-                computeOrbDescriptor<4><<<grid, block, 0, stream>>>(img, loc, angle, npoints, pattern_x, pattern_y, desc, dsize);
+                hipLaunchKernelGGL((computeOrbDescriptor<4>), dim3(grid), dim3(block), 0, stream, img, loc, angle, npoints, pattern_x, pattern_y, desc, dsize);
                 break;
             }
 
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -426,19 +427,19 @@ namespace cv { namespace cuda { namespace device
             }
         }
 
-        void mergeLocation_gpu(const short2* loc, float* x, float* y, int npoints, float scale, cudaStream_t stream)
+        void mergeLocation_gpu(const short2* loc, float* x, float* y, int npoints, float scale, hipStream_t stream)
         {
             dim3 block(256);
 
             dim3 grid;
             grid.x = divUp(npoints, block.x);
 
-            mergeLocation<<<grid, block, 0, stream>>>(loc, x, y, npoints, scale);
+            hipLaunchKernelGGL((mergeLocation), dim3(grid), dim3(block), 0, stream, loc, x, y, npoints, scale);
 
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
     }
 }}}

@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -277,7 +278,7 @@ namespace cv { namespace cuda { namespace device
             #endif
         }
 
-        int calcKeypoints_gpu(PtrStepSzb img, PtrStepSzb mask, short2* kpLoc, int maxKeypoints, PtrStepSzi score, int threshold, unsigned int* d_counter, cudaStream_t stream)
+        int calcKeypoints_gpu(PtrStepSzb img, PtrStepSzb mask, short2* kpLoc, int maxKeypoints, PtrStepSzi score, int threshold, unsigned int* d_counter, hipStream_t stream)
         {
             dim3 block(32, 8);
 
@@ -285,29 +286,29 @@ namespace cv { namespace cuda { namespace device
             grid.x = divUp(img.cols - 6, block.x);
             grid.y = divUp(img.rows - 6, block.y);
 
-            cudaSafeCall( cudaMemsetAsync(d_counter, 0, sizeof(unsigned int), stream) );
+            cudaSafeCall( hipMemsetAsync(d_counter, 0, sizeof(unsigned int), stream) );
 
             if (score.data)
             {
                 if (mask.data)
-                    calcKeypoints<true><<<grid, block, 0, stream>>>(img, SingleMask(mask), kpLoc, maxKeypoints, score, threshold, d_counter);
+                    hipLaunchKernelGGL((calcKeypoints<true>), dim3(grid), dim3(block), 0, stream, img, SingleMask(mask), kpLoc, maxKeypoints, score, threshold, d_counter);
                 else
-                    calcKeypoints<true><<<grid, block, 0, stream>>>(img, WithOutMask(), kpLoc, maxKeypoints, score, threshold, d_counter);
+                    hipLaunchKernelGGL((calcKeypoints<true>), dim3(grid), dim3(block), 0, stream, img, WithOutMask(), kpLoc, maxKeypoints, score, threshold, d_counter);
             }
             else
             {
                 if (mask.data)
-                    calcKeypoints<false><<<grid, block, 0, stream>>>(img, SingleMask(mask), kpLoc, maxKeypoints, score, threshold, d_counter);
+                    hipLaunchKernelGGL((calcKeypoints<false>), dim3(grid), dim3(block), 0, stream, img, SingleMask(mask), kpLoc, maxKeypoints, score, threshold, d_counter);
                 else
-                    calcKeypoints<false><<<grid, block, 0, stream>>>(img, WithOutMask(), kpLoc, maxKeypoints, score, threshold, d_counter);
+                    hipLaunchKernelGGL((calcKeypoints<false>), dim3(grid), dim3(block), 0, stream, img, WithOutMask(), kpLoc, maxKeypoints, score, threshold, d_counter);
             }
 
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
             unsigned int count;
-            cudaSafeCall( cudaMemcpyAsync(&count, d_counter, sizeof(unsigned int), cudaMemcpyDeviceToHost, stream) );
+            cudaSafeCall( hipMemcpyAsync(&count, d_counter, sizeof(unsigned int), hipMemcpyDeviceToHost, stream) );
 
-            cudaSafeCall( cudaStreamSynchronize(stream) );
+            cudaSafeCall( hipStreamSynchronize(stream) );
 
             return count;
         }
@@ -351,22 +352,22 @@ namespace cv { namespace cuda { namespace device
             #endif
         }
 
-        int nonmaxSuppression_gpu(const short2* kpLoc, int count, PtrStepSzi score, short2* loc, float* response, unsigned int* d_counter, cudaStream_t stream)
+        int nonmaxSuppression_gpu(const short2* kpLoc, int count, PtrStepSzi score, short2* loc, float* response, unsigned int* d_counter, hipStream_t stream)
         {
             dim3 block(256);
 
             dim3 grid;
             grid.x = divUp(count, block.x);
 
-            cudaSafeCall( cudaMemsetAsync(d_counter, 0, sizeof(unsigned int), stream) );
+            cudaSafeCall( hipMemsetAsync(d_counter, 0, sizeof(unsigned int), stream) );
 
-            nonmaxSuppression<<<grid, block, 0, stream>>>(kpLoc, count, score, loc, response, d_counter);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((nonmaxSuppression), dim3(grid), dim3(block), 0, stream, kpLoc, count, score, loc, response, d_counter);
+            cudaSafeCall( hipGetLastError() );
 
             unsigned int new_count;
-            cudaSafeCall( cudaMemcpyAsync(&new_count, d_counter, sizeof(unsigned int), cudaMemcpyDeviceToHost, stream) );
+            cudaSafeCall( hipMemcpyAsync(&new_count, d_counter, sizeof(unsigned int), hipMemcpyDeviceToHost, stream) );
 
-            cudaSafeCall( cudaStreamSynchronize(stream) );
+            cudaSafeCall( hipStreamSynchronize(stream) );
 
             return new_count;
         }

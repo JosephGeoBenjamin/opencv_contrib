@@ -55,8 +55,8 @@ namespace cv { namespace cuda { namespace device
 {
     namespace fast
     {
-        int calcKeypoints_gpu(PtrStepSzb img, PtrStepSzb mask, short2* kpLoc, int maxKeypoints, PtrStepSzi score, int threshold, unsigned int* d_counter, cudaStream_t stream);
-        int nonmaxSuppression_gpu(const short2* kpLoc, int count, PtrStepSzi score, short2* loc, float* response, unsigned int* d_counter, cudaStream_t stream);
+        int calcKeypoints_gpu(PtrStepSzb img, PtrStepSzb mask, short2* kpLoc, int maxKeypoints, PtrStepSzi score, int threshold, unsigned int* d_counter, hipStream_t stream);
+        int nonmaxSuppression_gpu(const short2* kpLoc, int count, PtrStepSzi score, short2* loc, float* response, unsigned int* d_counter, hipStream_t stream);
     }
 }}}
 
@@ -116,7 +116,7 @@ namespace
     {
         using namespace cv::cuda::device::fast;
 
-        cudaSafeCall( cudaMalloc(&d_counter, sizeof(unsigned int)) );
+        cudaSafeCall( hipMalloc(&d_counter, sizeof(unsigned int)) );
 
         const GpuMat img = _image.getGpuMat();
         const GpuMat mask = _mask.getGpuMat();
@@ -166,7 +166,7 @@ namespace
             keypoints.row(1).setTo(Scalar::all(0), stream);
         }
 
-        cudaSafeCall( cudaFree(d_counter) );
+        cudaSafeCall( hipFree(d_counter) );
     }
 
     void FAST_Impl::convert(InputArray _gpu_keypoints, std::vector<KeyPoint>& keypoints)
