@@ -120,8 +120,8 @@ namespace cv { namespace cuda { namespace device
                                             const PtrStepf gmm_weight, const PtrStep<WorkT> gmm_mean, const PtrStep<WorkT> gmm_var,
                                             const int nmixtures, const float varThreshold, const float backgroundRatio)
         {
-            const int x = blockIdx.x * blockDim.x + threadIdx.x;
-            const int y = blockIdx.y * blockDim.y + threadIdx.y;
+            const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (x >= frame.cols || y >= frame.rows)
                 return;
@@ -199,8 +199,8 @@ namespace cv { namespace cuda { namespace device
             const float sk0 = w0 / (30.0f * 0.5f * 2.0f);
             const float var0 = 30.0f * 0.5f * 30.0f * 0.5f * 4.0f;
 
-            const int x = blockIdx.x * blockDim.x + threadIdx.x;
-            const int y = blockIdx.y * blockDim.y + threadIdx.y;
+            const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (x >= frame.cols || y >= frame.rows)
                 return;
@@ -370,8 +370,8 @@ namespace cv { namespace cuda { namespace device
         template <typename WorkT, typename OutT>
         __global__ void getBackgroundImage(const PtrStepf gmm_weight, const PtrStep<WorkT> gmm_mean, PtrStepSz<OutT> dst, const int nmixtures, const float backgroundRatio)
         {
-            const int x = blockIdx.x * blockDim.x + threadIdx.x;
-            const int y = blockIdx.y * blockDim.y + threadIdx.y;
+            const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (x >= dst.cols || y >= dst.rows)
                 return;
