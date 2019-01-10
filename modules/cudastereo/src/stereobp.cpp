@@ -59,17 +59,17 @@ namespace cv { namespace cuda { namespace device
     {
         void load_constants(int ndisp, float max_data_term, float data_weight, float max_disc_term, float disc_single_jump);
         template<typename T, typename D>
-        void comp_data_gpu(const PtrStepSzb& left, const PtrStepSzb& right, const PtrStepSzb& data, cudaStream_t stream);
+        void comp_data_gpu(const PtrStepSzb& left, const PtrStepSzb& right, const PtrStepSzb& data, hipStream_t stream);
         template<typename T>
-        void data_step_down_gpu(int dst_cols, int dst_rows, int src_cols, int src_rows, const PtrStepSzb& src, const PtrStepSzb& dst, cudaStream_t stream);
+        void data_step_down_gpu(int dst_cols, int dst_rows, int src_cols, int src_rows, const PtrStepSzb& src, const PtrStepSzb& dst, hipStream_t stream);
         template <typename T>
-        void level_up_messages_gpu(int dst_idx, int dst_cols, int dst_rows, int src_rows, PtrStepSzb* mus, PtrStepSzb* mds, PtrStepSzb* mls, PtrStepSzb* mrs, cudaStream_t stream);
+        void level_up_messages_gpu(int dst_idx, int dst_cols, int dst_rows, int src_rows, PtrStepSzb* mus, PtrStepSzb* mds, PtrStepSzb* mls, PtrStepSzb* mrs, hipStream_t stream);
         template <typename T>
         void calc_all_iterations_gpu(int cols, int rows, int iters, const PtrStepSzb& u, const PtrStepSzb& d,
-            const PtrStepSzb& l, const PtrStepSzb& r, const PtrStepSzb& data, cudaStream_t stream);
+            const PtrStepSzb& l, const PtrStepSzb& r, const PtrStepSzb& data, hipStream_t stream);
         template <typename T>
         void output_gpu(const PtrStepSzb& u, const PtrStepSzb& d, const PtrStepSzb& l, const PtrStepSzb& r, const PtrStepSzb& data,
-            const PtrStepSz<short>& disp, cudaStream_t stream);
+            const PtrStepSz<short>& disp, hipStream_t stream);
     }
 }}}
 
@@ -166,7 +166,7 @@ namespace
     {
         using namespace cv::cuda::device::stereobp;
 
-        typedef void (*comp_data_t)(const PtrStepSzb& left, const PtrStepSzb& right, const PtrStepSzb& data, cudaStream_t stream);
+        typedef void (*comp_data_t)(const PtrStepSzb& left, const PtrStepSzb& right, const PtrStepSzb& data, hipStream_t stream);
         static const comp_data_t comp_data_callers[2][5] =
         {
             {0, comp_data_gpu<unsigned char, short>, 0, comp_data_gpu<uchar3, short>, comp_data_gpu<uchar4, short>},
@@ -283,25 +283,25 @@ namespace
     {
         using namespace cv::cuda::device::stereobp;
 
-        typedef void (*data_step_down_t)(int dst_cols, int dst_rows, int src_cols, int src_rows, const PtrStepSzb& src, const PtrStepSzb& dst, cudaStream_t stream);
+        typedef void (*data_step_down_t)(int dst_cols, int dst_rows, int src_cols, int src_rows, const PtrStepSzb& src, const PtrStepSzb& dst, hipStream_t stream);
         static const data_step_down_t data_step_down_callers[2] =
         {
             data_step_down_gpu<short>, data_step_down_gpu<float>
         };
 
-        typedef void (*level_up_messages_t)(int dst_idx, int dst_cols, int dst_rows, int src_rows, PtrStepSzb* mus, PtrStepSzb* mds, PtrStepSzb* mls, PtrStepSzb* mrs, cudaStream_t stream);
+        typedef void (*level_up_messages_t)(int dst_idx, int dst_cols, int dst_rows, int src_rows, PtrStepSzb* mus, PtrStepSzb* mds, PtrStepSzb* mls, PtrStepSzb* mrs, hipStream_t stream);
         static const level_up_messages_t level_up_messages_callers[2] =
         {
             level_up_messages_gpu<short>, level_up_messages_gpu<float>
         };
 
-        typedef void (*calc_all_iterations_t)(int cols, int rows, int iters, const PtrStepSzb& u, const PtrStepSzb& d, const PtrStepSzb& l, const PtrStepSzb& r, const PtrStepSzb& data, cudaStream_t stream);
+        typedef void (*calc_all_iterations_t)(int cols, int rows, int iters, const PtrStepSzb& u, const PtrStepSzb& d, const PtrStepSzb& l, const PtrStepSzb& r, const PtrStepSzb& data, hipStream_t stream);
         static const calc_all_iterations_t calc_all_iterations_callers[2] =
         {
             calc_all_iterations_gpu<short>, calc_all_iterations_gpu<float>
         };
 
-        typedef void (*output_t)(const PtrStepSzb& u, const PtrStepSzb& d, const PtrStepSzb& l, const PtrStepSzb& r, const PtrStepSzb& data, const PtrStepSz<short>& disp, cudaStream_t stream);
+        typedef void (*output_t)(const PtrStepSzb& u, const PtrStepSzb& d, const PtrStepSzb& l, const PtrStepSzb& r, const PtrStepSzb& data, const PtrStepSz<short>& disp, hipStream_t stream);
         static const output_t output_callers[2] =
         {
             output_gpu<short>, output_gpu<float>
@@ -309,7 +309,7 @@ namespace
 
         const int funcIdx = msg_type_ == CV_32F;
 
-        cudaStream_t stream = StreamAccessor::getStream(_stream);
+        hipStream_t stream = StreamAccessor::getStream(_stream);
 
         for (int i = 1; i < levels_; ++i)
         {
