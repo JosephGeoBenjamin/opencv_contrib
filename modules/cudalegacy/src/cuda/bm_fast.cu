@@ -283,7 +283,7 @@ namespace optflowbm_fast
 
         size_t smem = search_window * search_window * sizeof(int);
 
-        hipLaunchKernelGGL((optflowbm_fast_kernel), dim3(grid), dim3(block), smem, stream, fbm, velx, vely);
+        hipLaunchKernelGGL((optflowbm_fast_kernel<T>), dim3(grid), dim3(block), smem, stream, fbm, velx, vely);
         cudaSafeCall ( hipGetLastError () );
 
         if (stream == 0)

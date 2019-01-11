@@ -214,7 +214,7 @@ namespace cv { namespace cuda { namespace device
             dim3 bDim(16, 8);
             dim3 gDim(divUp(src.cols, bDim.x), divUp(src.rows, bDim.y));
 
-            hipLaunchKernelGGL((kernelDownsampleX2), dim3(gDim), dim3(bDim), 0, stream, (T*)src.data, static_cast<Ncv32u>(src.step),
+            hipLaunchKernelGGL((kernelDownsampleX2<T>), dim3(gDim), dim3(bDim), 0, stream, (T*)src.data, static_cast<Ncv32u>(src.step),
                 (T*)dst.data, static_cast<Ncv32u>(dst.step), NcvSize32u(dst.cols, dst.rows));
 
             cudaSafeCall( hipGetLastError() );
@@ -297,7 +297,7 @@ namespace cv { namespace cuda { namespace device
             dim3 bDim(16, 8);
             dim3 gDim(divUp(dst.cols, bDim.x), divUp(dst.rows, bDim.y));
 
-            hipLaunchKernelGGL((kernelInterpolateFrom1), dim3(gDim), dim3(bDim), 0, stream, (T*) src.data, static_cast<Ncv32u>(src.step), NcvSize32u(src.cols, src.rows),
+            hipLaunchKernelGGL((kernelInterpolateFrom1<T>), dim3(gDim), dim3(bDim), 0, stream, (T*) src.data, static_cast<Ncv32u>(src.step), NcvSize32u(src.cols, src.rows),
                 (T*) dst.data, static_cast<Ncv32u>(dst.step), NcvSize32u(dst.cols, dst.rows));
 
             cudaSafeCall( hipGetLastError() );

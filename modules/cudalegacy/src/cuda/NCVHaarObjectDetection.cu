@@ -716,12 +716,14 @@ struct applyHaarClassifierAnchorParallelFunctor
     void call(TList tl)
     {
         CV_UNUSED(tl);
-        applyHaarClassifierAnchorParallel <
+        hipLaunchKernelGGL((applyHaarClassifierAnchorParallel <
             Loki::TL::TypeAt<TList, 0>::Result::value,
             Loki::TL::TypeAt<TList, 1>::Result::value,
             Loki::TL::TypeAt<TList, 2>::Result::value,
             Loki::TL::TypeAt<TList, 3>::Result::value,
-            Loki::TL::hipLaunchKernelGGL((TypeAt<TList, 4>::Result::value >), dim3(gridConf), dim3(blockConf), 0, cuStream, d_IImg, IImgStride,
+            Loki::TL::TypeAt<TList, 4>::Result::value >),
+            dim3(gridConf), dim3(blockConf), 0, cuStream,
+            d_IImg, IImgStride,
             d_weights, weightsStride,
             d_Features, d_ClassifierNodes, d_Stages,
             d_inMask, d_outMask,
@@ -824,10 +826,12 @@ struct applyHaarClassifierClassifierParallelFunctor
     void call(TList tl)
     {
         CV_UNUSED(tl);
-        applyHaarClassifierClassifierParallel <
+        hipLaunchKernelGGL((applyHaarClassifierClassifierParallel <
             Loki::TL::TypeAt<TList, 0>::Result::value,
             Loki::TL::TypeAt<TList, 1>::Result::value,
-            Loki::TL::hipLaunchKernelGGL((TypeAt<TList, 2>::Result::value >), dim3(gridConf), dim3(blockConf), 0, cuStream, d_IImg, IImgStride,
+            Loki::TL::TypeAt<TList, 2>::Result::value >),
+            dim3(gridConf), dim3(blockConf), 0, cuStream,
+            d_IImg, IImgStride,
             d_weights, weightsStride,
             d_Features, d_ClassifierNodes, d_Stages,
             d_inMask, d_outMask,
@@ -903,9 +907,11 @@ struct initializeMaskVectorFunctor
     void call(TList tl)
     {
         CV_UNUSED(tl);
-        initializeMaskVector <
+        hipLaunchKernelGGL((initializeMaskVector <
             Loki::TL::TypeAt<TList, 0>::Result::value,
-            Loki::TL::hipLaunchKernelGGL((TypeAt<TList, 1>::Result::value >), dim3(gridConf), dim3(blockConf), 0, cuStream, d_inMask, d_outMask,
+            Loki::TL::TypeAt<TList, 1>::Result::value >),
+             dim3(gridConf), dim3(blockConf), 0, cuStream,
+             d_inMask, d_outMask,
              mask1Dlen, mask2Dstride,
              anchorsRoi, step);
     }
