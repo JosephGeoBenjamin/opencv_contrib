@@ -115,7 +115,7 @@ template<typename Tin> inline __host__ __device__ void _TDemoteClampNN(Tin &a, N
 template<typename Tin> inline __host__ __device__ void _TDemoteClampNN(Tin &a, Ncv32u &out) {out = (Ncv32u)CLAMP(a+0.5f, 0, UINT_MAX);}
 template<typename Tin> inline __host__ __device__ void _TDemoteClampNN(Tin &a, Ncv32f &out) {out = (Ncv32f)a;}
 
-template<typename Tout> inline Tout _pixMakeZero();
+template<typename Tout> __host__ __device__ inline Tout _pixMakeZero();
 template<> inline __host__ __device__ uchar1 _pixMakeZero<uchar1>() {return make_uchar1(0);}
 template<> inline __host__ __device__ uchar3 _pixMakeZero<uchar3>() {return make_uchar3(0,0,0);}
 template<> inline __host__ __device__ uchar4 _pixMakeZero<uchar4>() {return make_uchar4(0,0,0,0);}
