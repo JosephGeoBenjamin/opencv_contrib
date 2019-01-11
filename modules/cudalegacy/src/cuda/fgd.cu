@@ -270,7 +270,7 @@ namespace fgd
 
     void setBGPixelStat(const BGPixelStat& stat)
     {
-        cudaSafeCall( hipMemcpyToSymbol(c_stat, &stat, sizeof(BGPixelStat)) );
+        cudaSafeCall( hipMemcpyToSymbol(&c_stat, &stat, sizeof(BGPixelStat)) );
     }
 
     template <typename T> struct Output;
@@ -375,7 +375,9 @@ namespace fgd
         dim3 block(32, 8);
         dim3 grid(divUp(prevFrame.cols, block.x), divUp(prevFrame.rows, block.y));
 
+#ifdef HIP_TODO
         cudaSafeCall( hipFuncSetCacheConfig(bgfgClassification<PT, CT, OT>, hipFuncCachePreferL1) );
+#endif //HIP_TODO
 
         hipLaunchKernelGGL((bgfgClassification<PT, CT, OT>), dim3(grid), dim3(block), 0, stream, (PtrStepSz<PT>)prevFrame, (PtrStepSz<CT>)curFrame,
                                                                    Ftd, Fbd, foreground,
@@ -766,7 +768,9 @@ namespace fgd
             dim3 block(32, 8);
             dim3 grid(divUp(prevFrame.cols, block.x), divUp(prevFrame.rows, block.y));
 
+#ifdef HIP_TODO
             cudaSafeCall( hipFuncSetCacheConfig(updateBackgroundModel<PT, CT, OT, PtrStep<PT>, PtrStep<CT>, PtrStepb, PtrStepb>, hipFuncCachePreferL1) );
+#endif //HIP_TODO
 
             hipLaunchKernelGGL((updateBackgroundModel<PT, CT, OT, PtrStep<PT>, PtrStep<CT>, PtrStepb, PtrStepb>), dim3(grid), dim3(block), 0, stream,
                 prevFrame.cols, prevFrame.rows,

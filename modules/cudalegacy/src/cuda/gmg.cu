@@ -63,15 +63,15 @@ namespace cv { namespace cuda { namespace device {
         void loadConstants(int width, int height, float minVal, float maxVal, int quantizationLevels, float backgroundPrior,
                            float decisionThreshold, int maxFeatures, int numInitializationFrames)
         {
-            cudaSafeCall( hipMemcpyToSymbol(c_width, &width, sizeof(width)) );
-            cudaSafeCall( hipMemcpyToSymbol(c_height, &height, sizeof(height)) );
-            cudaSafeCall( hipMemcpyToSymbol(c_minVal, &minVal, sizeof(minVal)) );
-            cudaSafeCall( hipMemcpyToSymbol(c_maxVal, &maxVal, sizeof(maxVal)) );
-            cudaSafeCall( hipMemcpyToSymbol(c_quantizationLevels, &quantizationLevels, sizeof(quantizationLevels)) );
-            cudaSafeCall( hipMemcpyToSymbol(c_backgroundPrior, &backgroundPrior, sizeof(backgroundPrior)) );
-            cudaSafeCall( hipMemcpyToSymbol(c_decisionThreshold, &decisionThreshold, sizeof(decisionThreshold)) );
-            cudaSafeCall( hipMemcpyToSymbol(c_maxFeatures, &maxFeatures, sizeof(maxFeatures)) );
-            cudaSafeCall( hipMemcpyToSymbol(c_numInitializationFrames, &numInitializationFrames, sizeof(numInitializationFrames)) );
+            cudaSafeCall( hipMemcpyToSymbol(&c_width, &width, sizeof(width)) );
+            cudaSafeCall( hipMemcpyToSymbol(&c_height, &height, sizeof(height)) );
+            cudaSafeCall( hipMemcpyToSymbol(&c_minVal, &minVal, sizeof(minVal)) );
+            cudaSafeCall( hipMemcpyToSymbol(&c_maxVal, &maxVal, sizeof(maxVal)) );
+            cudaSafeCall( hipMemcpyToSymbol(&c_quantizationLevels, &quantizationLevels, sizeof(quantizationLevels)) );
+            cudaSafeCall( hipMemcpyToSymbol(&c_backgroundPrior, &backgroundPrior, sizeof(backgroundPrior)) );
+            cudaSafeCall( hipMemcpyToSymbol(&c_decisionThreshold, &decisionThreshold, sizeof(decisionThreshold)) );
+            cudaSafeCall( hipMemcpyToSymbol(&c_maxFeatures, &maxFeatures, sizeof(maxFeatures)) );
+            cudaSafeCall( hipMemcpyToSymbol(&c_numInitializationFrames, &numInitializationFrames, sizeof(numInitializationFrames)) );
         }
 
         __device__ float findFeature(const int color, const PtrStepi& colors, const PtrStepf& weights, const int x, const int y, const int nfeatures)
@@ -231,7 +231,9 @@ namespace cv { namespace cuda { namespace device {
             const dim3 block(32, 8);
             const dim3 grid(divUp(frame.cols, block.x), divUp(frame.rows, block.y));
 
+#ifdef HIP_TODO
             cudaSafeCall( hipFuncSetCacheConfig(update<SrcT>, hipFuncCachePreferL1) );
+#endif //HIP_TODO
 
             hipLaunchKernelGGL((update<SrcT>), dim3(grid), dim3(block), 0, stream, (PtrStepSz<SrcT>) frame, fgmask, colors, weights, nfeatures, frameNum, learningRate, updateBackgroundModel);
 
