@@ -1647,13 +1647,11 @@ NCVStatus ncvDetectObjectsMultiScale_device(NCVMatrix<Ncv8u> &d_srcImg,
     ncvAssertReturnNcvStat(nppStat);
     nppStat = nppiStSqrIntegralGetSize_8u64u(NcvSize32u(d_srcImg.width(), d_srcImg.height()), &szTmpBufSqIntegral, devProp);
     ncvAssertReturnNcvStat(nppStat);
-#endif //NPP_ENABLE
 
     NCVVectorAlloc<Ncv8u> d_tmpIIbuf(gpuAllocator, std::max(szTmpBufIntegral, szTmpBufSqIntegral));
     ncvAssertReturn(d_tmpIIbuf.isMemAllocated(), NCV_ALLOCATOR_BAD_ALLOC);
 
     NCV_SKIP_COND_BEGIN
-#ifdef NPP_ENABLE
     nppStat = nppiStIntegral_8u32u_C1R(d_srcImg.ptr(), d_srcImg.pitch(),
                                        integral.ptr(), integral.pitch(),
                                        NcvSize32u(d_srcImg.width(), d_srcImg.height()),
@@ -1665,9 +1663,9 @@ NCVStatus ncvDetectObjectsMultiScale_device(NCVMatrix<Ncv8u> &d_srcImg,
                                           NcvSize32u(d_srcImg.width(), d_srcImg.height()),
                                           d_tmpIIbuf.ptr(), szTmpBufSqIntegral, devProp);
     ncvAssertReturnNcvStat(nppStat);
-#endif //NPP_ENABLE
-
     NCV_SKIP_COND_END
+
+#endif //NPP_ENABLE
 
     dstNumRects = 0;
 
@@ -1777,7 +1775,6 @@ NCVStatus ncvDetectObjectsMultiScale_device(NCVMatrix<Ncv8u> &d_srcImg,
             searchRoi, pixelStep, (Ncv32f)scale*scale,
             gpuAllocator, cpuAllocator, devProp, cuStream);
         ncvAssertReturnNcvStat(nppStat);
-#endif //NPP_ENABLE
 
         NCV_SKIP_COND_BEGIN
 
@@ -1841,7 +1838,7 @@ NCVStatus ncvDetectObjectsMultiScale_device(NCVMatrix<Ncv8u> &d_srcImg,
                 break;
             }
         }
-
+#endif //NPP_ENABLE
         NCV_SKIP_COND_END
 
         if (gpuAllocator.isCounting())
@@ -1849,6 +1846,7 @@ NCVStatus ncvDetectObjectsMultiScale_device(NCVMatrix<Ncv8u> &d_srcImg,
             break;
         }
     }
+
 
     NCVStatus ncvRetCode = NCV_SUCCESS;
 

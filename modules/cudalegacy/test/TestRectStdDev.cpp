@@ -118,8 +118,8 @@ bool TestRectStdDev::process()
     ncvAssertReturn(h_norm_d.isMemAllocated(), false);
 
     Ncv32u bufSizeII, bufSizeSII;
-    ncvStat = nppiStIntegralGetSize_8u32u(NcvSize32u(this->width, this->height), &bufSizeII, this->devProp);
 #ifdef NPP_ENABLE
+    ncvStat = nppiStIntegralGetSize_8u32u(NcvSize32u(this->width, this->height), &bufSizeII, this->devProp);
     ncvAssertReturn(NPPST_SUCCESS == ncvStat, false);
     ncvStat = nppiStSqrIntegralGetSize_8u64u(NcvSize32u(this->width, this->height), &bufSizeSII, this->devProp);
     ncvAssertReturn(NPPST_SUCCESS == ncvStat, false);
@@ -134,6 +134,7 @@ bool TestRectStdDev::process()
     ncvAssertReturn(this->src.fill(h_img), false);
 
     ncvStat = h_img.copySolid(d_img, 0);
+
 #ifdef NPP_ENABLE
     ncvAssertReturn(ncvStat == NPPST_SUCCESS, false);
 

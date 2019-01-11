@@ -124,9 +124,9 @@ bool TestCompact::process()
 
     ncvStat = nppsStCompact_32u_host(h_vecSrc.ptr(), this->length, h_vecDst.ptr(), &h_outElemNum_h, this->badElem);
     ncvAssertReturn(ncvStat == NPPST_SUCCESS, false);
-#endif //NPP_ENABLE
 
     NCV_SKIP_COND_END
+#endif //NPP_ENABLE
 
     //bit-to-bit check
     bool bLoopVirgin = true;

@@ -120,36 +120,33 @@ bool TestIntegralImage<T_in, T_out>::process()
     ncvAssertReturn(d_tmpBuf.isMemAllocated(), false);
 
     NCV_SET_SKIP_COND(this->allocatorGPU.get()->isCounting());
+
+#ifdef NPP_ENABLE
     NCV_SKIP_COND_BEGIN
 
     ncvAssertReturn(this->src.fill(h_img), false);
 
     ncvStat = h_img.copySolid(d_img, 0);
-#ifdef NPP_ENABLE
     ncvAssertReturn(ncvStat == NPPST_SUCCESS, false);
-#endif //NPP_ENABLE
+
 
 
     if (sizeof(T_in) == sizeof(Ncv8u))
     {
-#ifdef NPP_ENABLE
         ncvStat = nppiStIntegral_8u32u_C1R((Ncv8u *)d_img.ptr(), d_img.pitch(),
                                            (Ncv32u *)d_imgII.ptr(), d_imgII.pitch(),
                                            NcvSize32u(this->width, this->height),
                                            d_tmpBuf.ptr(), bufSize, this->devProp);
         ncvAssertReturn(ncvStat == NPPST_SUCCESS, false);
-#endif //NPP_ENABLE
 
     }
     else if (sizeof(T_in) == sizeof(Ncv32f))
     {
-#ifdef NPP_ENABLE
         ncvStat = nppiStIntegral_32f32f_C1R((Ncv32f *)d_img.ptr(), d_img.pitch(),
                                             (Ncv32f *)d_imgII.ptr(), d_imgII.pitch(),
                                             NcvSize32u(this->width, this->height),
                                             d_tmpBuf.ptr(), bufSize, this->devProp);
         ncvAssertReturn(ncvStat == NPPST_SUCCESS, false);
-#endif //NPP_ENABLE
 
     }
     else
@@ -158,28 +155,22 @@ bool TestIntegralImage<T_in, T_out>::process()
     }
 
     ncvStat = d_imgII.copySolid(h_imgII_d, 0);
-#ifdef NPP_ENABLE
     ncvAssertReturn(ncvStat == NPPST_SUCCESS, false);
-#endif //NPP_ENABLE
 
     if (sizeof(T_in) == sizeof(Ncv8u))
     {
-#ifdef NPP_ENABLE
         ncvStat = nppiStIntegral_8u32u_C1R_host((Ncv8u *)h_img.ptr(), h_img.pitch(),
                                                 (Ncv32u *)h_imgII.ptr(), h_imgII.pitch(),
                                                 NcvSize32u(this->width, this->height));
         ncvAssertReturn(ncvStat == NPPST_SUCCESS, false);
-#endif //NPP_ENABLE
 
     }
     else if (sizeof(T_in) == sizeof(Ncv32f))
     {
-#ifdef NPP_ENABLE
         ncvStat = nppiStIntegral_32f32f_C1R_host((Ncv32f *)h_img.ptr(), h_img.pitch(),
                                                  (Ncv32f *)h_imgII.ptr(), h_imgII.pitch(),
                                                  NcvSize32u(this->width, this->height));
         ncvAssertReturn(ncvStat == NPPST_SUCCESS, false);
-#endif //NPP_ENABLE
 
     }
     else
@@ -188,6 +179,7 @@ bool TestIntegralImage<T_in, T_out>::process()
     }
 
     NCV_SKIP_COND_END
+#endif //NPP_ENABLE
 
     //bit-to-bit check
     bool bLoopVirgin = true;
