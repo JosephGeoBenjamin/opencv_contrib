@@ -1188,8 +1188,8 @@ NCVStatus ncvApplyHaarClassifierCascade_device(NCVMatrix<Ncv32u> &integral,
         if (bDoAtomicCompaction)
         {
             ncvAssertCUDAReturn(hipStreamSynchronize(cuStream), NCV_CUDA_ERROR);
-            ncvAssertCUDAReturn(hipMemcpyFromSymbolAsync(hp_numDet, d_outMaskPosition, sizeof(Ncv32u),
-                                                          0, hipMemcpyDeviceToHost, cuStream), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipMemcpyFromSymbol(hp_numDet, &d_outMaskPosition, sizeof(Ncv32u),
+                                                          0, hipMemcpyDeviceToHost), NCV_CUDA_ERROR);
             ncvAssertCUDAReturn(hipStreamSynchronize(cuStream), NCV_CUDA_ERROR);
             swap(d_ptrNowData, d_ptrNowTmp);
         }
@@ -1247,8 +1247,8 @@ NCVStatus ncvApplyHaarClassifierCascade_device(NCVMatrix<Ncv32u> &integral,
         if (bDoAtomicCompaction)
         {
             ncvAssertCUDAReturn(hipStreamSynchronize(cuStream), NCV_CUDA_ERROR);
-            ncvAssertCUDAReturn(hipMemcpyFromSymbolAsync(hp_numDet, d_outMaskPosition, sizeof(Ncv32u),
-                                                          0, hipMemcpyDeviceToHost, cuStream), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipMemcpyFromSymbol(hp_numDet, &d_outMaskPosition, sizeof(Ncv32u),
+                                                          0, hipMemcpyDeviceToHost), NCV_CUDA_ERROR);
             ncvAssertCUDAReturn(hipStreamSynchronize(cuStream), NCV_CUDA_ERROR);
         }
         else
@@ -1320,8 +1320,8 @@ NCVStatus ncvApplyHaarClassifierCascade_device(NCVMatrix<Ncv32u> &integral,
         if (bDoAtomicCompaction)
         {
             ncvAssertCUDAReturn(hipStreamSynchronize(cuStream), NCV_CUDA_ERROR);
-            ncvAssertCUDAReturn(hipMemcpyFromSymbolAsync(hp_numDet, d_outMaskPosition, sizeof(Ncv32u),
-                                                          0, hipMemcpyDeviceToHost, cuStream), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipMemcpyFromSymbol(hp_numDet, &d_outMaskPosition, sizeof(Ncv32u),
+                                                          0, hipMemcpyDeviceToHost), NCV_CUDA_ERROR);
             ncvAssertCUDAReturn(hipStreamSynchronize(cuStream), NCV_CUDA_ERROR);
         }
         else
@@ -1384,8 +1384,8 @@ NCVStatus ncvApplyHaarClassifierCascade_device(NCVMatrix<Ncv32u> &integral,
         if (bDoAtomicCompaction)
         {
             ncvAssertCUDAReturn(hipStreamSynchronize(cuStream), NCV_CUDA_ERROR);
-            ncvAssertCUDAReturn(hipMemcpyFromSymbolAsync(hp_numDet, d_outMaskPosition, sizeof(Ncv32u),
-                                                          0, hipMemcpyDeviceToHost, cuStream), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipMemcpyFromSymbol(hp_numDet, &d_outMaskPosition, sizeof(Ncv32u),
+                                                          0, hipMemcpyDeviceToHost), NCV_CUDA_ERROR);
             ncvAssertCUDAReturn(hipStreamSynchronize(cuStream), NCV_CUDA_ERROR);
         }
         else
