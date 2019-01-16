@@ -57,8 +57,8 @@ namespace tvl1flow
 {
     __global__ void centeredGradientKernel(const PtrStepSzf src, PtrStepf dx, PtrStepf dy)
     {
-        const int x = blockIdx.x * blockDim.x + threadIdx.x;
-        const int y = blockIdx.y * blockDim.y + threadIdx.y;
+        const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+        const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
         if (x >= src.cols || y >= src.rows)
             return;
@@ -108,8 +108,8 @@ namespace tvl1flow
 
     __global__ void warpBackwardKernel(const PtrStepSzf I0, const PtrStepf u1, const PtrStepf u2, PtrStepf I1w, PtrStepf I1wx, PtrStepf I1wy, PtrStepf grad, PtrStepf rho)
     {
-        const int x = blockIdx.x * blockDim.x + threadIdx.x;
-        const int y = blockIdx.y * blockDim.y + threadIdx.y;
+        const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+        const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
         if (x >= I0.cols || y >= I0.rows)
             return;
@@ -221,8 +221,8 @@ namespace tvl1flow
                               PtrStepf u1, PtrStepf u2, PtrStepf u3, PtrStepf error,
                               const float l_t, const float theta, const float gamma, const bool calcError)
     {
-        const int x = blockIdx.x * blockDim.x + threadIdx.x;
-        const int y = blockIdx.y * blockDim.y + threadIdx.y;
+        const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+        const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
         if (x >= I1wx.cols || y >= I1wx.rows)
             return;
@@ -320,8 +320,8 @@ namespace tvl1flow
     __global__ void estimateDualVariablesKernel(const PtrStepSzf u1, const PtrStepf u2, const PtrStepSzf u3,
                                                 PtrStepf p11, PtrStepf p12, PtrStepf p21, PtrStepf p22, PtrStepf p31, PtrStepf p32, const float taut, const float gamma)
     {
-        const int x = blockIdx.x * blockDim.x + threadIdx.x;
-        const int y = blockIdx.y * blockDim.y + threadIdx.y;
+        const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+        const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
         if (x >= u1.cols || y >= u1.rows)
             return;

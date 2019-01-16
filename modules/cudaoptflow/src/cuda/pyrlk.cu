@@ -378,16 +378,16 @@ namespace pyrlk
         __shared__ float smem2[BLOCK_SIZE];
         __shared__ float smem3[BLOCK_SIZE];
 
-        const unsigned int tid = threadIdx.y * blockDim.x + threadIdx.x;
+        const unsigned int tid = hipThreadIdx_y * hipBlockDim_x + hipThreadIdx_x;
 
-        float2 prevPt = prevPts[blockIdx.x];
+        float2 prevPt = prevPts[hipBlockIdx_x];
         prevPt.x *= (1.0f / (1 << level));
         prevPt.y *= (1.0f / (1 << level));
 
         if (prevPt.x < 0 || prevPt.x >= cols || prevPt.y < 0 || prevPt.y >= rows)
         {
             if (tid == 0 && level == 0)
-                status[blockIdx.x] = 0;
+                status[hipBlockIdx_x] = 0;
 
             return;
         }
@@ -407,9 +407,9 @@ namespace pyrlk
         work_type dIdx_patch[PATCH_Y][PATCH_X];
         work_type dIdy_patch[PATCH_Y][PATCH_X];
 
-        for (int yBase = threadIdx.y, i = 0; yBase < c_winSize_y; yBase += blockDim.y, ++i)
+        for (int yBase = hipThreadIdx_y, i = 0; yBase < c_winSize_y; yBase += hipBlockDim_y, ++i)
         {
-            for (int xBase = threadIdx.x, j = 0; xBase < c_winSize_x; xBase += blockDim.x, ++j)
+            for (int xBase = hipThreadIdx_x, j = 0; xBase < c_winSize_x; xBase += hipBlockDim_x, ++j)
             {
                 float x = prevPt.x + xBase + 0.5f;
                 float y = prevPt.y + yBase + 0.5f;
@@ -455,7 +455,7 @@ namespace pyrlk
         if (D < numeric_limits<float>::epsilon())
         {
             if (tid == 0 && level == 0)
-                status[blockIdx.x] = 0;
+                status[hipBlockIdx_x] = 0;
 
             return;
         }
@@ -466,7 +466,7 @@ namespace pyrlk
         A12 *= D;
         A22 *= D;
 
-        float2 nextPt = nextPts[blockIdx.x];
+        float2 nextPt = nextPts[hipBlockIdx_x];
         nextPt.x *= 2.f;
         nextPt.y *= 2.f;
 
@@ -478,7 +478,7 @@ namespace pyrlk
             if (nextPt.x < -c_halfWin_x || nextPt.x >= cols || nextPt.y < -c_halfWin_y || nextPt.y >= rows)
             {
                 if (tid == 0 && level == 0)
-                    status[blockIdx.x] = 0;
+                    status[hipBlockIdx_x] = 0;
 
                 return;
             }
@@ -486,9 +486,9 @@ namespace pyrlk
             float b1 = 0;
             float b2 = 0;
 
-            for (int y = threadIdx.y, i = 0; y < c_winSize_y; y += blockDim.y, ++i)
+            for (int y = hipThreadIdx_y, i = 0; y < c_winSize_y; y += hipBlockDim_y, ++i)
             {
-                for (int x = threadIdx.x, j = 0; x < c_winSize_x; x += blockDim.x, ++j)
+                for (int x = hipThreadIdx_x, j = 0; x < c_winSize_x; x += hipBlockDim_x, ++j)
                 {
                     work_type I_val = I_patch[i][j];
                     work_type J_val = Tex_J<cn, T>::read(nextPt.x + x + 0.5f, nextPt.y + y + 0.5f);
@@ -529,9 +529,9 @@ namespace pyrlk
         float errval = 0;
         if (calcErr)
         {
-            for (int y = threadIdx.y, i = 0; y < c_winSize_y; y += blockDim.y, ++i)
+            for (int y = hipThreadIdx_y, i = 0; y < c_winSize_y; y += hipBlockDim_y, ++i)
             {
-                for (int x = threadIdx.x, j = 0; x < c_winSize_x; x += blockDim.x, ++j)
+                for (int x = hipThreadIdx_x, j = 0; x < c_winSize_x; x += hipBlockDim_x, ++j)
                 {
                     work_type I_val = I_patch[i][j];
                     work_type J_val = Tex_J<cn, T>::read(nextPt.x + x + 0.5f, nextPt.y + y + 0.5f);
@@ -550,10 +550,10 @@ namespace pyrlk
             nextPt.x += c_halfWin_x;
             nextPt.y += c_halfWin_y;
 
-            nextPts[blockIdx.x] = nextPt;
+            nextPts[hipBlockIdx_x] = nextPt;
 
             if (calcErr)
-                err[blockIdx.x] = static_cast<float>(errval) / (::min(cn, 3) * c_winSize_x * c_winSize_y) * DenormalizationFactor<T>::factor();
+                err[hipBlockIdx_x] = static_cast<float>(errval) / (::min(cn, 3) * c_winSize_x * c_winSize_y) * DenormalizationFactor<T>::factor();
         }
     }
 
@@ -571,16 +571,16 @@ namespace pyrlk
         __shared__ float smem2[BLOCK_SIZE];
         __shared__ float smem3[BLOCK_SIZE];
 
-        const unsigned int tid = threadIdx.y * blockDim.x + threadIdx.x;
+        const unsigned int tid = hipThreadIdx_y * hipBlockDim_x + hipThreadIdx_x;
 
-        float2 prevPt = prevPts[blockIdx.x];
+        float2 prevPt = prevPts[hipBlockIdx_x];
         prevPt.x *= (1.0f / (1 << level));
         prevPt.y *= (1.0f / (1 << level));
 
         if (prevPt.x < 0 || prevPt.x >= cols || prevPt.y < 0 || prevPt.y >= rows)
         {
             if (tid == 0 && level == 0)
-                status[blockIdx.x] = 0;
+                status[hipBlockIdx_x] = 0;
 
             return;
         }
@@ -600,9 +600,9 @@ namespace pyrlk
         work_type dIdx_patch[PATCH_Y][PATCH_X];
         work_type dIdy_patch[PATCH_Y][PATCH_X];
 
-        for (int yBase = threadIdx.y, i = 0; yBase < c_winSize_y; yBase += blockDim.y, ++i)
+        for (int yBase = hipThreadIdx_y, i = 0; yBase < c_winSize_y; yBase += hipBlockDim_y, ++i)
         {
-            for (int xBase = threadIdx.x, j = 0; xBase < c_winSize_x; xBase += blockDim.x, ++j)
+            for (int xBase = hipThreadIdx_x, j = 0; xBase < c_winSize_x; xBase += hipBlockDim_x, ++j)
             {
                 float x = prevPt.x + xBase + 0.5f;
                 float y = prevPt.y + yBase + 0.5f;
@@ -648,7 +648,7 @@ namespace pyrlk
         if (D < numeric_limits<float>::epsilon())
         {
             if (tid == 0 && level == 0)
-                status[blockIdx.x] = 0;
+                status[hipBlockIdx_x] = 0;
 
             return;
         }
@@ -659,7 +659,7 @@ namespace pyrlk
         A12 *= D;
         A22 *= D;
 
-        float2 nextPt = nextPts[blockIdx.x];
+        float2 nextPt = nextPts[hipBlockIdx_x];
         nextPt.x *= 2.f;
         nextPt.y *= 2.f;
 
@@ -671,7 +671,7 @@ namespace pyrlk
             if (nextPt.x < -c_halfWin_x || nextPt.x >= cols || nextPt.y < -c_halfWin_y || nextPt.y >= rows)
             {
                 if (tid == 0 && level == 0)
-                    status[blockIdx.x] = 0;
+                    status[hipBlockIdx_x] = 0;
 
                 return;
             }
@@ -679,9 +679,9 @@ namespace pyrlk
             float b1 = 0;
             float b2 = 0;
 
-            for (int y = threadIdx.y, i = 0; y < c_winSize_y; y += blockDim.y, ++i)
+            for (int y = hipThreadIdx_y, i = 0; y < c_winSize_y; y += hipBlockDim_y, ++i)
             {
-                for (int x = threadIdx.x, j = 0; x < c_winSize_x; x += blockDim.x, ++j)
+                for (int x = hipThreadIdx_x, j = 0; x < c_winSize_x; x += hipBlockDim_x, ++j)
                 {
                     work_type I_val = I_patch[i][j];
                     work_type J_val = ToFloat<T>(J(nextPt.y + y + 0.5f, nextPt.x + x + 0.5f));
@@ -722,9 +722,9 @@ namespace pyrlk
         float errval = 0;
         if (calcErr)
         {
-            for (int y = threadIdx.y, i = 0; y < c_winSize_y; y += blockDim.y, ++i)
+            for (int y = hipThreadIdx_y, i = 0; y < c_winSize_y; y += hipBlockDim_y, ++i)
             {
-                for (int x = threadIdx.x, j = 0; x < c_winSize_x; x += blockDim.x, ++j)
+                for (int x = hipThreadIdx_x, j = 0; x < c_winSize_x; x += hipBlockDim_x, ++j)
                 {
                     work_type I_val = I_patch[i][j];
                     work_type J_val = ToFloat<T>(J(nextPt.y + y + 0.5f, nextPt.x + x + 0.5f));
@@ -743,10 +743,10 @@ namespace pyrlk
             nextPt.x += c_halfWin_x;
             nextPt.y += c_halfWin_y;
 
-            nextPts[blockIdx.x] = nextPt;
+            nextPts[hipBlockIdx_x] = nextPt;
 
             if (calcErr)
-                err[blockIdx.x] = static_cast<float>(errval) / (::min(cn, 3)*c_winSize_x * c_winSize_y);
+                err[hipBlockIdx_x] = static_cast<float>(errval) / (::min(cn, 3)*c_winSize_x * c_winSize_y);
         }
     } // __global__ void sparseKernel_
 
@@ -909,19 +909,19 @@ namespace pyrlk
     {
         HIP_DYNAMIC_SHARED( int, smem)
 
-        const int patchWidth  = blockDim.x + 2 * c_halfWin_x;
-        const int patchHeight = blockDim.y + 2 * c_halfWin_y;
+        const int patchWidth  = hipBlockDim_x + 2 * c_halfWin_x;
+        const int patchHeight = hipBlockDim_y + 2 * c_halfWin_y;
 
         int* I_patch = smem;
         int* dIdx_patch = I_patch + patchWidth * patchHeight;
         int* dIdy_patch = dIdx_patch + patchWidth * patchHeight;
 
-        const int xBase = blockIdx.x * blockDim.x;
-        const int yBase = blockIdx.y * blockDim.y;
+        const int xBase = hipBlockIdx_x * hipBlockDim_x;
+        const int yBase = hipBlockIdx_y * hipBlockDim_y;
 
-        for (int i = threadIdx.y; i < patchHeight; i += blockDim.y)
+        for (int i = hipThreadIdx_y; i < patchHeight; i += hipBlockDim_y)
         {
-            for (int j = threadIdx.x; j < patchWidth; j += blockDim.x)
+            for (int j = hipThreadIdx_x; j < patchWidth; j += hipBlockDim_x)
             {
                 float x = xBase - c_halfWin_x + j + 0.5f;
                 float y = yBase - c_halfWin_y + i + 0.5f;
@@ -940,8 +940,8 @@ namespace pyrlk
 
         __syncthreads();
 
-        const int x = xBase + threadIdx.x;
-        const int y = yBase + threadIdx.y;
+        const int x = xBase + hipThreadIdx_x;
+        const int y = yBase + hipThreadIdx_y;
 
         if (x >= cols || y >= rows)
             return;
@@ -955,8 +955,8 @@ namespace pyrlk
         {
             for (int j = 0; j < c_winSize_x; ++j)
             {
-                int dIdx = dIdx_patch[(threadIdx.y + i) * patchWidth + (threadIdx.x + j)];
-                int dIdy = dIdy_patch[(threadIdx.y + i) * patchWidth + (threadIdx.x + j)];
+                int dIdx = dIdx_patch[(hipThreadIdx_y + i) * patchWidth + (hipThreadIdx_x + j)];
+                int dIdy = dIdy_patch[(hipThreadIdx_y + i) * patchWidth + (hipThreadIdx_x + j)];
 
                 A11i += dIdx * dIdx;
                 A12i += dIdx * dIdy;
@@ -1004,13 +1004,13 @@ namespace pyrlk
             {
                 for (int j = 0; j < c_winSize_x; ++j)
                 {
-                    int I = I_patch[(threadIdx.y + i) * patchWidth + threadIdx.x + j];
+                    int I = I_patch[(hipThreadIdx_y + i) * patchWidth + hipThreadIdx_x + j];
                     int J = tex2D(tex_Jf, nextPt.x - c_halfWin_x + j + 0.5f, nextPt.y - c_halfWin_y + i + 0.5f);
 
                     int diff = (J - I) * 32;
 
-                    int dIdx = dIdx_patch[(threadIdx.y + i) * patchWidth + (threadIdx.x + j)];
-                    int dIdy = dIdy_patch[(threadIdx.y + i) * patchWidth + (threadIdx.x + j)];
+                    int dIdx = dIdx_patch[(hipThreadIdx_y + i) * patchWidth + (hipThreadIdx_x + j)];
+                    int dIdy = dIdy_patch[(hipThreadIdx_y + i) * patchWidth + (hipThreadIdx_x + j)];
 
                     b1 += diff * dIdx;
                     b2 += diff * dIdy;
@@ -1040,7 +1040,7 @@ namespace pyrlk
             {
                 for (int j = 0; j < c_winSize_x; ++j)
                 {
-                    int I = I_patch[(threadIdx.y + i) * patchWidth + threadIdx.x + j];
+                    int I = I_patch[(hipThreadIdx_y + i) * patchWidth + hipThreadIdx_x + j];
                     int J = tex2D(tex_Jf, nextPt.x - c_halfWin_x + j + 0.5f, nextPt.y - c_halfWin_y + i + 0.5f);
 
                     errval += ::abs(J - I);

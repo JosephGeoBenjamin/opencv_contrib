@@ -46,12 +46,12 @@
 #include "opencv2/core/cuda/common.hpp"
 #include "opencv2/core/cuda/border_interpolate.hpp"
 
-#define tx threadIdx.x
-#define ty threadIdx.y
-#define bx blockIdx.x
-#define by blockIdx.y
-#define bdx blockDim.x
-#define bdy blockDim.y
+#define tx hipThreadIdx_x
+#define ty hipThreadIdx_y
+#define bx hipBlockIdx_x
+#define by hipBlockIdx_y
+#define bdx hipBlockDim_x
+#define bdy hipBlockDim_y
 
 #define BORDER_SIZE 5
 #define MAX_KSIZE_HALF 100
@@ -127,10 +127,10 @@ namespace cv { namespace cuda { namespace device { namespace optflow_farneback
         cudaSafeCall(hipMemcpyToSymbol(c_g, g, (polyN + 1) * sizeof(*g)));
         cudaSafeCall(hipMemcpyToSymbol(c_xg, xg, (polyN + 1) * sizeof(*xg)));
         cudaSafeCall(hipMemcpyToSymbol(c_xxg, xxg, (polyN + 1) * sizeof(*xxg)));
-        cudaSafeCall(hipMemcpyToSymbol(c_ig11, &ig11, sizeof(ig11)));
-        cudaSafeCall(hipMemcpyToSymbol(c_ig03, &ig03, sizeof(ig03)));
-        cudaSafeCall(hipMemcpyToSymbol(c_ig33, &ig33, sizeof(ig33)));
-        cudaSafeCall(hipMemcpyToSymbol(c_ig55, &ig55, sizeof(ig55)));
+        cudaSafeCall(hipMemcpyToSymbol(&c_ig11, &ig11, sizeof(ig11)));
+        cudaSafeCall(hipMemcpyToSymbol(&c_ig03, &ig03, sizeof(ig03)));
+        cudaSafeCall(hipMemcpyToSymbol(&c_ig33, &ig33, sizeof(ig33)));
+        cudaSafeCall(hipMemcpyToSymbol(&c_ig55, &ig55, sizeof(ig55)));
     }
 
 
