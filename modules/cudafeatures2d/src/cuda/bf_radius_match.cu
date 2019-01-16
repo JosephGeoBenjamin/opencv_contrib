@@ -58,7 +58,7 @@ namespace cv { namespace cuda { namespace device
 
         template <int BLOCK_SIZE, int MAX_DESC_LEN, bool SAVE_IMG_IDX, typename Dist, typename T, typename Mask>
         __global__ void matchUnrolled(const PtrStepSz<T> query, int imgIdx, const PtrStepSz<T> train, float maxDistance, const Mask mask,
-            PtrStepi bestTrainIdx, PtrStepi bestImgIdx, PtrStepf bestDistance, unsigned int* nMatches, int maxCount)
+            PtrStepSzi bestTrainIdx, PtrStepSzi bestImgIdx, PtrStepSzf bestDistance, PtrStepSz<unsigned int>* nMatches, int maxCount)
         {
             HIP_DYNAMIC_SHARED( int, smem)
 
@@ -100,9 +100,9 @@ namespace cv { namespace cuda { namespace device
 
             float distVal = (typename Dist::result_type)dist;
 
-            if (queryIdx < query.rows && trainIdx < train.rows && mask(queryIdx, trainIdx) && distVal < maxDistance)
+            if (queryIdx < query.rows && trainIdx < train.rows && (unsigned int *)mask(queryIdx, trainIdx) && distVal < maxDistance)
             {
-                unsigned int ind = atomicInc(nMatches + queryIdx, (unsigned int) -1);
+                unsigned int ind = atomicInc( (unsigned int *)nMatches + queryIdx, (unsigned int) -1);
                 if (ind < maxCount)
                 {
                     bestTrainIdx.ptr(queryIdx)[ind] = trainIdx;
@@ -121,8 +121,8 @@ namespace cv { namespace cuda { namespace device
 
             const size_t smemSize = (2 * BLOCK_SIZE * BLOCK_SIZE) * sizeof(int);
 
-            hipLaunchKernelGGL((matchUnrolled<BLOCK_SIZE, MAX_DESC_LEN, false, Dist>), dim3(grid), dim3(block), smemSize, stream, query, 0, train, maxDistance, mask,
-                trainIdx, PtrStepi(), distance, nMatches.data, trainIdx.cols);
+            hipLaunchKernelGGL((matchUnrolled<BLOCK_SIZE, MAX_DESC_LEN, false, Dist,T,Mask>), dim3(grid), dim3(block), smemSize, stream, query, 0, train, maxDistance, mask,
+                trainIdx, PtrStepSzi(), distance, nMatches.data, trainIdx.cols);
             cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
@@ -146,12 +146,12 @@ namespace cv { namespace cuda { namespace device
 
                 if (masks != 0 && masks[i].data)
                 {
-                    hipLaunchKernelGGL((matchUnrolled<BLOCK_SIZE, MAX_DESC_LEN, true, Dist>), dim3(grid), dim3(block), smemSize, stream, query, i, train, maxDistance, SingleMask(masks[i]),
+                    hipLaunchKernelGGL((matchUnrolled<BLOCK_SIZE, MAX_DESC_LEN, true, Dist, T, PtrStepSzb*>), dim3(grid), dim3(block), smemSize, stream, query, i, train, maxDistance, SingleMask(masks[i]),
                         trainIdx, imgIdx, distance, nMatches.data, trainIdx.cols);
                 }
                 else
                 {
-                    hipLaunchKernelGGL((matchUnrolled<BLOCK_SIZE, MAX_DESC_LEN, true, Dist>), dim3(grid), dim3(block), smemSize, stream, query, i, train, maxDistance, WithOutMask(),
+                    hipLaunchKernelGGL((matchUnrolled<BLOCK_SIZE, MAX_DESC_LEN, true, Dist, T, PtrStepSzb*>), dim3(grid), dim3(block), smemSize, stream, query, i, train, maxDistance, WithOutMask(),
                         trainIdx, imgIdx, distance, nMatches.data, trainIdx.cols);
                 }
                 cudaSafeCall( hipGetLastError() );
@@ -166,7 +166,7 @@ namespace cv { namespace cuda { namespace device
 
         template <int BLOCK_SIZE, bool SAVE_IMG_IDX, typename Dist, typename T, typename Mask>
         __global__ void match(const PtrStepSz<T> query, int imgIdx, const PtrStepSz<T> train, float maxDistance, const Mask mask,
-            PtrStepi bestTrainIdx, PtrStepi bestImgIdx, PtrStepf bestDistance, unsigned int* nMatches, int maxCount)
+            PtrStepSzi bestTrainIdx, PtrStepSzi bestImgIdx, PtrStepSzf bestDistance, unsigned int* nMatches, int maxCount)
         {
             HIP_DYNAMIC_SHARED( int, smem)
 
@@ -229,8 +229,8 @@ namespace cv { namespace cuda { namespace device
 
             const size_t smemSize = (2 * BLOCK_SIZE * BLOCK_SIZE) * sizeof(int);
 
-            hipLaunchKernelGGL((match<BLOCK_SIZE, false, Dist>), dim3(grid), dim3(block), smemSize, stream, query, 0, train, maxDistance, mask,
-                trainIdx, PtrStepi(), distance, nMatches.data, trainIdx.cols);
+            hipLaunchKernelGGL((match<BLOCK_SIZE, false, Dist, T, Mask>), dim3(grid), dim3(block), smemSize, stream, query, 0, train, maxDistance, mask,
+                trainIdx, PtrStepSzi(), distance, nMatches.data, trainIdx.cols);
             cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
@@ -254,7 +254,7 @@ namespace cv { namespace cuda { namespace device
 
                 if (masks != 0 && masks[i].data)
                 {
-                    hipLaunchKernelGGL((match<BLOCK_SIZE, true, Dist>), dim3(grid), dim3(block), smemSize, stream, query, i, train, maxDistance, SingleMask(masks[i]),
+                    hipLaunchKernelGGL((match<BLOCK_SIZE, true, Dist,T>), dim3(grid), dim3(block), smemSize, stream, query, i, train, maxDistance, SingleMask(masks[i]),
                         trainIdx, imgIdx, distance, nMatches.data, trainIdx.cols);
                 }
                 else

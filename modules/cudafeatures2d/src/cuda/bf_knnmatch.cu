@@ -903,7 +903,7 @@ namespace cv { namespace cuda { namespace device
         // Calc distance kernel
 
         template <int BLOCK_SIZE, int MAX_DESC_LEN, typename Dist, typename T, typename Mask>
-        __global__ void calcDistanceUnrolled(const PtrStepSz<T> query, const PtrStepSz<T> train, const Mask mask, PtrStepf allDist)
+        __global__ void calcDistanceUnrolled(const PtrStepSz<T> query, const PtrStepSz<T> train, const Mask mask, PtrStepSzf allDist)
         {
             HIP_DYNAMIC_SHARED( int, smem)
 
@@ -959,7 +959,7 @@ namespace cv { namespace cuda { namespace device
 
             const size_t smemSize = (2 * BLOCK_SIZE * BLOCK_SIZE) * sizeof(int);
 
-            hipLaunchKernelGGL((calcDistanceUnrolled<BLOCK_SIZE, MAX_DESC_LEN, Dist>), dim3(grid), dim3(block), smemSize, stream, query, train, mask, allDist);
+            hipLaunchKernelGGL((calcDistanceUnrolled<BLOCK_SIZE, MAX_DESC_LEN, Dist, T>), dim3(grid), dim3(block), smemSize, stream, query, train, mask, allDist);
             cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
@@ -967,7 +967,7 @@ namespace cv { namespace cuda { namespace device
         }
 
         template <int BLOCK_SIZE, typename Dist, typename T, typename Mask>
-        __global__ void calcDistance(const PtrStepSz<T> query, const PtrStepSz<T> train, const Mask mask, PtrStepf allDist)
+        __global__ void calcDistance(const PtrStepSz<T> query, const PtrStepSz<T> train, const Mask mask, PtrStepSzf allDist)
         {
             HIP_DYNAMIC_SHARED( int, smem)
 
@@ -1022,7 +1022,7 @@ namespace cv { namespace cuda { namespace device
 
             const size_t smemSize = (2 * BLOCK_SIZE * BLOCK_SIZE) * sizeof(int);
 
-            hipLaunchKernelGGL((calcDistance<BLOCK_SIZE, Dist>), dim3(grid), dim3(block), smemSize, stream, query, train, mask, allDist);
+            hipLaunchKernelGGL((calcDistance<BLOCK_SIZE, Dist,T>), dim3(grid), dim3(block), smemSize, stream, query, train, mask, allDist);
             cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
@@ -1067,7 +1067,7 @@ namespace cv { namespace cuda { namespace device
         // find knn match kernel
 
         template <int BLOCK_SIZE>
-        __global__ void findBestMatch(PtrStepSzf allDist, int i, PtrStepi trainIdx, PtrStepf distance)
+        __global__ void findBestMatch(PtrStepSzf allDist, int i, PtrStepSzi trainIdx, PtrStepSzf distance)
         {
             const int SMEM_SIZE = BLOCK_SIZE > 64 ? BLOCK_SIZE : 64;
             __shared__ float s_dist[SMEM_SIZE];

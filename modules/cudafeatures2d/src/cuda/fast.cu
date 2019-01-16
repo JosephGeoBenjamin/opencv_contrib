@@ -217,7 +217,7 @@ namespace cv { namespace cuda { namespace device
         }
 
         template <bool calcScore, class Mask>
-        __global__ void calcKeypoints(const PtrStepSzb img, const Mask mask, short2* kpLoc, const unsigned int maxKeypoints, PtrStepi score, const int threshold, unsigned int* d_counter)
+        __global__ void calcKeypoints(const PtrStepSzb img, const Mask mask, short2* kpLoc, const unsigned int maxKeypoints, PtrStepSzi score, const int threshold, unsigned int* d_counter)
         {
             #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 110)
 
@@ -291,16 +291,16 @@ namespace cv { namespace cuda { namespace device
             if (score.data)
             {
                 if (mask.data)
-                    hipLaunchKernelGGL((calcKeypoints<true>), dim3(grid), dim3(block), 0, stream, img, SingleMask(mask), kpLoc, maxKeypoints, score, threshold, d_counter);
+                    hipLaunchKernelGGL((calcKeypoints<true>), dim3(grid), dim3(block), 0, stream, img, SingleMask(mask), kpLoc, static_cast<unsigned int>(maxKeypoints), score, threshold, d_counter);
                 else
-                    hipLaunchKernelGGL((calcKeypoints<true>), dim3(grid), dim3(block), 0, stream, img, WithOutMask(), kpLoc, maxKeypoints, score, threshold, d_counter);
+                    hipLaunchKernelGGL((calcKeypoints<true>), dim3(grid), dim3(block), 0, stream, img, WithOutMask(), kpLoc, static_cast<unsigned int>(maxKeypoints), score, threshold, d_counter);
             }
             else
             {
                 if (mask.data)
-                    hipLaunchKernelGGL((calcKeypoints<false>), dim3(grid), dim3(block), 0, stream, img, SingleMask(mask), kpLoc, maxKeypoints, score, threshold, d_counter);
+                    hipLaunchKernelGGL((calcKeypoints<false>), dim3(grid), dim3(block), 0, stream, img, SingleMask(mask), kpLoc, static_cast<unsigned int>(maxKeypoints), score, threshold, d_counter);
                 else
-                    hipLaunchKernelGGL((calcKeypoints<false>), dim3(grid), dim3(block), 0, stream, img, WithOutMask(), kpLoc, maxKeypoints, score, threshold, d_counter);
+                    hipLaunchKernelGGL((calcKeypoints<false>), dim3(grid), dim3(block), 0, stream, img, WithOutMask(), kpLoc, static_cast<unsigned int>(maxKeypoints), score, threshold, d_counter);
             }
 
             cudaSafeCall( hipGetLastError() );
