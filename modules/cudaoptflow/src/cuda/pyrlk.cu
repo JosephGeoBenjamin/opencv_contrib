@@ -65,10 +65,10 @@ namespace pyrlk
     __constant__ int c_halfWin_y;
     __constant__ int c_iters;
 
-    texture<uchar, hipTextureType2D, cudaReadModeNormalizedFloat> tex_I8U(false, hipFilterModeLinear, hipAddressModeClamp);
-    texture<uchar4, hipTextureType2D, cudaReadModeNormalizedFloat> tex_I8UC4(false, hipFilterModeLinear, hipAddressModeClamp);
+    texture<uchar, hipTextureType2D, hipReadModeNormalizedFloat> tex_I8U(false, hipFilterModeLinear, hipAddressModeClamp);
+    texture<uchar4, hipTextureType2D, hipReadModeNormalizedFloat> tex_I8UC4(false, hipFilterModeLinear, hipAddressModeClamp);
 
-    texture<ushort4, hipTextureType2D, cudaReadModeNormalizedFloat> tex_I16UC4(false, hipFilterModeLinear, hipAddressModeClamp);
+    texture<ushort4, hipTextureType2D, hipReadModeNormalizedFloat> tex_I16UC4(false, hipFilterModeLinear, hipAddressModeClamp);
 
 
     texture<float, hipTextureType2D, hipReadModeElementType> tex_If(false, hipFilterModeLinear, hipAddressModeClamp);
@@ -76,10 +76,10 @@ namespace pyrlk
 
     texture<uchar, hipTextureType2D, hipReadModeElementType> tex_Ib(false, hipFilterModePoint, hipAddressModeClamp);
 
-    texture<uchar, hipTextureType2D, cudaReadModeNormalizedFloat> tex_J8U(false, hipFilterModeLinear, hipAddressModeClamp);
-    texture<uchar4, hipTextureType2D, cudaReadModeNormalizedFloat> tex_J8UC4(false, hipFilterModeLinear, hipAddressModeClamp);
+    texture<uchar, hipTextureType2D, hipReadModeNormalizedFloat> tex_J8U(false, hipFilterModeLinear, hipAddressModeClamp);
+    texture<uchar4, hipTextureType2D, hipReadModeNormalizedFloat> tex_J8UC4(false, hipFilterModeLinear, hipAddressModeClamp);
 
-    texture<ushort4, hipTextureType2D, cudaReadModeNormalizedFloat> tex_J16UC4(false, hipFilterModeLinear, hipAddressModeClamp);
+    texture<ushort4, hipTextureType2D, hipReadModeNormalizedFloat> tex_J16UC4(false, hipFilterModeLinear, hipAddressModeClamp);
 
 
     texture<float, hipTextureType2D, hipReadModeElementType> tex_Jf(false, hipFilterModeLinear, hipAddressModeClamp);
