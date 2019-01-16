@@ -510,7 +510,7 @@ namespace cv { namespace cuda { namespace device { namespace optflow_farneback
         int smem = (block.x + 2*ksizeHalf) * block.y * sizeof(float);
         Border b(height, width);
 
-        hipLaunchKernelGGL((gaussianBlur), dim3(grid), dim3(block), smem, stream, height, width, src, ksizeHalf, b, dst);
+        hipLaunchKernelGGL((gaussianBlur<Border>), dim3(grid), dim3(block), smem, stream, height, width, src, ksizeHalf, b, dst);
 
         cudaSafeCall(hipGetLastError());
 
@@ -608,7 +608,7 @@ namespace cv { namespace cuda { namespace device { namespace optflow_farneback
         int smem = (block.x + 2*ksizeHalf) * 5 * block.y * sizeof(float);
         Border b(height, width);
 
-        hipLaunchKernelGGL((gaussianBlur5), dim3(grid), dim3(block), smem, stream, height, width, src, ksizeHalf, b, dst);
+        hipLaunchKernelGGL((gaussianBlur5<Border>), dim3(grid), dim3(block), smem, stream, height, width, src, ksizeHalf, b, dst);
 
         cudaSafeCall(hipGetLastError());
 
