@@ -140,6 +140,37 @@ static __host__ __device__ double4 _average4_CN(const double4 &p00, const double
     return out;
 }};
 
+//HIP_NOTE: Added to metigate template match with HIP_vectors due to NC() issue
+template<> struct __average4_CN<uchar3, 4> {
+    static __host__ __device__ uchar3 _average4_CN(const uchar3 &p00, const uchar3 &p01, const uchar3 &p10, const uchar3 &p11)
+    {
+        uchar3 out;
+        out.x = ((Ncv32s)p00.x + p01.x + p10.x + p11.x + 2) / 4;
+        out.y = ((Ncv32s)p00.y + p01.y + p10.y + p11.y + 2) / 4;
+        out.z = ((Ncv32s)p00.z + p01.z + p10.z + p11.z + 2) / 4;
+        return out;
+    }};
+
+template<> struct __average4_CN<ushort3, 4> {
+    static __host__ __device__ ushort3 _average4_CN(const ushort3 &p00, const ushort3 &p01, const ushort3 &p10, const ushort3 &p11)
+    {
+        ushort3 out;
+        out.x = ((Ncv32s)p00.x + p01.x + p10.x + p11.x + 2) / 4;
+        out.y = ((Ncv32s)p00.y + p01.y + p10.y + p11.y + 2) / 4;
+        out.z = ((Ncv32s)p00.z + p01.z + p10.z + p11.z + 2) / 4;
+        return out;
+    }};
+
+template<> struct __average4_CN<float3, 4> {
+    static __host__ __device__ float3 _average4_CN(const float3 &p00, const float3 &p01, const float3 &p10, const float3 &p11)
+{
+    float3 out;
+    out.x = (p00.x + p01.x + p10.x + p11.x) / 4;
+    out.y = (p00.y + p01.y + p10.y + p11.y) / 4;
+    out.z = (p00.z + p01.z + p10.z + p11.z) / 4;
+    return out;
+}};
+//---
 template<typename T> static __host__ __device__ T _average4(const T &p00, const T &p01, const T &p10, const T &p11)
 {
     return __average4_CN<T, NC(T)>::_average4_CN(p00, p01, p10, p11);
@@ -174,6 +205,37 @@ static __host__ __device__ Tout _lerp_CN(const Tin &a, const Tin &b, Ncv32f d)
                     TB(b.w * d + a.w * (1 - d)));
 }};
 
+//HIP_NOTE: Added to metigate template match with HIP_vectors due to NC() issue
+template<typename Tout> struct __lerp_CN<uchar3, Tout, 4> {
+    static __host__ __device__ Tout _lerp_CN(const uchar3 &a, const uchar3 &b, Ncv32f d)
+    {
+        typedef typename TConvVec2Base<Tout>::TBase TB;
+        return _pixMake(TB(b.x * d + a.x * (1 - d)),
+                        TB(b.y * d + a.y * (1 - d)),
+                        TB(b.z * d + a.z * (1 - d)),
+                        TB(0));
+    }};
+
+template<typename Tout> struct __lerp_CN<ushort3, Tout, 4> {
+    static __host__ __device__ Tout _lerp_CN(const ushort3 &a, const ushort3 &b, Ncv32f d)
+    {
+        typedef typename TConvVec2Base<Tout>::TBase TB;
+        return _pixMake(TB(b.x * d + a.x * (1 - d)),
+                        TB(b.y * d + a.y * (1 - d)),
+                        TB(b.z * d + a.z * (1 - d)),
+                        TB(0));
+    }};
+
+template<typename Tout> struct __lerp_CN<float3, Tout, 4> {
+    static __host__ __device__ Tout _lerp_CN(const float3 &a, const float3 &b, Ncv32f d)
+    {
+        typedef typename TConvVec2Base<Tout>::TBase TB;
+        return _pixMake(TB(b.x * d + a.x * (1 - d)),
+                        TB(b.y * d + a.y * (1 - d)),
+                        TB(b.z * d + a.z * (1 - d)),
+                        TB(0));
+    }};
+//---
 template<typename Tin, typename Tout> static __host__ __device__ Tout _lerp(const Tin &a, const Tin &b, Ncv32f d)
 {
     return __lerp_CN<Tin, Tout, NC(Tin)>::_lerp_CN(a, b, d);
