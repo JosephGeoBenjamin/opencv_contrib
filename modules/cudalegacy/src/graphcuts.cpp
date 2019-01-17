@@ -170,6 +170,8 @@ void cv::cuda::graphcut(GpuMat& terminals, GpuMat& leftTransp, GpuMat& rightTran
 
     labels.create(src_size, CV_8U);
 
+    hipStream_t stream = StreamAccessor::getStream(s);
+
 #ifdef NPP_ENABLE
     NppiSize sznpp;
     sznpp.width = src_size.width;
@@ -180,7 +182,6 @@ void cv::cuda::graphcut(GpuMat& terminals, GpuMat& leftTransp, GpuMat& rightTran
 
     ensureSizeIsEnough(1, bufsz, CV_8U, buf);
 
-    hipStream_t stream = StreamAccessor::getStream(s);
 
     NppStreamHandler h(stream);
 
@@ -246,6 +247,7 @@ void cv::cuda::graphcut(GpuMat& terminals, GpuMat& leftTransp, GpuMat& rightTran
 
     labels.create(src_size, CV_8U);
 
+    hipStream_t stream = StreamAccessor::getStream(s);
 #ifdef NPP_ENABLE
     NppiSize sznpp;
     sznpp.width = src_size.width;
@@ -255,8 +257,6 @@ void cv::cuda::graphcut(GpuMat& terminals, GpuMat& leftTransp, GpuMat& rightTran
     nppSafeCall( nppiGraphcut8GetSize(sznpp, &bufsz) );
 
     ensureSizeIsEnough(1, bufsz, CV_8U, buf);
-
-    hipStream_t stream = StreamAccessor::getStream(s);
 
     NppStreamHandler h(stream);
 

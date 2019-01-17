@@ -64,9 +64,9 @@ struct NVidiaTest : TestWithParam<cv::cuda::DeviceInfo>
     }
 };
 
+struct NCV : NVidiaTest {};
 #ifdef NPP_ENABLE
 struct NPPST : NVidiaTest {};
-struct NCV : NVidiaTest {};
 
 CUDA_TEST_P(NPPST, Integral)
 {

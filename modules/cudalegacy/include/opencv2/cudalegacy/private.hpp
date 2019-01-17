@@ -77,7 +77,7 @@ namespace cv { namespace cuda
     private:
         hipStream_t oldStream;
     };
-
+#endif //NPP_ENABLE
     CV_EXPORTS cv::String getNcvErrorMessage(int code);
 
     static inline void checkNcvError(int err, const char* file, const int line, const char* func)
@@ -88,7 +88,7 @@ namespace cv { namespace cuda
             cv::error(cv::Error::GpuApiCallError, msg, func, file, line);
         }
     }
-#endif //NPP_ENABLE
+
 }}
 
 #define ncvSafeCall(expr)  cv::cuda::checkNcvError(expr, __FILE__, __LINE__, CV_Func)

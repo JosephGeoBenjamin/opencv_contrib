@@ -197,18 +197,18 @@ bool TestHaarCascadeApplication::process()
     NCVVectorAlloc<NcvRect32u> h_hypotheses(*this->allocatorCPU.get(), this->width * this->height);
     ncvAssertReturn(h_hypotheses.isMemAllocated(), false);
 
-#ifdef NPP_ENABLE
     NCVStatus nppStat;
     Ncv32u szTmpBufIntegral, szTmpBufSqIntegral;
+    NCVVectorAlloc<Ncv8u> d_tmpIIbuf(*this->allocatorGPU.get(), std::max(szTmpBufIntegral, szTmpBufSqIntegral));
+    Ncv32u detectionsOnThisScale_d = 0;
+    Ncv32u detectionsOnThisScale_h = 0;
+
+#ifdef NPP_ENABLE
     nppStat = nppiStIntegralGetSize_8u32u(NcvSize32u(this->width, this->height), &szTmpBufIntegral, this->devProp);
     ncvAssertReturn(nppStat == NPPST_SUCCESS, false);
     nppStat = nppiStSqrIntegralGetSize_8u64u(NcvSize32u(this->width, this->height), &szTmpBufSqIntegral, this->devProp);
     ncvAssertReturn(nppStat == NPPST_SUCCESS, false);
-    NCVVectorAlloc<Ncv8u> d_tmpIIbuf(*this->allocatorGPU.get(), std::max(szTmpBufIntegral, szTmpBufSqIntegral));
     ncvAssertReturn(d_tmpIIbuf.isMemAllocated(), false);
-
-    Ncv32u detectionsOnThisScale_d = 0;
-    Ncv32u detectionsOnThisScale_h = 0;
 
     NCV_SKIP_COND_BEGIN
 
@@ -241,8 +241,6 @@ bool TestHaarCascadeApplication::process()
         NcvSize32u(searchRoi.width, searchRoi.height), rect,
         1.0f, true);
     ncvAssertReturn(nppStat == NPPST_SUCCESS, false);
-#endif //NPP_ENABLE
-
     ncvStat = d_integralImage.copySolid(h_integralImage, 0);
     ncvAssertReturn(ncvStat == NCV_SUCCESS, false);
     ncvStat = d_rectStdDev.copySolid(h_rectStdDev, 0);
@@ -278,6 +276,7 @@ bool TestHaarCascadeApplication::process()
     }
 
     NCV_SKIP_COND_END
+#endif //NPP_ENABLE
 
     int devId;
     ncvAssertCUDAReturn(hipGetDevice(&devId), false);

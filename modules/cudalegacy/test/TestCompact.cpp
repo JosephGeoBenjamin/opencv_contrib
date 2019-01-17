@@ -104,13 +104,12 @@ bool TestCompact::process()
     ncvAssertReturn(h_dstLen.isMemAllocated(), false);
     Ncv32u bufSize;
 
+    Ncv32u h_outElemNum_h = 0;
 #ifdef NPP_ENABLE
     ncvStat = nppsStCompactGetSize_32u(this->length, &bufSize, this->devProp);
     ncvAssertReturn(NPPST_SUCCESS == ncvStat, false);
     NCVVectorAlloc<Ncv8u> d_tmpBuf(*this->allocatorGPU.get(), bufSize);
     ncvAssertReturn(d_tmpBuf.isMemAllocated(), false);
-
-    Ncv32u h_outElemNum_h = 0;
 
     NCV_SKIP_COND_BEGIN
     ncvStat = h_vecSrc.copySolid(d_vecSrc, 0);
