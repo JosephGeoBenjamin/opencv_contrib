@@ -84,7 +84,10 @@ template<> struct TConvVec2Base<double1> {typedef Ncv64f TBase;};
 template<> struct TConvVec2Base<double3> {typedef Ncv64f TBase;};
 template<> struct TConvVec2Base<double4> {typedef Ncv64f TBase;};
 
-#define NC(T)       (sizeof(T) / sizeof(TConvVec2Base<T>::TBase))
+template<> struct TConvVec2Base<float>  {typedef Ncv32f TBase;};
+template<> struct TConvVec2Base<int>  {typedef Ncv32s TBase;};
+
+#define NC(T)       (sizeof(T) / sizeof(typename TConvVec2Base<T>::TBase) -1)
 
 template<typename TBase, Ncv32u NC> struct TConvBase2Vec;
 template<> struct TConvBase2Vec<Ncv8u, 1>  {typedef uchar1 TVec;};
@@ -102,6 +105,9 @@ template<> struct TConvBase2Vec<Ncv32f, 4> {typedef float4 TVec;};
 template<> struct TConvBase2Vec<Ncv64f, 1> {typedef double1 TVec;};
 template<> struct TConvBase2Vec<Ncv64f, 3> {typedef double3 TVec;};
 template<> struct TConvBase2Vec<Ncv64f, 4> {typedef double4 TVec;};
+
+template<> struct TConvBase2Vec<Ncv32f, 0> {typedef float TVec;};
+template<> struct TConvBase2Vec<Ncv32s, 0> {typedef int TVec;};
 
 //TODO: consider using CUDA intrinsics to avoid branching
 template<typename Tin> inline __host__ __device__ void _TDemoteClampZ(Tin &a, Ncv8u &out) {out = (Ncv8u)CLAMP_0_255(a);}
