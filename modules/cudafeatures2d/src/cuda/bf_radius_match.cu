@@ -57,8 +57,8 @@ namespace cv { namespace cuda { namespace device
         // Match Unrolled
 
         template <int BLOCK_SIZE, int MAX_DESC_LEN, bool SAVE_IMG_IDX, typename Dist, typename T, typename Mask>
-        __global__ void matchUnrolled(const PtrStepSz<T> query, int imgIdx, const PtrStepSz<T> train, float maxDistance, const Mask mask,
-            PtrStepSzi bestTrainIdx, PtrStepSzi bestImgIdx, PtrStepSzf bestDistance, PtrStepSz<unsigned int>* nMatches, int maxCount)
+        __global__ void matchUnrolled(const PtrStepSz<T> query, int imgIdx, const PtrStepSz<T> train, float maxDistance, Mask mask,
+            PtrStepSzi bestTrainIdx, PtrStepSzi bestImgIdx, PtrStepSzf bestDistance, unsigned int* nMatches, int maxCount)
         {
             HIP_DYNAMIC_SHARED( int, smem)
 
@@ -146,12 +146,12 @@ namespace cv { namespace cuda { namespace device
 
                 if (masks != 0 && masks[i].data)
                 {
-                    hipLaunchKernelGGL((matchUnrolled<BLOCK_SIZE, MAX_DESC_LEN, true, Dist, T, PtrStepSzb*>), dim3(grid), dim3(block), smemSize, stream, query, i, train, maxDistance, SingleMask(masks[i]),
+                    hipLaunchKernelGGL((matchUnrolled<BLOCK_SIZE, MAX_DESC_LEN, true, Dist, T, SingleMask >), dim3(grid), dim3(block), smemSize, stream, query, i, train, maxDistance, SingleMask(masks[i]),
                         trainIdx, imgIdx, distance, nMatches.data, trainIdx.cols);
                 }
                 else
                 {
-                    hipLaunchKernelGGL((matchUnrolled<BLOCK_SIZE, MAX_DESC_LEN, true, Dist, T, PtrStepSzb*>), dim3(grid), dim3(block), smemSize, stream, query, i, train, maxDistance, WithOutMask(),
+                    hipLaunchKernelGGL((matchUnrolled<BLOCK_SIZE, MAX_DESC_LEN, true, Dist, T, WithOutMask>), dim3(grid), dim3(block), smemSize, stream, query, i, train, maxDistance, WithOutMask(),
                         trainIdx, imgIdx, distance, nMatches.data, trainIdx.cols);
                 }
                 cudaSafeCall( hipGetLastError() );
