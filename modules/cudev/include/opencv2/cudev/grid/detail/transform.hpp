@@ -176,8 +176,10 @@ namespace grid_transform_detail
 
         if (x >= cols || y >= rows || !mask(y, x))
             return;
-
+#ifdef HIP_TODO
         dst(y, x) = saturate_cast<DstType>(op(src1(y, x), src2(y, x)));
+#endif //HIP_TODO
+
     }
 
     // transformSmart
@@ -235,15 +237,22 @@ namespace grid_transform_detail
             {
                 const read_type1 src1_n_el = ((const read_type1*)src1)[x];
                 const read_type2 src2_n_el = ((const read_type2*)src2)[x];
-
+#ifdef HIP_TODO
                 OpUnroller<SHIFT>::unroll(src1_n_el, src2_n_el, ((write_type*)dst)[x], op, mask, x_shifted, y);
+#endif //HIP_TODO
+
             }
             else
             {
                 for (int real_x = x_shifted; real_x < cols; ++real_x)
                 {
                     if (mask(y, real_x))
+                    {
+#ifdef HIP_TODO
                         dst[real_x] = op(src1[real_x], src2[real_x]);
+#endif //HIP_TODO
+                    }
+
                 }
             }
         }
@@ -309,7 +318,7 @@ namespace grid_transform_detail
             const dim3 block(Policy::block_size_x, Policy::block_size_y);
             const dim3 grid(divUp(cols, block.x * Policy::shift), divUp(rows, block.y));
 
-            hipLaunchKernelGGL((transformSmart<Policy::shift>), dim3(grid), dim3(block), 0, stream, src, dst, op, mask, rows, cols);
+            hipLaunchKernelGGL((transformSmart<Policy::shift, SrcType, DstType, UnOp, MaskPtr>), dim3(grid), dim3(block), 0, stream, src, dst, op, mask, rows, cols);
             CV_CUDEV_SAFE_CALL( hipGetLastError() );
 
             if (stream == 0)
@@ -331,7 +340,7 @@ namespace grid_transform_detail
             const dim3 block(Policy::block_size_x, Policy::block_size_y);
             const dim3 grid(divUp(cols, block.x * Policy::shift), divUp(rows, block.y));
 
-            hipLaunchKernelGGL((transformSmart<Policy::shift>), dim3(grid), dim3(block), 0, stream, src1, src2, dst, op, mask, rows, cols);
+            hipLaunchKernelGGL((transformSmart<Policy::shift, SrcType1, SrcType2, DstType, BinOp, MaskPtr>), dim3(grid), dim3(block), 0, stream, src1, src2, dst, op, mask, rows, cols);
             CV_CUDEV_SAFE_CALL( hipGetLastError() );
 
             if (stream == 0)

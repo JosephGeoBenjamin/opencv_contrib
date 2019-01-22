@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -231,7 +232,7 @@ namespace cv { namespace cuda { namespace device
         template<int RADIUS>
         __global__ void stereoKernel(unsigned char *left, unsigned char *right, size_t img_step, PtrStepb disp, int maxdisp)
         {
-            extern __shared__ unsigned int col_ssd_cache[];
+            HIP_DYNAMIC_SHARED( unsigned int, col_ssd_cache)
             volatile unsigned int *col_ssd = col_ssd_cache + BLOCK_W + threadIdx.x;
             volatile unsigned int *col_ssd_extra = threadIdx.x < (2 * RADIUS) ? col_ssd + BLOCK_W : 0;  //#define N_DIRTY_PIXELS (2 * RADIUS)
 
@@ -262,7 +263,7 @@ namespace cv { namespace cuda { namespace device
 
                 InitColSSD<RADIUS>(x_tex, y_tex, img_step, left, right, d, col_ssd);
 
-                if (col_ssd_extra > 0)
+                if ((*col_ssd_extra) > 0)
                     if (x_tex + BLOCK_W < cwidth)
                         InitColSSD<RADIUS>(x_tex + BLOCK_W, y_tex, img_step, left, right, d, col_ssd_extra);
 
@@ -310,7 +311,7 @@ namespace cv { namespace cuda { namespace device
         }
 
 
-        template<int RADIUS> void kernel_caller(const PtrStepSzb& left, const PtrStepSzb& right, const PtrStepSzb& disp, int maxdisp, cudaStream_t & stream)
+        template<int RADIUS> void kernel_caller(const PtrStepSzb& left, const PtrStepSzb& right, const PtrStepSzb& disp, int maxdisp, hipStream_t & stream)
         {
             dim3 grid(1,1,1);
             dim3 threads(BLOCK_W, 1, 1);
@@ -321,14 +322,14 @@ namespace cv { namespace cuda { namespace device
             //See above:  #define COL_SSD_SIZE (BLOCK_W + 2 * RADIUS)
             size_t smem_size = (BLOCK_W + N_DISPARITIES * (BLOCK_W + 2 * RADIUS)) * sizeof(unsigned int);
 
-            stereoKernel<RADIUS><<<grid, threads, smem_size, stream>>>(left.data, right.data, left.step, disp, maxdisp);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((stereoKernel<RADIUS>), dim3(grid), dim3(threads), smem_size, stream, left.data, right.data, left.step, disp, maxdisp);
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         };
 
-        typedef void (*kernel_caller_t)(const PtrStepSzb& left, const PtrStepSzb& right, const PtrStepSzb& disp, int maxdisp, cudaStream_t & stream);
+        typedef void (*kernel_caller_t)(const PtrStepSzb& left, const PtrStepSzb& right, const PtrStepSzb& disp, int maxdisp, hipStream_t & stream);
 
         const static kernel_caller_t callers[] =
         {
@@ -343,25 +344,25 @@ namespace cv { namespace cuda { namespace device
         };
         const int calles_num = sizeof(callers)/sizeof(callers[0]);
 
-        void stereoBM_CUDA(const PtrStepSzb& left, const PtrStepSzb& right, const PtrStepSzb& disp, int maxdisp, int winsz, const PtrStepSz<unsigned int>& minSSD_buf, cudaStream_t& stream)
+        void stereoBM_CUDA(const PtrStepSzb& left, const PtrStepSzb& right, const PtrStepSzb& disp, int maxdisp, int winsz, const PtrStepSz<unsigned int>& minSSD_buf, hipStream_t& stream)
         {
             int winsz2 = winsz >> 1;
 
             if (winsz2 == 0 || winsz2 >= calles_num)
                 CV_Error(cv::Error::StsBadArg, "Unsupported window size");
 
-            //cudaSafeCall( cudaFuncSetCacheConfig(&stereoKernel, cudaFuncCachePreferL1) );
-            //cudaSafeCall( cudaFuncSetCacheConfig(&stereoKernel, cudaFuncCachePreferShared) );
+            //cudaSafeCall( hipFuncSetCacheConfig(&stereoKernel, hipFuncCachePreferL1) );
+            //cudaSafeCall( hipFuncSetCacheConfig(&stereoKernel, hipFuncCachePreferShared) );
 
-            cudaSafeCall( cudaMemset2D(disp.data, disp.step, 0, disp.cols, disp.rows) );
-            cudaSafeCall( cudaMemset2D(minSSD_buf.data, minSSD_buf.step, 0xFF, minSSD_buf.cols * minSSD_buf.elemSize(), disp.rows) );
+            cudaSafeCall( hipMemset2D(disp.data, disp.step, 0, disp.cols, disp.rows) );
+            cudaSafeCall( hipMemset2D(minSSD_buf.data, minSSD_buf.step, 0xFF, minSSD_buf.cols * minSSD_buf.elemSize(), disp.rows) );
 
-            cudaSafeCall( cudaMemcpyToSymbol( cwidth, &left.cols, sizeof(left.cols) ) );
-            cudaSafeCall( cudaMemcpyToSymbol( cheight, &left.rows, sizeof(left.rows) ) );
-            cudaSafeCall( cudaMemcpyToSymbol( cminSSDImage, &minSSD_buf.data, sizeof(minSSD_buf.data) ) );
+            cudaSafeCall( hipMemcpyToSymbol( &cwidth, &left.cols, sizeof(left.cols) ) );
+            cudaSafeCall( hipMemcpyToSymbol( &cheight, &left.rows, sizeof(left.rows) ) );
+            cudaSafeCall( hipMemcpyToSymbol( &cminSSDImage, &minSSD_buf.data, sizeof(minSSD_buf.data) ) );
 
             size_t minssd_step = minSSD_buf.step/minSSD_buf.elemSize();
-            cudaSafeCall( cudaMemcpyToSymbol( cminSSD_step,  &minssd_step, sizeof(minssd_step) ) );
+            cudaSafeCall( hipMemcpyToSymbol( &cminSSD_step,  &minssd_step, sizeof(minssd_step) ) );
 
             callers[winsz2](left, right, disp, maxdisp, stream);
         }
@@ -370,7 +371,7 @@ namespace cv { namespace cuda { namespace device
         /////////////////////////////////////// Sobel Prefiler ///////////////////////////////////////////
         //////////////////////////////////////////////////////////////////////////////////////////////////
 
-        texture<unsigned char, 2, cudaReadModeElementType> texForSobel;
+        texture<unsigned char, 2, hipReadModeElementType> texForSobel;
 
         __global__ void prefilter_kernel(PtrStepSzb output, int prefilterCap)
         {
@@ -389,10 +390,10 @@ namespace cv { namespace cuda { namespace device
             }
         }
 
-        void prefilter_xsobel(const PtrStepSzb& input, const PtrStepSzb& output, int prefilterCap, cudaStream_t & stream)
+        void prefilter_xsobel(const PtrStepSzb& input, const PtrStepSzb& output, int prefilterCap, hipStream_t & stream)
         {
-            cudaChannelFormatDesc desc = cudaCreateChannelDesc<unsigned char>();
-            cudaSafeCall( cudaBindTexture2D( 0, texForSobel, input.data, desc, input.cols, input.rows, input.step ) );
+            hipChannelFormatDesc desc = hipCreateChannelDesc<unsigned char>();
+            cudaSafeCall( hipBindTexture2D( 0, texForSobel, input.data, desc, input.cols, input.rows, input.step ) );
 
             dim3 threads(16, 16, 1);
             dim3 grid(1, 1, 1);
@@ -400,13 +401,13 @@ namespace cv { namespace cuda { namespace device
             grid.x = divUp(input.cols, threads.x);
             grid.y = divUp(input.rows, threads.y);
 
-            prefilter_kernel<<<grid, threads, 0, stream>>>(output, prefilterCap);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((prefilter_kernel), dim3(grid), dim3(threads), 0, stream, output, prefilterCap);
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
 
-            cudaSafeCall( cudaUnbindTexture (texForSobel ) );
+            cudaSafeCall( hipUnbindTexture (texForSobel ) );
         }
 
 
@@ -414,7 +415,7 @@ namespace cv { namespace cuda { namespace device
         /////////////////////////////////// Textureness filtering ////////////////////////////////////////
         //////////////////////////////////////////////////////////////////////////////////////////////////
 
-        texture<unsigned char, 2, cudaReadModeNormalizedFloat> texForTF;
+        texture<unsigned char, 2, hipReadModeNormalizedFloat> texForTF;
 
         __device__ __forceinline__ float sobel(int x, int y)
         {
@@ -453,7 +454,7 @@ namespace cv { namespace cuda { namespace device
             int winsz2 = winsz/2;
             int n_dirty_pixels = (winsz2) * 2;
 
-            extern __shared__ float cols_cache[];
+            HIP_DYNAMIC_SHARED( float, cols_cache)
             float *cols = cols_cache + blockDim.x + threadIdx.x;
             float *cols_extra = threadIdx.x < n_dirty_pixels ? cols + blockDim.x : 0;
 
@@ -507,16 +508,16 @@ namespace cv { namespace cuda { namespace device
             }
         }
 
-        void postfilter_textureness(const PtrStepSzb& input, int winsz, float avgTexturenessThreshold, const PtrStepSzb& disp, cudaStream_t & stream)
+        void postfilter_textureness(const PtrStepSzb& input, int winsz, float avgTexturenessThreshold, const PtrStepSzb& disp, hipStream_t & stream)
         {
             avgTexturenessThreshold *= winsz * winsz;
 
-            texForTF.filterMode     = cudaFilterModeLinear;
-            texForTF.addressMode[0] = cudaAddressModeWrap;
-            texForTF.addressMode[1] = cudaAddressModeWrap;
+            texForTF.filterMode     = hipFilterModeLinear;
+            texForTF.addressMode[0] = hipAddressModeWrap;
+            texForTF.addressMode[1] = hipAddressModeWrap;
 
-            cudaChannelFormatDesc desc = cudaCreateChannelDesc<unsigned char>();
-            cudaSafeCall( cudaBindTexture2D( 0, texForTF, input.data, desc, input.cols, input.rows, input.step ) );
+            hipChannelFormatDesc desc = hipCreateChannelDesc<unsigned char>();
+            cudaSafeCall( hipBindTexture2D( 0, texForTF, input.data, desc, input.cols, input.rows, input.step ) );
 
             dim3 threads(128, 1, 1);
             dim3 grid(1, 1, 1);
@@ -525,13 +526,13 @@ namespace cv { namespace cuda { namespace device
             grid.y = divUp(input.rows, RpT);
 
             size_t smem_size = (threads.x + threads.x + (winsz/2) * 2 ) * sizeof(float);
-            textureness_kernel<<<grid, threads, smem_size, stream>>>(disp, winsz, avgTexturenessThreshold);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((textureness_kernel), dim3(grid), dim3(threads), smem_size, stream, disp, winsz, avgTexturenessThreshold);
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
 
-            cudaSafeCall( cudaUnbindTexture (texForTF) );
+            cudaSafeCall( hipUnbindTexture (texForTF) );
         }
     } // namespace stereobm
 }}} // namespace cv { namespace cuda { namespace cudev

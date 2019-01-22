@@ -142,7 +142,7 @@ namespace cv { namespace cuda { namespace device
             const int PIXELS_PER_THREAD = 8;
 
             void* counterPtr;
-            cudaSafeCall( hipGetSymbolAddress(&counterPtr, g_counter) );
+            cudaSafeCall( hipGetSymbolAddress(&counterPtr, &g_counter) );
 
             cudaSafeCall( hipMemset(counterPtr, 0, sizeof(int)) );
 
@@ -288,7 +288,7 @@ namespace cv { namespace cuda { namespace device
         int Ballard_Pos_findPosInHist_gpu(PtrStepSzi hist, float4* out, int3* votes, int maxSize, float dp, int threshold)
         {
             void* counterPtr;
-            cudaSafeCall( hipGetSymbolAddress(&counterPtr, g_counter) );
+            cudaSafeCall( hipGetSymbolAddress(&counterPtr, &g_counter) );
 
             cudaSafeCall( hipMemset(counterPtr, 0, sizeof(int)) );
 
@@ -361,7 +361,7 @@ namespace cv { namespace cuda { namespace device
             tbl.r2_data = r2.data;
             tbl.r2_step = r2.step;
 
-            cudaSafeCall( hipMemcpyToSymbol(c_templFeatures, &tbl, sizeof(FeatureTable)) );
+            cudaSafeCall( hipMemcpyToSymbol(&c_templFeatures, &tbl, sizeof(FeatureTable)) );
         }
         void Guil_Full_setImageFeatures(PtrStepb p1_pos, PtrStepb p1_theta, PtrStepb p2_pos, PtrStepb d12, PtrStepb r1, PtrStepb r2)
         {
@@ -385,7 +385,7 @@ namespace cv { namespace cuda { namespace device
             tbl.r2_data = r2.data;
             tbl.r2_step = r2.step;
 
-            cudaSafeCall( hipMemcpyToSymbol(c_imageFeatures, &tbl, sizeof(FeatureTable)) );
+            cudaSafeCall( hipMemcpyToSymbol(&c_imageFeatures, &tbl, sizeof(FeatureTable)) );
         }
 
         struct TemplFeatureTable
@@ -800,7 +800,7 @@ namespace cv { namespace cuda { namespace device
                                         float dp, int threshold)
         {
             void* counterPtr;
-            cudaSafeCall( hipGetSymbolAddress(&counterPtr, g_counter) );
+            cudaSafeCall( hipGetSymbolAddress(&counterPtr, &g_counter) );
 
             cudaSafeCall( hipMemcpy(counterPtr, &curSize, sizeof(int), hipMemcpyHostToDevice) );
 

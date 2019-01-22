@@ -43,6 +43,10 @@
 #ifndef OPENCV_CUDAARITHM_HPP
 #define OPENCV_CUDAARITHM_HPP
 
+// MCW-Note: Add_definition of __OPENCV_BUILD is not reflected in this module
+#ifndef __OPENCV_BUILD
+#define __OPENCV_BUILD
+#endif
 #ifndef __cplusplus
 #  error cudaarithm.hpp header must be compiled as C++
 #endif

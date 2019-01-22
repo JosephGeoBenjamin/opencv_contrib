@@ -118,10 +118,13 @@ bool TestRectStdDev::process()
     ncvAssertReturn(h_norm_d.isMemAllocated(), false);
 
     Ncv32u bufSizeII, bufSizeSII;
+#ifdef NPP_ENABLE
     ncvStat = nppiStIntegralGetSize_8u32u(NcvSize32u(this->width, this->height), &bufSizeII, this->devProp);
     ncvAssertReturn(NPPST_SUCCESS == ncvStat, false);
     ncvStat = nppiStSqrIntegralGetSize_8u64u(NcvSize32u(this->width, this->height), &bufSizeSII, this->devProp);
     ncvAssertReturn(NPPST_SUCCESS == ncvStat, false);
+#endif //NPP_ENABLE
+
     Ncv32u bufSize = bufSizeII > bufSizeSII ? bufSizeII : bufSizeSII;
     NCVVectorAlloc<Ncv8u> d_tmpBuf(*this->allocatorGPU.get(), bufSize);
     ncvAssertReturn(d_tmpBuf.isMemAllocated(), false);
@@ -131,6 +134,8 @@ bool TestRectStdDev::process()
     ncvAssertReturn(this->src.fill(h_img), false);
 
     ncvStat = h_img.copySolid(d_img, 0);
+
+#ifdef NPP_ENABLE
     ncvAssertReturn(ncvStat == NPPST_SUCCESS, false);
 
     ncvStat = nppiStIntegral_8u32u_C1R(d_img.ptr(), d_img.pitch(),
@@ -172,6 +177,8 @@ bool TestRectStdDev::process()
                                           szNormRoi, this->rect,
                                           this->scaleFactor);
     ncvAssertReturn(ncvStat == NPPST_SUCCESS, false);
+#endif //NPP_ENABLE
+
     NCV_SKIP_COND_END
 
     //bit-to-bit check

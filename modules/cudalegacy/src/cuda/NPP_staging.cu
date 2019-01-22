@@ -43,7 +43,7 @@
 #if !defined CUDA_DISABLER
 
 #include <vector>
-#include <cuda_runtime.h>
+#include <hip/hip_runtime.h>
 
 #include "opencv2/core/cuda/warp.hpp"
 #include "opencv2/core/cuda/warp_shuffle.hpp"
@@ -51,9 +51,9 @@
 #include "opencv2/cudalegacy/NPP_staging.hpp"
 
 
-texture<Ncv8u,  1, cudaReadModeElementType> tex8u;
-texture<Ncv32u, 1, cudaReadModeElementType> tex32u;
-texture<uint2,  1, cudaReadModeElementType> tex64u;
+texture<Ncv8u,  1, hipReadModeElementType> tex8u;
+texture<Ncv32u, 1, hipReadModeElementType> tex32u;
+texture<uint2,  1, hipReadModeElementType> tex64u;
 
 
 //==============================================================================
@@ -62,21 +62,21 @@ texture<uint2,  1, cudaReadModeElementType> tex64u;
 //
 //==============================================================================
 
+#ifdef NPP_ENABLE
+static hipStream_t nppStream = 0;
 
-static cudaStream_t nppStream = 0;
 
-
-cudaStream_t nppStGetActiveCUDAstream(void)
+hipStream_t nppStGetActiveCUDAstream(void)
 {
     return nppStream;
 }
 
 
 
-cudaStream_t nppStSetActiveCUDAstream(cudaStream_t cudaStream)
+hipStream_t nppStSetActiveCUDAstream(hipStream_t hipStream)
 {
-    cudaStream_t tmp = nppStream;
-    nppStream = cudaStream;
+    hipStream_t tmp = nppStream;
+    nppStream = hipStream;
     return tmp;
 }
 
@@ -110,7 +110,7 @@ inline __device__ T warpScanInclusive(T idata, volatile T *s_Data)
 
     return idata;
 #else
-    Ncv32u pos = 2 * threadIdx.x - (threadIdx.x & (K_WARP_SIZE - 1));
+    Ncv32u pos = 2 * hipThreadIdx_x - (hipThreadIdx_x & (K_WARP_SIZE - 1));
     s_Data[pos] = 0;
     pos += K_WARP_SIZE;
     s_Data[pos] = idata;
@@ -126,7 +126,7 @@ inline __device__ T warpScanInclusive(T idata, volatile T *s_Data)
 }
 inline __device__ Ncv64u warpScanInclusive(Ncv64u idata, volatile Ncv64u *s_Data)
 {
-    Ncv32u pos = 2 * threadIdx.x - (threadIdx.x & (K_WARP_SIZE - 1));
+    Ncv32u pos = 2 * hipThreadIdx_x - (hipThreadIdx_x & (K_WARP_SIZE - 1));
     s_Data[pos] = 0;
     pos += K_WARP_SIZE;
     s_Data[pos] = idata;
@@ -159,25 +159,25 @@ inline __device__ T blockScanInclusive(T idata, volatile T *s_Data)
         //Save top elements of each warp for exclusive warp scan
         //sync to wait for warp scans to complete (because s_Data is being overwritten)
         __syncthreads();
-        if( (threadIdx.x & (K_WARP_SIZE - 1)) == (K_WARP_SIZE - 1) )
+        if( (hipThreadIdx_x & (K_WARP_SIZE - 1)) == (K_WARP_SIZE - 1) )
         {
-            s_Data[threadIdx.x >> K_LOG2_WARP_SIZE] = warpResult;
+            s_Data[hipThreadIdx_x >> K_LOG2_WARP_SIZE] = warpResult;
         }
 
         //wait for warp scans to complete
         __syncthreads();
 
-        if( threadIdx.x < (tiNumScanThreads / K_WARP_SIZE) )
+        if( hipThreadIdx_x < (tiNumScanThreads / K_WARP_SIZE) )
         {
             //grab top warp elements
-            T val = s_Data[threadIdx.x];
+            T val = s_Data[hipThreadIdx_x];
             //calculate exclusive scan and write back to shared memory
-            s_Data[threadIdx.x] = warpScanExclusive(val, s_Data);
+            s_Data[hipThreadIdx_x] = warpScanExclusive(val, s_Data);
         }
 
         //return updated warp scans with exclusive scan results
         __syncthreads();
-        return warpResult + s_Data[threadIdx.x >> K_LOG2_WARP_SIZE];
+        return warpResult + s_Data[hipThreadIdx_x >> K_LOG2_WARP_SIZE];
     }
     else
     {
@@ -229,7 +229,7 @@ inline __device__ T readElem(T *d_src, Ncv32u texOffs, Ncv32u srcStride, Ncv32u 
 template<>
 inline __device__ Ncv8u readElem<Ncv8u>(Ncv8u *d_src, Ncv32u texOffs, Ncv32u srcStride, Ncv32u curElemOffs)
 {
-    return tex1Dfetch(tex8u, texOffs + srcStride * blockIdx.x + curElemOffs);
+    return tex1Dfetch(tex8u, texOffs + srcStride * hipBlockIdx_x + curElemOffs);
 }
 
 
@@ -272,10 +272,10 @@ __global__ void scanRows(T_in *d_src, Ncv32u texOffs, Ncv32u srcWidth, Ncv32u sr
     //advance pointers to the current line
     if (sizeof(T_in) != 1)
     {
-        d_src += srcStride * blockIdx.x;
+        d_src += srcStride * hipBlockIdx_x;
     }
     //for initial image 8bit source we use texref tex8u
-    d_II += IIstride * blockIdx.x;
+    d_II += IIstride * hipBlockIdx_x;
 
     Ncv32u numBuckets = (srcWidth + NUM_SCAN_THREADS - 1) >> LOG2_NUM_SCAN_THREADS;
     Ncv32u offsetX = 0;
@@ -287,7 +287,7 @@ __global__ void scanRows(T_in *d_src, Ncv32u texOffs, Ncv32u srcWidth, Ncv32u sr
 
     while (numBuckets--)
     {
-        Ncv32u curElemOffs = offsetX + threadIdx.x;
+        Ncv32u curElemOffs = offsetX + hipThreadIdx_x;
         T_out curScanElem;
 
         T_in curElem;
@@ -312,14 +312,14 @@ __global__ void scanRows(T_in *d_src, Ncv32u texOffs, Ncv32u srcWidth, Ncv32u sr
 
         //remember last element for subsequent buckets adjustment
         __syncthreads();
-        if (threadIdx.x == NUM_SCAN_THREADS-1)
+        if (hipThreadIdx_x == NUM_SCAN_THREADS-1)
         {
             carryElem += curScanElem;
         }
         __syncthreads();
     }
 
-    if (offsetX == srcWidth && !threadIdx.x)
+    if (offsetX == srcWidth && !hipThreadIdx_x)
     {
         d_II[offsetX] = carryElem;
     }
@@ -330,22 +330,19 @@ template <bool tbDoSqr, class T_in, class T_out>
 NCVStatus scanRowsWrapperDevice(T_in *d_src, Ncv32u srcStride,
                                 T_out *d_dst, Ncv32u dstStride, NcvSize32u roi)
 {
-    cudaChannelFormatDesc cfdTex;
+    hipChannelFormatDesc cfdTex;
     size_t alignmentOffset = 0;
     if (sizeof(T_in) == 1)
     {
-        cfdTex = cudaCreateChannelDesc<Ncv8u>();
-        ncvAssertCUDAReturn(cudaBindTexture(&alignmentOffset, tex8u, d_src, cfdTex, roi.height * srcStride), NPPST_TEXTURE_BIND_ERROR);
+        cfdTex = hipCreateChannelDesc<Ncv8u>();
+        ncvAssertCUDAReturn(hipBindTexture(&alignmentOffset, tex8u, d_src, cfdTex, roi.height * srcStride), NPPST_TEXTURE_BIND_ERROR);
         if (alignmentOffset > 0)
         {
-            ncvAssertCUDAReturn(cudaUnbindTexture(tex8u), NCV_CUDA_ERROR);
-            ncvAssertCUDAReturn(cudaBindTexture(&alignmentOffset, tex8u, d_src, cfdTex, alignmentOffset + roi.height * srcStride), NPPST_TEXTURE_BIND_ERROR);
+            ncvAssertCUDAReturn(hipUnbindTexture(tex8u), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipBindTexture(&alignmentOffset, tex8u, d_src, cfdTex, alignmentOffset + roi.height * srcStride), NPPST_TEXTURE_BIND_ERROR);
         }
     }
-    scanRows
-        <T_in, T_out, tbDoSqr>
-        <<<roi.height, NUM_SCAN_THREADS, 0, nppStGetActiveCUDAstream()>>>
-        (d_src, (Ncv32u)alignmentOffset, roi.width, srcStride, d_dst, dstStride);
+    hipLaunchKernelGGL((scanRows<T_in, T_out, tbDoSqr>), dim3(roi.height), dim3(NUM_SCAN_THREADS), 0, nppStGetActiveCUDAstream(), d_src, (Ncv32u)alignmentOffset, roi.width, srcStride, d_dst, dstStride);
 
     ncvAssertCUDALastErrorReturn(NPPST_CUDA_KERNEL_EXECUTION_ERROR);
 
@@ -484,7 +481,7 @@ NCVStatus ncvSquaredIntegralImage_device(Ncv8u *d_src, Ncv32u srcStep,
 }
 
 
-NCVStatus nppiStIntegralGetSize_8u32u(NcvSize32u roiSize, Ncv32u *pBufsize, cudaDeviceProp &devProp)
+NCVStatus nppiStIntegralGetSize_8u32u(NcvSize32u roiSize, Ncv32u *pBufsize, hipDeviceProp_t &devProp)
 {
     ncvAssertReturn(pBufsize != NULL, NPPST_NULL_POINTER_ERROR);
     ncvAssertReturn(roiSize.width > 0 && roiSize.height > 0, NPPST_INVALID_ROI);
@@ -502,7 +499,7 @@ NCVStatus nppiStIntegralGetSize_8u32u(NcvSize32u roiSize, Ncv32u *pBufsize, cuda
 }
 
 
-NCVStatus nppiStIntegralGetSize_32f32f(NcvSize32u roiSize, Ncv32u *pBufsize, cudaDeviceProp &devProp)
+NCVStatus nppiStIntegralGetSize_32f32f(NcvSize32u roiSize, Ncv32u *pBufsize, hipDeviceProp_t &devProp)
 {
     ncvAssertReturn(pBufsize != NULL, NPPST_NULL_POINTER_ERROR);
     ncvAssertReturn(roiSize.width > 0 && roiSize.height > 0, NPPST_INVALID_ROI);
@@ -520,7 +517,7 @@ NCVStatus nppiStIntegralGetSize_32f32f(NcvSize32u roiSize, Ncv32u *pBufsize, cud
 }
 
 
-NCVStatus nppiStSqrIntegralGetSize_8u64u(NcvSize32u roiSize, Ncv32u *pBufsize, cudaDeviceProp &devProp)
+NCVStatus nppiStSqrIntegralGetSize_8u64u(NcvSize32u roiSize, Ncv32u *pBufsize, hipDeviceProp_t &devProp)
 {
     ncvAssertReturn(pBufsize != NULL, NPPST_NULL_POINTER_ERROR);
     ncvAssertReturn(roiSize.width > 0 && roiSize.height > 0, NPPST_INVALID_ROI);
@@ -541,7 +538,7 @@ NCVStatus nppiStSqrIntegralGetSize_8u64u(NcvSize32u roiSize, Ncv32u *pBufsize, c
 NCVStatus nppiStIntegral_8u32u_C1R(Ncv8u *d_src, Ncv32u srcStep,
                                    Ncv32u *d_dst, Ncv32u dstStep,
                                    NcvSize32u roiSize, Ncv8u *pBuffer,
-                                   Ncv32u bufSize, cudaDeviceProp &devProp)
+                                   Ncv32u bufSize, hipDeviceProp_t &devProp)
 {
     NCVMemStackAllocator gpuAllocator(NCVMemoryTypeDevice, bufSize, static_cast<Ncv32u>(devProp.textureAlignment), pBuffer);
     ncvAssertReturn(gpuAllocator.isInitialized(), NPPST_MEM_INTERNAL_ERROR);
@@ -556,7 +553,7 @@ NCVStatus nppiStIntegral_8u32u_C1R(Ncv8u *d_src, Ncv32u srcStep,
 NCVStatus nppiStIntegral_32f32f_C1R(Ncv32f *d_src, Ncv32u srcStep,
                                     Ncv32f *d_dst, Ncv32u dstStep,
                                     NcvSize32u roiSize, Ncv8u *pBuffer,
-                                    Ncv32u bufSize, cudaDeviceProp &devProp)
+                                    Ncv32u bufSize, hipDeviceProp_t &devProp)
 {
     NCVMemStackAllocator gpuAllocator(NCVMemoryTypeDevice, bufSize, static_cast<Ncv32u>(devProp.textureAlignment), pBuffer);
     ncvAssertReturn(gpuAllocator.isInitialized(), NPPST_MEM_INTERNAL_ERROR);
@@ -571,7 +568,7 @@ NCVStatus nppiStIntegral_32f32f_C1R(Ncv32f *d_src, Ncv32u srcStep,
 NCVStatus nppiStSqrIntegral_8u64u_C1R(Ncv8u *d_src, Ncv32u srcStep,
                                       Ncv64u *d_dst, Ncv32u dstStep,
                                       NcvSize32u roiSize, Ncv8u *pBuffer,
-                                      Ncv32u bufSize, cudaDeviceProp &devProp)
+                                      Ncv32u bufSize, hipDeviceProp_t &devProp)
 {
     NCVMemStackAllocator gpuAllocator(NCVMemoryTypeDevice, bufSize, static_cast<Ncv32u>(devProp.textureAlignment), pBuffer);
     ncvAssertReturn(gpuAllocator.isInitialized(), NPPST_MEM_INTERNAL_ERROR);
@@ -732,8 +729,8 @@ template <class T, NcvBool tbCacheTexture>
 __global__ void decimate_C1R(T *d_src, Ncv32u srcStep, T *d_dst, Ncv32u dstStep,
                                       NcvSize32u dstRoi, Ncv32u scale)
 {
-    int curX = blockIdx.x * blockDim.x + threadIdx.x;
-    int curY = blockIdx.y * blockDim.y + threadIdx.y;
+    int curX = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+    int curY = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
     if (curX >= dstRoi.width || curY >= dstRoi.height)
     {
@@ -768,36 +765,30 @@ static NCVStatus decimateWrapperDevice(T *d_src, Ncv32u srcStep,
 
     if (!readThruTexture)
     {
-        decimate_C1R
-            <T, false>
-            <<<grid, block, 0, nppStGetActiveCUDAstream()>>>
-            (d_src, srcStep, d_dst, dstStep, dstRoi, scale);
+        hipLaunchKernelGGL((decimate_C1R<T, false>), dim3(grid), dim3(block), 0, nppStGetActiveCUDAstream(), d_src, srcStep, d_dst, dstStep, dstRoi, scale);
     }
     else
     {
-        cudaChannelFormatDesc cfdTexSrc;
+        hipChannelFormatDesc cfdTexSrc;
 
         if (sizeof(T) == sizeof(Ncv32u))
         {
-            cfdTexSrc = cudaCreateChannelDesc<Ncv32u>();
+            cfdTexSrc = hipCreateChannelDesc<Ncv32u>();
 
             size_t alignmentOffset;
-            ncvAssertCUDAReturn(cudaBindTexture(&alignmentOffset, tex32u, d_src, cfdTexSrc, srcRoi.height * srcStep * sizeof(T)), NPPST_TEXTURE_BIND_ERROR);
+            ncvAssertCUDAReturn(hipBindTexture(&alignmentOffset, tex32u, d_src, cfdTexSrc, srcRoi.height * srcStep * sizeof(T)), NPPST_TEXTURE_BIND_ERROR);
             ncvAssertReturn(alignmentOffset==0, NPPST_TEXTURE_BIND_ERROR);
         }
         else
         {
-            cfdTexSrc = cudaCreateChannelDesc<uint2>();
+            cfdTexSrc = hipCreateChannelDesc<uint2>();
 
             size_t alignmentOffset;
-            ncvAssertCUDAReturn(cudaBindTexture(&alignmentOffset, tex64u, d_src, cfdTexSrc, srcRoi.height * srcStep * sizeof(T)), NPPST_TEXTURE_BIND_ERROR);
+            ncvAssertCUDAReturn(hipBindTexture(&alignmentOffset, tex64u, d_src, cfdTexSrc, srcRoi.height * srcStep * sizeof(T)), NPPST_TEXTURE_BIND_ERROR);
             ncvAssertReturn(alignmentOffset==0, NPPST_TEXTURE_BIND_ERROR);
         }
 
-        decimate_C1R
-            <T, true>
-            <<<grid, block, 0, nppStGetActiveCUDAstream()>>>
-            (d_src, srcStep, d_dst, dstStep, dstRoi, scale);
+        hipLaunchKernelGGL((decimate_C1R<T, true>), dim3(grid), dim3(block), 0, nppStGetActiveCUDAstream(), d_src, srcStep, d_dst, dstStep, dstRoi, scale);
     }
 
     ncvAssertCUDALastErrorReturn(NPPST_CUDA_KERNEL_EXECUTION_ERROR);
@@ -920,14 +911,14 @@ __global__ void rectStdDev_32f_C1R(Ncv32u *d_sum, Ncv32u sumStep,
                                    Ncv32f *d_norm, Ncv32u normStep,
                                    NcvSize32u roi, NcvRect32u rect, Ncv32f invRectArea)
 {
-    Ncv32u x_offs = blockIdx.x * NUM_RECTSTDDEV_THREADS + threadIdx.x;
+    Ncv32u x_offs = hipBlockIdx_x * NUM_RECTSTDDEV_THREADS + hipThreadIdx_x;
     if (x_offs >= roi.width)
     {
         return;
     }
 
-    Ncv32u sum_offset = blockIdx.y * sumStep + x_offs;
-    Ncv32u sqsum_offset = blockIdx.y * sqsumStep + x_offs;
+    Ncv32u sum_offset = hipBlockIdx_y * sumStep + x_offs;
+    Ncv32u sqsum_offset = hipBlockIdx_y * sqsumStep + x_offs;
 
     //OPT: try swapping order (could change cache hit/miss ratio)
     Ncv32u sum_tl = getElemSum<tbCacheTexture>(sum_offset + rect.y * sumStep + rect.x, d_sum);
@@ -974,7 +965,7 @@ __global__ void rectStdDev_32f_C1R(Ncv32u *d_sum, Ncv32u sumStep,
     //Ncv32f stddev = sqrtf(variance);
     Ncv32f stddev = __fsqrt_rn(variance);
 
-    d_norm[blockIdx.y * normStep + x_offs] = stddev;
+    d_norm[hipBlockIdx_y * normStep + x_offs] = stddev;
 }
 
 
@@ -1005,28 +996,22 @@ NCVStatus nppiStRectStdDev_32f_C1R(Ncv32u *d_sum, Ncv32u sumStep,
 
     if (!readThruTexture)
     {
-        rectStdDev_32f_C1R
-            <false>
-            <<<grid, block, 0, nppStGetActiveCUDAstream()>>>
-            (d_sum, sumStep, d_sqsum, sqsumStep, d_norm, normStep, roi, rect, invRectArea);
+        hipLaunchKernelGGL((rectStdDev_32f_C1R<false>), dim3(grid), dim3(block), 0, nppStGetActiveCUDAstream(), d_sum, sumStep, d_sqsum, sqsumStep, d_norm, normStep, roi, rect, invRectArea);
     }
     else
     {
-        cudaChannelFormatDesc cfdTexSrc;
-        cudaChannelFormatDesc cfdTexSqr;
-        cfdTexSrc = cudaCreateChannelDesc<Ncv32u>();
-        cfdTexSqr = cudaCreateChannelDesc<uint2>();
+        hipChannelFormatDesc cfdTexSrc;
+        hipChannelFormatDesc cfdTexSqr;
+        cfdTexSrc = hipCreateChannelDesc<Ncv32u>();
+        cfdTexSqr = hipCreateChannelDesc<uint2>();
 
         size_t alignmentOffset;
-        ncvAssertCUDAReturn(cudaBindTexture(&alignmentOffset, tex32u, d_sum, cfdTexSrc, (roi.height + rect.y + rect.height) * sumStep * sizeof(Ncv32u)), NPPST_TEXTURE_BIND_ERROR);
+        ncvAssertCUDAReturn(hipBindTexture(&alignmentOffset, tex32u, d_sum, cfdTexSrc, (roi.height + rect.y + rect.height) * sumStep * sizeof(Ncv32u)), NPPST_TEXTURE_BIND_ERROR);
         ncvAssertReturn(alignmentOffset==0, NPPST_TEXTURE_BIND_ERROR);
-        ncvAssertCUDAReturn(cudaBindTexture(&alignmentOffset, tex64u, d_sqsum, cfdTexSqr, (roi.height + rect.y + rect.height) * sqsumStep * sizeof(Ncv64u)), NPPST_TEXTURE_BIND_ERROR);
+        ncvAssertCUDAReturn(hipBindTexture(&alignmentOffset, tex64u, d_sqsum, cfdTexSqr, (roi.height + rect.y + rect.height) * sqsumStep * sizeof(Ncv64u)), NPPST_TEXTURE_BIND_ERROR);
         ncvAssertReturn(alignmentOffset==0, NPPST_TEXTURE_BIND_ERROR);
 
-        rectStdDev_32f_C1R
-            <true>
-            <<<grid, block, 0, nppStGetActiveCUDAstream()>>>
-            (NULL, sumStep, NULL, sqsumStep, d_norm, normStep, roi, rect, invRectArea);
+        hipLaunchKernelGGL((rectStdDev_32f_C1R<true>), dim3(grid), dim3(block), 0, nppStGetActiveCUDAstream(), NULL, sumStep, NULL, sqsumStep, d_norm, normStep, roi, rect, invRectArea);
     }
 
     ncvAssertCUDALastErrorReturn(NPPST_CUDA_KERNEL_EXECUTION_ERROR);
@@ -1124,20 +1109,20 @@ __global__ void transpose(T *d_src, Ncv32u srcStride,
     Ncv32u blockIdx_x, blockIdx_y;
 
     // do diagonal reordering
-    if (gridDim.x == gridDim.y)
+    if (hipGridDim_x == hipGridDim_y)
     {
-        blockIdx_y = blockIdx.x;
-        blockIdx_x = (blockIdx.x + blockIdx.y) % gridDim.x;
+        blockIdx_y = hipBlockIdx_x;
+        blockIdx_x = (hipBlockIdx_x + hipBlockIdx_y) % hipGridDim_x;
     }
     else
     {
-        Ncv32u bid = blockIdx.x + gridDim.x * blockIdx.y;
-        blockIdx_y = bid % gridDim.y;
-        blockIdx_x = ((bid / gridDim.y) + blockIdx_y) % gridDim.x;
+        Ncv32u bid = hipBlockIdx_x + hipGridDim_x * hipBlockIdx_y;
+        blockIdx_y = bid % hipGridDim_y;
+        blockIdx_x = ((bid / hipGridDim_y) + blockIdx_y) % hipGridDim_x;
     }
 
-    Ncv32u xIndex = blockIdx_x * TRANSPOSE_TILE_DIM + threadIdx.x;
-    Ncv32u yIndex = blockIdx_y * TRANSPOSE_TILE_DIM + threadIdx.y;
+    Ncv32u xIndex = blockIdx_x * TRANSPOSE_TILE_DIM + hipThreadIdx_x;
+    Ncv32u yIndex = blockIdx_y * TRANSPOSE_TILE_DIM + hipThreadIdx_y;
     Ncv32u index_gmem = xIndex + yIndex * srcStride;
 
     if (xIndex < srcRoi.width)
@@ -1146,15 +1131,15 @@ __global__ void transpose(T *d_src, Ncv32u srcStride,
         {
             if (yIndex + i < srcRoi.height)
             {
-                tile[threadIdx.y+i][threadIdx.x] = d_src[index_gmem+i*srcStride];
+                tile[hipThreadIdx_y+i][hipThreadIdx_x] = d_src[index_gmem+i*srcStride];
             }
         }
     }
 
     __syncthreads();
 
-    xIndex = blockIdx_y * TRANSPOSE_TILE_DIM + threadIdx.x;
-    yIndex = blockIdx_x * TRANSPOSE_TILE_DIM + threadIdx.y;
+    xIndex = blockIdx_y * TRANSPOSE_TILE_DIM + hipThreadIdx_x;
+    yIndex = blockIdx_x * TRANSPOSE_TILE_DIM + hipThreadIdx_y;
     index_gmem = xIndex + yIndex * dstStride;
 
     if (xIndex < srcRoi.height)
@@ -1163,7 +1148,7 @@ __global__ void transpose(T *d_src, Ncv32u srcStride,
         {
             if (yIndex + i < srcRoi.width)
             {
-                d_dst[index_gmem+i*dstStride] = tile[threadIdx.x][threadIdx.y+i];
+                d_dst[index_gmem+i*dstStride] = tile[hipThreadIdx_x][hipThreadIdx_y+i];
             }
         }
     }
@@ -1185,10 +1170,7 @@ NCVStatus transposeWrapperDevice(T *d_src, Ncv32u srcStride,
     dim3 grid((srcRoi.width + TRANSPOSE_TILE_DIM - 1) / TRANSPOSE_TILE_DIM,
               (srcRoi.height + TRANSPOSE_TILE_DIM - 1) / TRANSPOSE_TILE_DIM);
     dim3 block(TRANSPOSE_TILE_DIM, TRANSPOSE_TILE_DIM);
-    transpose
-        <T>
-        <<<grid, block, 0, nppStGetActiveCUDAstream()>>>
-        (d_src, srcStride, d_dst, dstStride, srcRoi);
+    hipLaunchKernelGGL((transpose<T>), dim3(grid), dim3(block), 0, nppStGetActiveCUDAstream(), d_src, srcStride, d_dst, dstStride, srcRoi);
     ncvAssertCUDALastErrorReturn(NPPST_CUDA_KERNEL_EXECUTION_ERROR);
 
     return NPPST_SUCCESS;
@@ -1282,10 +1264,10 @@ __global__ void removePass1Scan(Ncv32u *d_src, Ncv32u srcLen,
                                 Ncv32u *d_offsets, Ncv32u *d_blockSums,
                                 Ncv32u elemRemove)
 {
-    Ncv32u blockId = blockIdx.y * 65535 + blockIdx.x;
-    Ncv32u elemAddrIn = blockId * NUM_REMOVE_THREADS + threadIdx.x;
+    Ncv32u blockId = hipBlockIdx_y * 65535 + hipBlockIdx_x;
+    Ncv32u elemAddrIn = blockId * NUM_REMOVE_THREADS + hipThreadIdx_x;
 
-    if (elemAddrIn > srcLen + blockDim.x)
+    if (elemAddrIn > srcLen + hipBlockDim_x)
     {
         return;
     }
@@ -1310,7 +1292,7 @@ __global__ void removePass1Scan(Ncv32u *d_src, Ncv32u srcLen,
 
     if (elemAddrIn < srcLen)
     {
-        if (threadIdx.x == NUM_REMOVE_THREADS-1 && bWritePartial)
+        if (hipThreadIdx_x == NUM_REMOVE_THREADS-1 && bWritePartial)
         {
             d_blockSums[blockId] = localScanInc;
         }
@@ -1329,8 +1311,8 @@ __global__ void removePass1Scan(Ncv32u *d_src, Ncv32u srcLen,
 
 __global__ void removePass2Adjust(Ncv32u *d_offsets, Ncv32u srcLen, Ncv32u *d_blockSums)
 {
-    Ncv32u blockId = blockIdx.y * 65535 + blockIdx.x;
-    Ncv32u elemAddrIn = blockId * NUM_REMOVE_THREADS + threadIdx.x;
+    Ncv32u blockId = hipBlockIdx_y * 65535 + hipBlockIdx_x;
+    Ncv32u elemAddrIn = blockId * NUM_REMOVE_THREADS + hipThreadIdx_x;
     if (elemAddrIn >= srcLen)
     {
         return;
@@ -1348,8 +1330,8 @@ __global__ void removePass3Compact(Ncv32u *d_src, Ncv32u srcLen,
                                    Ncv32u *d_offsets, Ncv32u *d_dst,
                                    Ncv32u elemRemove, Ncv32u *dstLenValue)
 {
-    Ncv32u blockId = blockIdx.y * 65535 + blockIdx.x;
-    Ncv32u elemAddrIn = blockId * NUM_REMOVE_THREADS + threadIdx.x;
+    Ncv32u blockId = hipBlockIdx_y * 65535 + hipBlockIdx_x;
+    Ncv32u elemAddrIn = blockId * NUM_REMOVE_THREADS + hipThreadIdx_x;
     if (elemAddrIn >= srcLen)
     {
         return;
@@ -1432,10 +1414,7 @@ NCVStatus compactVector_32u_device(Ncv32u *d_src, Ncv32u srcLen,
             grid.y = (grid.x + 65534) / 65535;
             grid.x = 65535;
         }
-        removePass1Scan
-            <true, true>
-            <<<grid, block, 0, nppStGetActiveCUDAstream()>>>
-            (d_src, srcLen,
+        hipLaunchKernelGGL((removePass1Scan<true, true>), dim3(grid), dim3(block), 0, nppStGetActiveCUDAstream(), d_src, srcLen,
              d_hierSums.ptr(),
              d_hierSums.ptr() + partSumOffsets[1],
              elemRemove);
@@ -1453,20 +1432,14 @@ NCVStatus compactVector_32u_device(Ncv32u *d_src, Ncv32u srcLen,
             }
             if (grid_partial.x != 1)
             {
-                removePass1Scan
-                    <false, true>
-                    <<<grid_partial, block, 0, nppStGetActiveCUDAstream()>>>
-                    (d_hierSums.ptr() + partSumOffsets[i],
+                hipLaunchKernelGGL((removePass1Scan<false, true>), dim3(grid_partial), dim3(block), 0, nppStGetActiveCUDAstream(), d_hierSums.ptr() + partSumOffsets[i],
                      partSumNums[i], NULL,
                      d_hierSums.ptr() + partSumOffsets[i+1],
                      0);
             }
             else
             {
-                removePass1Scan
-                    <false, false>
-                    <<<grid_partial, block, 0, nppStGetActiveCUDAstream()>>>
-                    (d_hierSums.ptr() + partSumOffsets[i],
+                hipLaunchKernelGGL((removePass1Scan<false, false>), dim3(grid_partial), dim3(block), 0, nppStGetActiveCUDAstream(), d_hierSums.ptr() + partSumOffsets[i],
                      partSumNums[i], NULL,
                      NULL,
                      0);
@@ -1484,9 +1457,7 @@ NCVStatus compactVector_32u_device(Ncv32u *d_src, Ncv32u srcLen,
                 grid_local.y = (grid_local.x + 65534) / 65535;
                 grid_local.x = 65535;
             }
-            removePass2Adjust
-                <<<grid_local, block, 0, nppStGetActiveCUDAstream()>>>
-                (d_hierSums.ptr() + partSumOffsets[i], partSumNums[i],
+            hipLaunchKernelGGL((removePass2Adjust), dim3(grid_local), dim3(block), 0, nppStGetActiveCUDAstream(), d_hierSums.ptr() + partSumOffsets[i], partSumNums[i],
                  d_hierSums.ptr() + partSumOffsets[i+1]);
 
             ncvAssertCUDALastErrorReturn(NPPST_CUDA_KERNEL_EXECUTION_ERROR);
@@ -1495,10 +1466,7 @@ NCVStatus compactVector_32u_device(Ncv32u *d_src, Ncv32u srcLen,
     else
     {
         dim3 grid_local(partSumNums[1]);
-        removePass1Scan
-            <true, false>
-            <<<grid_local, block, 0, nppStGetActiveCUDAstream()>>>
-            (d_src, srcLen,
+        hipLaunchKernelGGL((removePass1Scan<true, false>), dim3(grid_local), dim3(block), 0, nppStGetActiveCUDAstream(), d_src, srcLen,
              d_hierSums.ptr(),
              NULL, elemRemove);
 
@@ -1512,9 +1480,7 @@ NCVStatus compactVector_32u_device(Ncv32u *d_src, Ncv32u srcLen,
         grid.y = (grid.x + 65534) / 65535;
         grid.x = 65535;
     }
-    removePass3Compact
-        <<<grid, block, 0, nppStGetActiveCUDAstream()>>>
-        (d_src, srcLen, d_hierSums.ptr(), d_dst,
+    hipLaunchKernelGGL((removePass3Compact), dim3(grid), dim3(block), 0, nppStGetActiveCUDAstream(), d_src, srcLen, d_hierSums.ptr(), d_dst,
          elemRemove, d_numDstElements.ptr());
 
     ncvAssertCUDALastErrorReturn(NPPST_CUDA_KERNEL_EXECUTION_ERROR);
@@ -1522,9 +1488,9 @@ NCVStatus compactVector_32u_device(Ncv32u *d_src, Ncv32u srcLen,
     //get number of dst elements
     if (dstLenPinned != NULL)
     {
-        ncvAssertCUDAReturn(cudaMemcpyAsync(dstLenPinned, d_numDstElements.ptr(), sizeof(Ncv32u),
-                                              cudaMemcpyDeviceToHost, nppStGetActiveCUDAstream()), NPPST_MEM_RESIDENCE_ERROR);
-        ncvAssertCUDAReturn(cudaStreamSynchronize(nppStGetActiveCUDAstream()), NPPST_MEM_RESIDENCE_ERROR);
+        ncvAssertCUDAReturn(hipMemcpyAsync(dstLenPinned, d_numDstElements.ptr(), sizeof(Ncv32u),
+                                              hipMemcpyDeviceToHost, nppStGetActiveCUDAstream()), NPPST_MEM_RESIDENCE_ERROR);
+        ncvAssertCUDAReturn(hipStreamSynchronize(nppStGetActiveCUDAstream()), NPPST_MEM_RESIDENCE_ERROR);
     }
 
     NCV_SKIP_COND_END
@@ -1533,7 +1499,7 @@ NCVStatus compactVector_32u_device(Ncv32u *d_src, Ncv32u srcLen,
 }
 
 
-NCVStatus nppsStCompactGetSize_32u(Ncv32u srcLen, Ncv32u *pBufsize, cudaDeviceProp &devProp)
+NCVStatus nppsStCompactGetSize_32u(Ncv32u srcLen, Ncv32u *pBufsize, hipDeviceProp_t &devProp)
 {
     ncvAssertReturn(pBufsize != NULL, NPPST_NULL_POINTER_ERROR);
 
@@ -1555,13 +1521,13 @@ NCVStatus nppsStCompactGetSize_32u(Ncv32u srcLen, Ncv32u *pBufsize, cudaDevicePr
 }
 
 
-NCVStatus nppsStCompactGetSize_32s(Ncv32u srcLen, Ncv32u *pBufsize, cudaDeviceProp &devProp)
+NCVStatus nppsStCompactGetSize_32s(Ncv32u srcLen, Ncv32u *pBufsize, hipDeviceProp_t &devProp)
 {
     return nppsStCompactGetSize_32u(srcLen, pBufsize, devProp);
 }
 
 
-NCVStatus nppsStCompactGetSize_32f(Ncv32u srcLen, Ncv32u *pBufsize, cudaDeviceProp &devProp)
+NCVStatus nppsStCompactGetSize_32f(Ncv32u srcLen, Ncv32u *pBufsize, hipDeviceProp_t &devProp)
 {
     return nppsStCompactGetSize_32u(srcLen, pBufsize, devProp);
 }
@@ -1570,7 +1536,7 @@ NCVStatus nppsStCompactGetSize_32f(Ncv32u srcLen, Ncv32u *pBufsize, cudaDevicePr
 NCVStatus nppsStCompact_32u(Ncv32u *d_src, Ncv32u srcLen,
                             Ncv32u *d_dst, Ncv32u *p_dstLen,
                             Ncv32u elemRemove, Ncv8u *pBuffer,
-                            Ncv32u bufSize, cudaDeviceProp &devProp)
+                            Ncv32u bufSize, hipDeviceProp_t &devProp)
 {
     NCVMemStackAllocator gpuAllocator(NCVMemoryTypeDevice, bufSize, static_cast<Ncv32u>(devProp.textureAlignment), pBuffer);
     ncvAssertReturn(gpuAllocator.isInitialized(), NPPST_MEM_INTERNAL_ERROR);
@@ -1586,7 +1552,7 @@ NCVStatus nppsStCompact_32u(Ncv32u *d_src, Ncv32u srcLen,
 NCVStatus nppsStCompact_32s(Ncv32s *d_src, Ncv32u srcLen,
                             Ncv32s *d_dst, Ncv32u *p_dstLen,
                             Ncv32s elemRemove, Ncv8u *pBuffer,
-                            Ncv32u bufSize, cudaDeviceProp &devProp)
+                            Ncv32u bufSize, hipDeviceProp_t &devProp)
 {
     return nppsStCompact_32u((Ncv32u *)d_src, srcLen, (Ncv32u *)d_dst, p_dstLen,
                              *(Ncv32u *)&elemRemove, pBuffer, bufSize, devProp);
@@ -1602,7 +1568,7 @@ typedef Ncv32u Ncv32u_a;
 NCVStatus nppsStCompact_32f(Ncv32f *d_src, Ncv32u srcLen,
                             Ncv32f *d_dst, Ncv32u *p_dstLen,
                             Ncv32f elemRemove, Ncv8u *pBuffer,
-                            Ncv32u bufSize, cudaDeviceProp &devProp)
+                            Ncv32u bufSize, hipDeviceProp_t &devProp)
 {
     return nppsStCompact_32u((Ncv32u *)d_src, srcLen, (Ncv32u *)d_dst, p_dstLen,
                              *(Ncv32u_a *)&elemRemove, pBuffer, bufSize, devProp);
@@ -1660,8 +1626,8 @@ NCVStatus nppsStCompact_32f_host(Ncv32f *h_src, Ncv32u srcLen,
 //==============================================================================
 
 
-texture <float, 1, cudaReadModeElementType> texSrc;
-texture <float, 1, cudaReadModeElementType> texKernel;
+texture <float, 1, hipReadModeElementType> texSrc;
+texture <float, 1, hipReadModeElementType> texKernel;
 
 
 __forceinline__ __device__ float getValueMirrorRow(const int rowOffset,
@@ -1695,8 +1661,8 @@ __global__ void FilterRowBorderMirror_32f_C1R(Ncv32u srcStep,
                                               Ncv32f multiplier)
 {
     // position within ROI
-    const int ix = blockDim.x * blockIdx.x + threadIdx.x;
-    const int iy = blockDim.y * blockIdx.y + threadIdx.y;
+    const int ix = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
+    const int iy = hipBlockDim_y * hipBlockIdx_y + hipThreadIdx_y;
 
     if (ix >= roi.width || iy >= roi.height)
     {
@@ -1729,8 +1695,8 @@ __global__ void FilterColumnBorderMirror_32f_C1R(Ncv32u srcStep,
                                                  Ncv32s nAnchor,
                                                  Ncv32f multiplier)
 {
-    const int ix = blockDim.x * blockIdx.x + threadIdx.x;
-    const int iy = blockDim.y * blockIdx.y + threadIdx.y;
+    const int ix = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
+    const int iy = hipBlockDim_y * hipBlockIdx_y + hipThreadIdx_y;
 
     if (ix >= roi.width || iy >= roi.height)
     {
@@ -1792,12 +1758,12 @@ NCVStatus nppiStFilterRowBorder_32f_C1R(const Ncv32f *pSrc,
         oROI.height = srcSize.height - oROI.y;
     }
 
-    cudaChannelFormatDesc floatChannel = cudaCreateChannelDesc <float> ();
+    hipChannelFormatDesc floatChannel = hipCreateChannelDesc <float> ();
     texSrc.normalized    = false;
     texKernel.normalized = false;
 
-    cudaBindTexture (0, texSrc, pSrc, floatChannel, srcSize.height * nSrcStep);
-    cudaBindTexture (0, texKernel, pKernel, floatChannel, nKernelSize * sizeof (Ncv32f));
+    hipBindTexture (0, texSrc, pSrc, floatChannel, srcSize.height * nSrcStep);
+    hipBindTexture (0, texKernel, pKernel, floatChannel, nKernelSize * sizeof (Ncv32f));
 
     dim3 ctaSize (32, 6);
     dim3 gridSize ((oROI.width + ctaSize.x - 1) / ctaSize.x,
@@ -1812,8 +1778,7 @@ NCVStatus nppiStFilterRowBorder_32f_C1R(const Ncv32f *pSrc,
     case nppStBorderWrap:
         return NPPST_ERROR;
     case nppStBorderMirror:
-        FilterRowBorderMirror_32f_C1R <<<gridSize, ctaSize, 0, nppStGetActiveCUDAstream ()>>>
-            (srcStep, pDst, dstSize, dstStep, oROI, nKernelSize, nAnchor, multiplier);
+        hipLaunchKernelGGL((FilterRowBorderMirror_32f_C1R), dim3(gridSize), dim3(ctaSize), 0, nppStGetActiveCUDAstream (), srcStep, pDst, dstSize, dstStep, oROI, nKernelSize, nAnchor, multiplier);
         ncvAssertCUDALastErrorReturn(NPPST_CUDA_KERNEL_EXECUTION_ERROR);
         break;
     default:
@@ -1864,12 +1829,12 @@ NCVStatus nppiStFilterColumnBorder_32f_C1R(const Ncv32f *pSrc,
         oROI.height = srcSize.height - oROI.y;
     }
 
-    cudaChannelFormatDesc floatChannel = cudaCreateChannelDesc <float> ();
+    hipChannelFormatDesc floatChannel = hipCreateChannelDesc <float> ();
     texSrc.normalized    = false;
     texKernel.normalized = false;
 
-    cudaBindTexture (0, texSrc, pSrc, floatChannel, srcSize.height * nSrcStep);
-    cudaBindTexture (0, texKernel, pKernel, floatChannel, nKernelSize * sizeof (Ncv32f));
+    hipBindTexture (0, texSrc, pSrc, floatChannel, srcSize.height * nSrcStep);
+    hipBindTexture (0, texKernel, pKernel, floatChannel, nKernelSize * sizeof (Ncv32f));
 
     dim3 ctaSize (32, 6);
     dim3 gridSize ((oROI.width + ctaSize.x - 1) / ctaSize.x,
@@ -1882,8 +1847,7 @@ NCVStatus nppiStFilterColumnBorder_32f_C1R(const Ncv32f *pSrc,
     case nppStBorderWrap:
         return NPPST_ERROR;
     case nppStBorderMirror:
-        FilterColumnBorderMirror_32f_C1R <<<gridSize, ctaSize, 0, nppStGetActiveCUDAstream ()>>>
-            (srcStep, pDst, dstSize, dstStep, oROI, nKernelSize, nAnchor, multiplier);
+        hipLaunchKernelGGL((FilterColumnBorderMirror_32f_C1R), dim3(gridSize), dim3(ctaSize), 0, nppStGetActiveCUDAstream (), srcStep, pDst, dstSize, dstStep, oROI, nKernelSize, nAnchor, multiplier);
         ncvAssertCUDALastErrorReturn(NPPST_CUDA_KERNEL_EXECUTION_ERROR);
         break;
     default:
@@ -1907,8 +1871,8 @@ inline Ncv32u iDivUp(Ncv32u num, Ncv32u denom)
 }
 
 
-texture<float, 2, cudaReadModeElementType> tex_src1;
-texture<float, 2, cudaReadModeElementType> tex_src0;
+texture<float, 2, hipReadModeElementType> tex_src1;
+texture<float, 2, hipReadModeElementType> tex_src0;
 
 
 __global__ void BlendFramesKernel(const float *u, const float *v,   // forward flow
@@ -1917,8 +1881,8 @@ __global__ void BlendFramesKernel(const float *u, const float *v,   // forward f
                                   int w, int h, int s,
                                   float theta, float *out)
 {
-    const int ix = threadIdx.x + blockDim.x * blockIdx.x;
-    const int iy = threadIdx.y + blockDim.y * blockIdx.y;
+    const int ix = hipThreadIdx_x + hipBlockDim_x * hipBlockIdx_x;
+    const int iy = hipThreadIdx_y + hipBlockDim_y * hipBlockIdx_y;
 
     const int pos = ix + s * iy;
 
@@ -1968,26 +1932,25 @@ NCVStatus BlendFrames(const Ncv32f *src0,
                       Ncv32f theta,
                       Ncv32f *out)
 {
-    tex_src1.addressMode[0] = cudaAddressModeClamp;
-    tex_src1.addressMode[1] = cudaAddressModeClamp;
-    tex_src1.filterMode = cudaFilterModeLinear;
+    tex_src1.addressMode[0] = hipAddressModeClamp;
+    tex_src1.addressMode[1] = hipAddressModeClamp;
+    tex_src1.filterMode = hipFilterModeLinear;
     tex_src1.normalized = false;
 
-    tex_src0.addressMode[0] = cudaAddressModeClamp;
-    tex_src0.addressMode[1] = cudaAddressModeClamp;
-    tex_src0.filterMode = cudaFilterModeLinear;
+    tex_src0.addressMode[0] = hipAddressModeClamp;
+    tex_src0.addressMode[1] = hipAddressModeClamp;
+    tex_src0.filterMode = hipFilterModeLinear;
     tex_src0.normalized = false;
 
-    cudaChannelFormatDesc desc = cudaCreateChannelDesc <float> ();
+    hipChannelFormatDesc desc = hipCreateChannelDesc <float> ();
     const Ncv32u pitch = stride * sizeof (float);
-    ncvAssertCUDAReturn (cudaBindTexture2D (0, tex_src1, src1, desc, width, height, pitch), NPPST_TEXTURE_BIND_ERROR);
-    ncvAssertCUDAReturn (cudaBindTexture2D (0, tex_src0, src0, desc, width, height, pitch), NPPST_TEXTURE_BIND_ERROR);
+    ncvAssertCUDAReturn (hipBindTexture2D (0, tex_src1, src1, desc, width, height, pitch), NPPST_TEXTURE_BIND_ERROR);
+    ncvAssertCUDAReturn (hipBindTexture2D (0, tex_src0, src0, desc, width, height, pitch), NPPST_TEXTURE_BIND_ERROR);
 
     dim3 threads (32, 4);
     dim3 blocks (iDivUp (width, threads.x), iDivUp (height, threads.y));
 
-    BlendFramesKernel<<<blocks, threads, 0, nppStGetActiveCUDAstream ()>>>
-        (ufi, vfi, ubi, vbi, o1, o2, width, height, stride, theta, out);
+    hipLaunchKernelGGL((BlendFramesKernel), dim3(blocks), dim3(threads), 0, nppStGetActiveCUDAstream (), ufi, vfi, ubi, vbi, o1, o2, width, height, stride, theta, out);
 
     ncvAssertCUDALastErrorReturn(NPPST_CUDA_KERNEL_EXECUTION_ERROR);
 
@@ -2138,8 +2101,8 @@ __global__ void ForwardWarpKernel_PSF2x2(const float *u,
                                          float *normalization_factor,
                                          float *dst)
 {
-    int j = threadIdx.x + blockDim.x * blockIdx.x;
-    int i = threadIdx.y + blockDim.y * blockIdx.y;
+    int j = hipThreadIdx_x + hipBlockDim_x * hipBlockIdx_x;
+    int i = hipThreadIdx_y + hipBlockDim_y * hipBlockIdx_y;
 
     if (i >= h || j >= w) return;
 
@@ -2208,8 +2171,8 @@ __global__ void ForwardWarpKernel_PSF1x1(const float *u,
                                          const float time_scale,
                                          float *dst)
 {
-    int j = threadIdx.x + blockDim.x * blockIdx.x;
-    int i = threadIdx.y + blockDim.y * blockIdx.y;
+    int j = hipThreadIdx_x + hipBlockDim_x * hipBlockIdx_x;
+    int i = hipThreadIdx_y + hipBlockDim_y * hipBlockIdx_y;
 
     if (i >= h || j >= w) return;
 
@@ -2237,8 +2200,8 @@ __global__ void ForwardWarpKernel_PSF1x1(const float *u,
 
 __global__ void NormalizeKernel(const float *normalization_factor, int w, int h, int s, float *image)
 {
-    int i = threadIdx.y + blockDim.y * blockIdx.y;
-    int j = threadIdx.x + blockDim.x * blockIdx.x;
+    int i = hipThreadIdx_y + hipBlockDim_y * hipBlockIdx_y;
+    int j = hipThreadIdx_x + hipBlockDim_x * hipBlockIdx_x;
 
     if (i >= h || j >= w) return;
 
@@ -2254,8 +2217,8 @@ __global__ void NormalizeKernel(const float *normalization_factor, int w, int h,
 
 __global__ void MemsetKernel(const float value, int w, int h, float *image)
 {
-    int i = threadIdx.y + blockDim.y * blockIdx.y;
-    int j = threadIdx.x + blockDim.x * blockIdx.x;
+    int i = hipThreadIdx_y + hipBlockDim_y * hipBlockIdx_y;
+    int j = hipThreadIdx_x + hipBlockDim_x * hipBlockIdx_x;
 
     if (i >= h || j >= w) return;
 
@@ -2302,8 +2265,7 @@ NCVStatus nppiStVectorWarp_PSF1x1_32f_C1(const Ncv32f *pSrc,
     dim3 ctaSize (32, 6);
     dim3 gridSize (iDivUp (srcSize.width, ctaSize.x), iDivUp (srcSize.height, ctaSize.y));
 
-    ForwardWarpKernel_PSF1x1 <<<gridSize, ctaSize, 0, nppStGetActiveCUDAstream()>>>
-        (pU, pV, pSrc, srcSize.width, srcSize.height, vfStep, srcStep, timeScale, pDst);
+    hipLaunchKernelGGL((ForwardWarpKernel_PSF1x1), dim3(gridSize), dim3(ctaSize), 0, nppStGetActiveCUDAstream(), pU, pV, pSrc, srcSize.width, srcSize.height, vfStep, srcStep, timeScale, pDst);
 
     ncvAssertCUDALastErrorReturn(NPPST_CUDA_KERNEL_EXECUTION_ERROR);
 
@@ -2336,18 +2298,15 @@ NCVStatus nppiStVectorWarp_PSF2x2_32f_C1(const Ncv32f *pSrc,
     dim3 ctaSize(32, 6);
     dim3 gridSize (iDivUp (srcSize.width, ctaSize.x), iDivUp (srcSize.height, ctaSize.y));
 
-    MemsetKernel <<<gridSize, ctaSize, 0, nppStGetActiveCUDAstream()>>>
-        (0, srcSize.width, srcSize.height, pBuffer);
+    hipLaunchKernelGGL((MemsetKernel), dim3(gridSize), dim3(ctaSize), 0, nppStGetActiveCUDAstream(), 0, srcSize.width, srcSize.height, pBuffer);
 
     ncvAssertCUDALastErrorReturn(NPPST_CUDA_KERNEL_EXECUTION_ERROR);
 
-    ForwardWarpKernel_PSF2x2 <<<gridSize, ctaSize, 0, nppStGetActiveCUDAstream()>>>
-        (pU, pV, pSrc, srcSize.width, srcSize.height, vfStep, srcStep, timeScale, pBuffer, pDst);
+    hipLaunchKernelGGL((ForwardWarpKernel_PSF2x2), dim3(gridSize), dim3(ctaSize), 0, nppStGetActiveCUDAstream(), pU, pV, pSrc, srcSize.width, srcSize.height, vfStep, srcStep, timeScale, pBuffer, pDst);
 
     ncvAssertCUDALastErrorReturn(NPPST_CUDA_KERNEL_EXECUTION_ERROR);
 
-    NormalizeKernel <<<gridSize, ctaSize, 0, nppStGetActiveCUDAstream()>>>
-        (pBuffer, srcSize.width, srcSize.height, srcStep, pDst);
+    hipLaunchKernelGGL((NormalizeKernel), dim3(gridSize), dim3(ctaSize), 0, nppStGetActiveCUDAstream(), pBuffer, srcSize.width, srcSize.height, srcStep, pDst);
 
     ncvAssertCUDALastErrorReturn(NPPST_CUDA_KERNEL_EXECUTION_ERROR);
 
@@ -2362,7 +2321,7 @@ NCVStatus nppiStVectorWarp_PSF2x2_32f_C1(const Ncv32f *pSrc,
 //==============================================================================
 
 
-texture <float, 2, cudaReadModeElementType> texSrc2D;
+texture <float, 2, hipReadModeElementType> texSrc2D;
 
 
 __forceinline__
@@ -2401,8 +2360,8 @@ __global__ void resizeSuperSample_32f(NcvSize32u srcSize,
                                       Ncv32f scaleY)
 {
     // position within dst ROI
-    const int ix = blockIdx.x * blockDim.x + threadIdx.x;
-    const int iy = blockIdx.y * blockDim.y + threadIdx.y;
+    const int ix = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+    const int iy = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
     if (ix >= dstROI.width || iy >= dstROI.height)
     {
@@ -2487,8 +2446,8 @@ __global__ void resizeBicubic(NcvSize32u srcSize,
                               Ncv32f scaleX,
                               Ncv32f scaleY)
 {
-    const int ix = blockIdx.x * blockDim.x + threadIdx.x;
-    const int iy = blockIdx.y * blockDim.y + threadIdx.y;
+    const int ix = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+    const int iy = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
     if (ix >= dstROI.width || iy >= dstROI.height)
     {
@@ -2576,32 +2535,30 @@ NCVStatus nppiStResize_32f_C1R(const Ncv32f *pSrc,
     if (interpolation == nppStSupersample)
     {
         // bind texture
-        cudaBindTexture (0, texSrc, pSrc, srcSize.height * nSrcStep);
+        hipBindTexture (0, texSrc, pSrc, srcSize.height * nSrcStep);
         // invoke kernel
         dim3 ctaSize (32, 6);
         dim3 gridSize ((dstROI.width  + ctaSize.x - 1) / ctaSize.x,
             (dstROI.height + ctaSize.y - 1) / ctaSize.y);
 
-        resizeSuperSample_32f <<<gridSize, ctaSize, 0, nppStGetActiveCUDAstream ()>>>
-            (srcSize, srcStep, srcROI, pDst, dstSize, dstStep, dstROI, 1.0f / xFactor, 1.0f / yFactor);
+        hipLaunchKernelGGL((resizeSuperSample_32f), dim3(gridSize), dim3(ctaSize), 0, nppStGetActiveCUDAstream (), srcSize, srcStep, srcROI, pDst, dstSize, dstStep, dstROI, 1.0f / xFactor, 1.0f / yFactor);
     }
     else if (interpolation == nppStBicubic)
     {
-        texSrc2D.addressMode[0] = cudaAddressModeMirror;
-        texSrc2D.addressMode[1] = cudaAddressModeMirror;
+        texSrc2D.addressMode[0] = hipAddressModeMirror;
+        texSrc2D.addressMode[1] = hipAddressModeMirror;
         texSrc2D.normalized = true;
 
-        cudaChannelFormatDesc desc = cudaCreateChannelDesc <float> ();
+        hipChannelFormatDesc desc = hipCreateChannelDesc <float> ();
 
-        cudaBindTexture2D (0, texSrc2D, pSrc, desc, srcSize.width, srcSize.height,
+        hipBindTexture2D (0, texSrc2D, pSrc, desc, srcSize.width, srcSize.height,
             nSrcStep);
 
         dim3 ctaSize (32, 6);
         dim3 gridSize ((dstSize.width  + ctaSize.x - 1) / ctaSize.x,
             (dstSize.height + ctaSize.y - 1) / ctaSize.y);
 
-        resizeBicubic <<<gridSize, ctaSize, 0, nppStGetActiveCUDAstream ()>>>
-            (srcSize, srcROI, dstSize, dstStep, pDst, dstROI, 1.0f / xFactor, 1.0f / yFactor);
+        hipLaunchKernelGGL((resizeBicubic), dim3(gridSize), dim3(ctaSize), 0, nppStGetActiveCUDAstream (), srcSize, srcROI, dstSize, dstStep, pDst, dstROI, 1.0f / xFactor, 1.0f / yFactor);
     }
     else
     {
@@ -2612,5 +2569,6 @@ NCVStatus nppiStResize_32f_C1R(const Ncv32f *pSrc,
 
     return status;
 }
+#endif //NPP_ENABLE
 
 #endif /* CUDA_DISABLER */

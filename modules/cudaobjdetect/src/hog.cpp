@@ -68,7 +68,7 @@ namespace cv { namespace cuda { namespace device
                               int block_stride_x, int block_stride_y,
                               int nblocks_win_x, int nblocks_win_y,
                               int ncells_block_x, int ncells_block_y,
-                              const cudaStream_t& stream);
+                              const hipStream_t& stream);
 
         void compute_hists(int nbins,
                            int block_stride_x, int block_stride_y,
@@ -78,7 +78,7 @@ namespace cv { namespace cuda { namespace device
                            float* block_hists,
                            int cell_size_x, int cell_size_y,
                            int ncells_block_x, int ncells_block_y,
-                           const cudaStream_t& stream);
+                           const hipStream_t& stream);
 
         void normalize_hists(int nbins,
                              int block_stride_x, int block_stride_y,
@@ -87,7 +87,7 @@ namespace cv { namespace cuda { namespace device
                              float threshold,
                              int cell_size_x, int cell_size_y,
                              int ncells_block_x, int ncells_block_y,
-                             const cudaStream_t& stream);
+                             const hipStream_t& stream);
 
         void classify_hists(int win_height, int win_width, int block_stride_y,
                             int block_stride_x, int win_stride_y, int win_stride_x, int height,
@@ -105,7 +105,7 @@ namespace cv { namespace cuda { namespace device
                                     float* block_hists,
                                     int cell_size_x, int ncells_block_x,
                                     cv::cuda::PtrStepSzf descriptors,
-                                    const cudaStream_t& stream);
+                                    const hipStream_t& stream);
         void extract_descrs_by_cols(int win_height, int win_width,
                                     int block_stride_y, int block_stride_x,
                                     int win_stride_y, int win_stride_x,
@@ -113,20 +113,20 @@ namespace cv { namespace cuda { namespace device
                                     float* block_hists,
                                     int cell_size_x, int ncells_block_x,
                                     cv::cuda::PtrStepSzf descriptors,
-                                    const cudaStream_t& stream);
+                                    const hipStream_t& stream);
 
         void compute_gradients_8UC1(int nbins,
                                     int height, int width, const cv::cuda::PtrStepSzb& img,
                                     float angle_scale,
                                     cv::cuda::PtrStepSzf grad, cv::cuda::PtrStepSzb qangle,
                                     bool correct_gamma,
-                                    const cudaStream_t& stream);
+                                    const hipStream_t& stream);
         void compute_gradients_8UC4(int nbins,
                                     int height, int width, const cv::cuda::PtrStepSzb& img,
                                     float angle_scale,
                                     cv::cuda::PtrStepSzf grad, cv::cuda::PtrStepSzb qangle,
                                     bool correct_gamma,
-                                    const cudaStream_t& stream);
+                                    const hipStream_t& stream);
 
         void resize_8UC1(const cv::cuda::PtrStepSzb& src, cv::cuda::PtrStepSzb dst);
         void resize_8UC4(const cv::cuda::PtrStepSzb& src, cv::cuda::PtrStepSzb dst);

@@ -156,7 +156,7 @@ namespace cv { namespace cuda { namespace device
         int buildCentersList_gpu(PtrStepSzi accum, unsigned int* centers, int threshold)
         {
             void* counterPtr;
-            cudaSafeCall( hipGetSymbolAddress(&counterPtr, g_counter) );
+            cudaSafeCall( hipGetSymbolAddress(&counterPtr, &g_counter) );
 
             cudaSafeCall( hipMemset(counterPtr, 0, sizeof(int)) );
 
@@ -234,7 +234,7 @@ namespace cv { namespace cuda { namespace device
                                    float3* circles, int maxCircles, float dp, int minRadius, int maxRadius, int threshold, bool has20)
         {
             void* counterPtr;
-            cudaSafeCall( hipGetSymbolAddress(&counterPtr, g_counter) );
+            cudaSafeCall( hipGetSymbolAddress(&counterPtr, &g_counter) );
 
             cudaSafeCall( hipMemset(counterPtr, 0, sizeof(int)) );
 

@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -160,7 +161,7 @@ namespace cv { namespace cuda { namespace device
         }
 
         template <typename T>
-        void disp_bilateral_filter(PtrStepSz<T> disp, PtrStepSzb img, int channels, int iters, const float *table_color, const float* table_space, size_t table_step, int radius, short edge_disc, short max_disc, cudaStream_t stream)
+        void disp_bilateral_filter(PtrStepSz<T> disp, PtrStepSzb img, int channels, int iters, const float *table_color, const float* table_space, size_t table_step, int radius, short edge_disc, short max_disc, hipStream_t stream)
         {
             dim3 threads(32, 8, 1);
             dim3 grid(1, 1, 1);
@@ -172,21 +173,21 @@ namespace cv { namespace cuda { namespace device
             case 1:
                 for (int i = 0; i < iters; ++i)
                 {
-                    disp_bilateral_filter<1><<<grid, threads, 0, stream>>>(0, disp.data, disp.step/sizeof(T), img.data, img.step, disp.rows, disp.cols, table_color, table_space, table_step, radius, edge_disc, max_disc);
-                    cudaSafeCall( cudaGetLastError() );
+                    hipLaunchKernelGGL((disp_bilateral_filter<1,T>), dim3(grid), dim3(threads), 0, stream, 0, disp.data, disp.step/sizeof(T), img.data, img.step, disp.rows, disp.cols, table_color, table_space, table_step, radius, edge_disc, max_disc);
+                    cudaSafeCall( hipGetLastError() );
 
-                    disp_bilateral_filter<1><<<grid, threads, 0, stream>>>(1, disp.data, disp.step/sizeof(T), img.data, img.step, disp.rows, disp.cols, table_color, table_space, table_step, radius, edge_disc, max_disc);
-                    cudaSafeCall( cudaGetLastError() );
+                    hipLaunchKernelGGL((disp_bilateral_filter<1,T>), dim3(grid), dim3(threads), 0, stream, 1, disp.data, disp.step/sizeof(T), img.data, img.step, disp.rows, disp.cols, table_color, table_space, table_step, radius, edge_disc, max_disc);
+                    cudaSafeCall( hipGetLastError() );
                 }
                 break;
             case 3:
                 for (int i = 0; i < iters; ++i)
                 {
-                    disp_bilateral_filter<3><<<grid, threads, 0, stream>>>(0, disp.data, disp.step/sizeof(T), img.data, img.step, disp.rows, disp.cols, table_color, table_space, table_step, radius, edge_disc, max_disc);
-                    cudaSafeCall( cudaGetLastError() );
+                    hipLaunchKernelGGL((disp_bilateral_filter<3,T>), dim3(grid), dim3(threads), 0, stream, 0, disp.data, disp.step/sizeof(T), img.data, img.step, disp.rows, disp.cols, table_color, table_space, table_step, radius, edge_disc, max_disc);
+                    cudaSafeCall( hipGetLastError() );
 
-                    disp_bilateral_filter<3><<<grid, threads, 0, stream>>>(1, disp.data, disp.step/sizeof(T), img.data, img.step, disp.rows, disp.cols, table_color, table_space, table_step, radius, edge_disc, max_disc);
-                    cudaSafeCall( cudaGetLastError() );
+                    hipLaunchKernelGGL((disp_bilateral_filter<3,T>), dim3(grid), dim3(threads), 0, stream, 1, disp.data, disp.step/sizeof(T), img.data, img.step, disp.rows, disp.cols, table_color, table_space, table_step, radius, edge_disc, max_disc);
+                    cudaSafeCall( hipGetLastError() );
                 }
                 break;
             default:
@@ -194,11 +195,11 @@ namespace cv { namespace cuda { namespace device
             }
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
-        template void disp_bilateral_filter<uchar>(PtrStepSz<uchar> disp, PtrStepSzb img, int channels, int iters, const float *table_color, const float *table_space, size_t table_step, int radius, short, short, cudaStream_t stream);
-        template void disp_bilateral_filter<short>(PtrStepSz<short> disp, PtrStepSzb img, int channels, int iters, const float *table_color, const float *table_space, size_t table_step, int radius, short, short, cudaStream_t stream);
+        template void disp_bilateral_filter<uchar>(PtrStepSz<uchar> disp, PtrStepSzb img, int channels, int iters, const float *table_color, const float *table_space, size_t table_step, int radius, short, short, hipStream_t stream);
+        template void disp_bilateral_filter<short>(PtrStepSz<short> disp, PtrStepSzb img, int channels, int iters, const float *table_color, const float *table_space, size_t table_step, int radius, short, short, hipStream_t stream);
     } // namespace bilateral_filter
 }}} // namespace cv { namespace cuda { namespace cudev
 

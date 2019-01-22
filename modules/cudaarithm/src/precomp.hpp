@@ -52,12 +52,12 @@
 
 #include "opencv2/core/private.cuda.hpp"
 
-#ifdef HAVE_CUBLAS
-#  include <cublas.h>
+#ifdef HAVE_HIPBLAS
+#  include <hipblas.h>
 #endif
 
-#ifdef HAVE_CUFFT
-#  include <cufft.h>
+#ifdef HAVE_ROCFFT
+#  include <hipfft.h>
 #endif
 
 #endif /* __OPENCV_PRECOMP_H__ */

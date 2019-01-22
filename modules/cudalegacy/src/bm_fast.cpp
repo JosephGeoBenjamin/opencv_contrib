@@ -56,7 +56,7 @@ namespace optflowbm_fast
     void get_buffer_size(int src_cols, int src_rows, int search_window, int block_window, int& buffer_cols, int& buffer_rows);
 
     template <typename T>
-    void calc(PtrStepSzb I0, PtrStepSzb I1, PtrStepSzf velx, PtrStepSzf vely, PtrStepi buffer, int search_window, int block_window, cudaStream_t stream);
+    void calc(PtrStepSzb I0, PtrStepSzb I1, PtrStepSzf velx, PtrStepSzf vely, PtrStepi buffer, int search_window, int block_window, hipStream_t stream);
 }
 
 void cv::cuda::FastOpticalFlowBM::operator ()(const GpuMat& I0, const GpuMat& I1, GpuMat& flowx, GpuMat& flowy, int search_window, int block_window, Stream& stream)

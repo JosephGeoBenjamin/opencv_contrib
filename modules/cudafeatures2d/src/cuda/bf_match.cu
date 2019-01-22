@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -59,20 +60,20 @@ namespace cv { namespace cuda { namespace device
         template <int BLOCK_SIZE>
         __device__ void findBestMatch(float& bestDistance, int& bestTrainIdx, float* s_distance, int* s_trainIdx)
         {
-            s_distance += threadIdx.y * BLOCK_SIZE;
-            s_trainIdx += threadIdx.y * BLOCK_SIZE;
+            s_distance += hipThreadIdx_y * BLOCK_SIZE;
+            s_trainIdx += hipThreadIdx_y * BLOCK_SIZE;
 
-            reduceKeyVal<BLOCK_SIZE>(s_distance, bestDistance, s_trainIdx, bestTrainIdx, threadIdx.x, less<float>());
+            reduceKeyVal<BLOCK_SIZE>(s_distance, bestDistance, s_trainIdx, bestTrainIdx, hipThreadIdx_x, less<float>());
         }
 
         template <int BLOCK_SIZE>
         __device__ void findBestMatch(float& bestDistance, int& bestTrainIdx, int& bestImgIdx, float* s_distance, int* s_trainIdx, int* s_imgIdx)
         {
-            s_distance += threadIdx.y * BLOCK_SIZE;
-            s_trainIdx += threadIdx.y * BLOCK_SIZE;
-            s_imgIdx   += threadIdx.y * BLOCK_SIZE;
+            s_distance += hipThreadIdx_y * BLOCK_SIZE;
+            s_trainIdx += hipThreadIdx_y * BLOCK_SIZE;
+            s_imgIdx   += hipThreadIdx_y * BLOCK_SIZE;
 
-            reduceKeyVal<BLOCK_SIZE>(s_distance, bestDistance, smem_tuple(s_trainIdx, s_imgIdx), thrust::tie(bestTrainIdx, bestImgIdx), threadIdx.x, less<float>());
+            reduceKeyVal<BLOCK_SIZE>(s_distance, bestDistance, smem_tuple(s_trainIdx, s_imgIdx), thrust::tie(bestTrainIdx, bestImgIdx), hipThreadIdx_x, less<float>());
         }
 
         ///////////////////////////////////////////////////////////////////////////////
@@ -84,8 +85,8 @@ namespace cv { namespace cuda { namespace device
             #pragma unroll
             for (int i = 0; i < MAX_DESC_LEN / BLOCK_SIZE; ++i)
             {
-                const int loadX = threadIdx.x + i * BLOCK_SIZE;
-                s_query[threadIdx.y * MAX_DESC_LEN + loadX] = loadX < query.cols ? query.ptr(::min(queryIdx, query.rows - 1))[loadX] : 0;
+                const int loadX = hipThreadIdx_x + i * BLOCK_SIZE;
+                s_query[hipThreadIdx_y * MAX_DESC_LEN + loadX] = loadX < query.cols ? query.ptr(::min(queryIdx, query.rows - 1))[loadX] : 0;
             }
         }
 
@@ -101,30 +102,30 @@ namespace cv { namespace cuda { namespace device
                 #pragma unroll
                 for (int i = 0; i < MAX_DESC_LEN / BLOCK_SIZE; ++i)
                 {
-                    const int loadX = threadIdx.x + i * BLOCK_SIZE;
+                    const int loadX = hipThreadIdx_x + i * BLOCK_SIZE;
 
-                    s_train[threadIdx.x * BLOCK_SIZE + threadIdx.y] = 0;
+                    s_train[hipThreadIdx_x * BLOCK_SIZE + hipThreadIdx_y] = 0;
 
                     if (loadX < train.cols)
                     {
                         T val;
 
-                        ForceGlob<T>::Load(train.ptr(::min(t * BLOCK_SIZE + threadIdx.y, train.rows - 1)), loadX, val);
-                        s_train[threadIdx.x * BLOCK_SIZE + threadIdx.y] = val;
+                        ForceGlob<T>::Load(train.ptr(::min(t * BLOCK_SIZE + hipThreadIdx_y, train.rows - 1)), loadX, val);
+                        s_train[hipThreadIdx_x * BLOCK_SIZE + hipThreadIdx_y] = val;
                     }
 
                     __syncthreads();
 
                     #pragma unroll
                     for (int j = 0; j < BLOCK_SIZE; ++j)
-                        dist.reduceIter(s_query[threadIdx.y * MAX_DESC_LEN + i * BLOCK_SIZE + j], s_train[j * BLOCK_SIZE + threadIdx.x]);
+                        dist.reduceIter(s_query[hipThreadIdx_y * MAX_DESC_LEN + i * BLOCK_SIZE + j], s_train[j * BLOCK_SIZE + hipThreadIdx_x]);
 
                     __syncthreads();
                 }
 
                 typename Dist::result_type distVal = dist;
 
-                const int trainIdx = t * BLOCK_SIZE + threadIdx.x;
+                const int trainIdx = t * BLOCK_SIZE + hipThreadIdx_x;
 
                 if (queryIdx < query.rows && trainIdx < train.rows && distVal < bestDistance && mask(queryIdx, trainIdx))
                 {
@@ -138,9 +139,9 @@ namespace cv { namespace cuda { namespace device
         template <int BLOCK_SIZE, int MAX_DESC_LEN, typename Dist, typename T, typename Mask>
         __global__ void matchUnrolledCached(const PtrStepSz<T> query, const PtrStepSz<T> train, const Mask mask, int* bestTrainIdx, float* bestDistance)
         {
-            extern __shared__ int smem[];
+            HIP_DYNAMIC_SHARED( int, smem)
 
-            const int queryIdx = blockIdx.x * BLOCK_SIZE + threadIdx.y;
+            const int queryIdx = hipBlockIdx_x * BLOCK_SIZE + hipThreadIdx_y;
 
             typename Dist::value_type* s_query = (typename Dist::value_type*)(smem);
             typename Dist::value_type* s_train = (typename Dist::value_type*)(smem + BLOCK_SIZE * MAX_DESC_LEN);
@@ -159,7 +160,7 @@ namespace cv { namespace cuda { namespace device
 
             findBestMatch<BLOCK_SIZE>(myBestDistance, myBestTrainIdx, s_distance, s_trainIdx);
 
-            if (queryIdx < query.rows && threadIdx.x == 0)
+            if (queryIdx < query.rows && hipThreadIdx_x == 0)
             {
                 bestTrainIdx[queryIdx] = myBestTrainIdx;
                 bestDistance[queryIdx] = myBestDistance;
@@ -169,27 +170,27 @@ namespace cv { namespace cuda { namespace device
         template <int BLOCK_SIZE, int MAX_DESC_LEN, typename Dist, typename T, typename Mask>
         void matchUnrolledCached(const PtrStepSz<T>& query, const PtrStepSz<T>& train, const Mask& mask,
                                  const PtrStepSzi& trainIdx, const PtrStepSzf& distance,
-                                 cudaStream_t stream)
+                                 hipStream_t stream)
         {
             const dim3 block(BLOCK_SIZE, BLOCK_SIZE);
             const dim3 grid(divUp(query.rows, BLOCK_SIZE));
 
             const size_t smemSize = (BLOCK_SIZE * (MAX_DESC_LEN >= BLOCK_SIZE ? MAX_DESC_LEN : BLOCK_SIZE) + BLOCK_SIZE * BLOCK_SIZE) * sizeof(int);
 
-            matchUnrolledCached<BLOCK_SIZE, MAX_DESC_LEN, Dist><<<grid, block, smemSize, stream>>>(query, train, mask, trainIdx.data, distance.data);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((matchUnrolledCached<BLOCK_SIZE, MAX_DESC_LEN, Dist>), dim3(grid), dim3(block), smemSize, stream, query, train, mask, trainIdx.data, distance.data);
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
         template <int BLOCK_SIZE, int MAX_DESC_LEN, typename Dist, typename T, typename Mask>
         __global__ void matchUnrolledCached(const PtrStepSz<T> query, const PtrStepSz<T>* trains, int n, const Mask mask,
                                             int* bestTrainIdx, int* bestImgIdx, float* bestDistance)
         {
-            extern __shared__ int smem[];
+            HIP_DYNAMIC_SHARED( int, smem)
 
-            const int queryIdx = blockIdx.x * BLOCK_SIZE + threadIdx.y;
+            const int queryIdx = hipBlockIdx_x * BLOCK_SIZE + hipThreadIdx_y;
 
             typename Dist::value_type* s_query = (typename Dist::value_type*)(smem);
             typename Dist::value_type* s_train = (typename Dist::value_type*)(smem + BLOCK_SIZE * MAX_DESC_LEN);
@@ -217,7 +218,7 @@ namespace cv { namespace cuda { namespace device
 
             findBestMatch<BLOCK_SIZE>(myBestDistance, myBestTrainIdx, myBestImgIdx, s_distance, s_trainIdx, s_imgIdx);
 
-            if (queryIdx < query.rows && threadIdx.x == 0)
+            if (queryIdx < query.rows && hipThreadIdx_x == 0)
             {
                 bestTrainIdx[queryIdx] = myBestTrainIdx;
                 bestImgIdx[queryIdx] = myBestImgIdx;
@@ -228,18 +229,18 @@ namespace cv { namespace cuda { namespace device
         template <int BLOCK_SIZE, int MAX_DESC_LEN, typename Dist, typename T, typename Mask>
         void matchUnrolledCached(const PtrStepSz<T>& query, const PtrStepSz<T>* trains, int n, const Mask& mask,
                                  const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance,
-                                 cudaStream_t stream)
+                                 hipStream_t stream)
         {
             const dim3 block(BLOCK_SIZE, BLOCK_SIZE);
             const dim3 grid(divUp(query.rows, BLOCK_SIZE));
 
             const size_t smemSize = (BLOCK_SIZE * (MAX_DESC_LEN >= 2 * BLOCK_SIZE ? MAX_DESC_LEN : 2 * BLOCK_SIZE) + BLOCK_SIZE * BLOCK_SIZE) * sizeof(int);
 
-            matchUnrolledCached<BLOCK_SIZE, MAX_DESC_LEN, Dist><<<grid, block, smemSize, stream>>>(query, trains, n, mask, trainIdx.data, imgIdx.data, distance.data);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((matchUnrolledCached<BLOCK_SIZE, MAX_DESC_LEN, Dist>), dim3(grid), dim3(block), smemSize, stream, query, trains, n, mask, trainIdx.data, imgIdx.data, distance.data);
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
         ///////////////////////////////////////////////////////////////////////////////
@@ -257,34 +258,34 @@ namespace cv { namespace cuda { namespace device
                 #pragma unroll
                 for (int i = 0; i < MAX_DESC_LEN / BLOCK_SIZE; ++i)
                 {
-                    const int loadX = threadIdx.x + i * BLOCK_SIZE;
+                    const int loadX = hipThreadIdx_x + i * BLOCK_SIZE;
 
-                    s_query[threadIdx.y * BLOCK_SIZE + threadIdx.x] = 0;
-                    s_train[threadIdx.x * BLOCK_SIZE + threadIdx.y] = 0;
+                    s_query[hipThreadIdx_y * BLOCK_SIZE + hipThreadIdx_x] = 0;
+                    s_train[hipThreadIdx_x * BLOCK_SIZE + hipThreadIdx_y] = 0;
 
                     if (loadX < query.cols)
                     {
                         T val;
 
                         ForceGlob<T>::Load(query.ptr(::min(queryIdx, query.rows - 1)), loadX, val);
-                        s_query[threadIdx.y * BLOCK_SIZE + threadIdx.x] = val;
+                        s_query[hipThreadIdx_y * BLOCK_SIZE + hipThreadIdx_x] = val;
 
-                        ForceGlob<T>::Load(train.ptr(::min(t * BLOCK_SIZE + threadIdx.y, train.rows - 1)), loadX, val);
-                        s_train[threadIdx.x * BLOCK_SIZE + threadIdx.y] = val;
+                        ForceGlob<T>::Load(train.ptr(::min(t * BLOCK_SIZE + hipThreadIdx_y, train.rows - 1)), loadX, val);
+                        s_train[hipThreadIdx_x * BLOCK_SIZE + hipThreadIdx_y] = val;
                     }
 
                     __syncthreads();
 
                     #pragma unroll
                     for (int j = 0; j < BLOCK_SIZE; ++j)
-                        dist.reduceIter(s_query[threadIdx.y * BLOCK_SIZE + j], s_train[j * BLOCK_SIZE + threadIdx.x]);
+                        dist.reduceIter(s_query[hipThreadIdx_y * BLOCK_SIZE + j], s_train[j * BLOCK_SIZE + hipThreadIdx_x]);
 
                     __syncthreads();
                 }
 
                 typename Dist::result_type distVal = dist;
 
-                const int trainIdx = t * BLOCK_SIZE + threadIdx.x;
+                const int trainIdx = t * BLOCK_SIZE + hipThreadIdx_x;
 
                 if (queryIdx < query.rows && trainIdx < train.rows && distVal < bestDistance && mask(queryIdx, trainIdx))
                 {
@@ -298,9 +299,9 @@ namespace cv { namespace cuda { namespace device
         template <int BLOCK_SIZE, int MAX_DESC_LEN, typename Dist, typename T, typename Mask>
         __global__ void matchUnrolled(const PtrStepSz<T> query, const PtrStepSz<T> train, const Mask mask, int* bestTrainIdx, float* bestDistance)
         {
-            extern __shared__ int smem[];
+            HIP_DYNAMIC_SHARED( int, smem)
 
-            const int queryIdx = blockIdx.x * BLOCK_SIZE + threadIdx.y;
+            const int queryIdx = hipBlockIdx_x * BLOCK_SIZE + hipThreadIdx_y;
 
             float myBestDistance = numeric_limits<float>::max();
             int myBestTrainIdx = -1;
@@ -317,7 +318,7 @@ namespace cv { namespace cuda { namespace device
 
             findBestMatch<BLOCK_SIZE>(myBestDistance, myBestTrainIdx, s_distance, s_trainIdx);
 
-            if (queryIdx < query.rows && threadIdx.x == 0)
+            if (queryIdx < query.rows && hipThreadIdx_x == 0)
             {
                 bestTrainIdx[queryIdx] = myBestTrainIdx;
                 bestDistance[queryIdx] = myBestDistance;
@@ -327,27 +328,27 @@ namespace cv { namespace cuda { namespace device
         template <int BLOCK_SIZE, int MAX_DESC_LEN, typename Dist, typename T, typename Mask>
         void matchUnrolled(const PtrStepSz<T>& query, const PtrStepSz<T>& train, const Mask& mask,
                            const PtrStepSzi& trainIdx, const PtrStepSzf& distance,
-                           cudaStream_t stream)
+                           hipStream_t stream)
         {
             const dim3 block(BLOCK_SIZE, BLOCK_SIZE);
             const dim3 grid(divUp(query.rows, BLOCK_SIZE));
 
             const size_t smemSize = (2 * BLOCK_SIZE * BLOCK_SIZE) * sizeof(int);
 
-            matchUnrolled<BLOCK_SIZE, MAX_DESC_LEN, Dist><<<grid, block, smemSize, stream>>>(query, train, mask, trainIdx.data, distance.data);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((matchUnrolled<BLOCK_SIZE, MAX_DESC_LEN, Dist>), dim3(grid), dim3(block), smemSize, stream, query, train, mask, trainIdx.data, distance.data);
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
         template <int BLOCK_SIZE, int MAX_DESC_LEN, typename Dist, typename T, typename Mask>
         __global__ void matchUnrolled(const PtrStepSz<T> query, const PtrStepSz<T>* trains, int n, const Mask mask,
                                       int* bestTrainIdx, int* bestImgIdx, float* bestDistance)
         {
-            extern __shared__ int smem[];
+            HIP_DYNAMIC_SHARED( int, smem)
 
-            const int queryIdx = blockIdx.x * BLOCK_SIZE + threadIdx.y;
+            const int queryIdx = hipBlockIdx_x * BLOCK_SIZE + hipThreadIdx_y;
 
             float myBestDistance = numeric_limits<float>::max();
             int myBestTrainIdx = -1;
@@ -373,7 +374,7 @@ namespace cv { namespace cuda { namespace device
 
             findBestMatch<BLOCK_SIZE>(myBestDistance, myBestTrainIdx, myBestImgIdx, s_distance, s_trainIdx, s_imgIdxIdx);
 
-            if (queryIdx < query.rows && threadIdx.x == 0)
+            if (queryIdx < query.rows && hipThreadIdx_x == 0)
             {
                 bestTrainIdx[queryIdx] = myBestTrainIdx;
                 bestImgIdx[queryIdx] = myBestImgIdx;
@@ -384,18 +385,18 @@ namespace cv { namespace cuda { namespace device
         template <int BLOCK_SIZE, int MAX_DESC_LEN, typename Dist, typename T, typename Mask>
         void matchUnrolled(const PtrStepSz<T>& query, const PtrStepSz<T>* trains, int n, const Mask& mask,
                            const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance,
-                           cudaStream_t stream)
+                           hipStream_t stream)
         {
             const dim3 block(BLOCK_SIZE, BLOCK_SIZE);
             const dim3 grid(divUp(query.rows, BLOCK_SIZE));
 
             const size_t smemSize = (3 * BLOCK_SIZE * BLOCK_SIZE) * sizeof(int);
 
-            matchUnrolled<BLOCK_SIZE, MAX_DESC_LEN, Dist><<<grid, block, smemSize, stream>>>(query, trains, n, mask, trainIdx.data, imgIdx.data, distance.data);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((matchUnrolled<BLOCK_SIZE, MAX_DESC_LEN, Dist>), dim3(grid), dim3(block), smemSize, stream, query, trains, n, mask, trainIdx.data, imgIdx.data, distance.data);
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
         ///////////////////////////////////////////////////////////////////////////////
@@ -412,34 +413,34 @@ namespace cv { namespace cuda { namespace device
 
                 for (int i = 0, endi = (query.cols + BLOCK_SIZE - 1) / BLOCK_SIZE; i < endi; ++i)
                 {
-                    const int loadX = threadIdx.x + i * BLOCK_SIZE;
+                    const int loadX = hipThreadIdx_x + i * BLOCK_SIZE;
 
-                    s_query[threadIdx.y * BLOCK_SIZE + threadIdx.x] = 0;
-                    s_train[threadIdx.x * BLOCK_SIZE + threadIdx.y] = 0;
+                    s_query[hipThreadIdx_y * BLOCK_SIZE + hipThreadIdx_x] = 0;
+                    s_train[hipThreadIdx_x * BLOCK_SIZE + hipThreadIdx_y] = 0;
 
                     if (loadX < query.cols)
                     {
                         T val;
 
                         ForceGlob<T>::Load(query.ptr(::min(queryIdx, query.rows - 1)), loadX, val);
-                        s_query[threadIdx.y * BLOCK_SIZE + threadIdx.x] = val;
+                        s_query[hipThreadIdx_y * BLOCK_SIZE + hipThreadIdx_x] = val;
 
-                        ForceGlob<T>::Load(train.ptr(::min(t * BLOCK_SIZE + threadIdx.y, train.rows - 1)), loadX, val);
-                        s_train[threadIdx.x * BLOCK_SIZE + threadIdx.y] = val;
+                        ForceGlob<T>::Load(train.ptr(::min(t * BLOCK_SIZE + hipThreadIdx_y, train.rows - 1)), loadX, val);
+                        s_train[hipThreadIdx_x * BLOCK_SIZE + hipThreadIdx_y] = val;
                     }
 
                     __syncthreads();
 
                     #pragma unroll
                     for (int j = 0; j < BLOCK_SIZE; ++j)
-                        dist.reduceIter(s_query[threadIdx.y * BLOCK_SIZE + j], s_train[j * BLOCK_SIZE + threadIdx.x]);
+                        dist.reduceIter(s_query[hipThreadIdx_y * BLOCK_SIZE + j], s_train[j * BLOCK_SIZE + hipThreadIdx_x]);
 
                     __syncthreads();
                 }
 
                 typename Dist::result_type distVal = dist;
 
-                const int trainIdx = t * BLOCK_SIZE + threadIdx.x;
+                const int trainIdx = t * BLOCK_SIZE + hipThreadIdx_x;
 
                 if (queryIdx < query.rows && trainIdx < train.rows && distVal < bestDistance && mask(queryIdx, trainIdx))
                 {
@@ -453,9 +454,9 @@ namespace cv { namespace cuda { namespace device
         template <int BLOCK_SIZE, typename Dist, typename T, typename Mask>
         __global__ void match(const PtrStepSz<T> query, const PtrStepSz<T> train, const Mask mask, int* bestTrainIdx, float* bestDistance)
         {
-            extern __shared__ int smem[];
+            HIP_DYNAMIC_SHARED( int, smem)
 
-            const int queryIdx = blockIdx.x * BLOCK_SIZE + threadIdx.y;
+            const int queryIdx = hipBlockIdx_x * BLOCK_SIZE + hipThreadIdx_y;
 
             float myBestDistance = numeric_limits<float>::max();
             int myBestTrainIdx = -1;
@@ -472,7 +473,7 @@ namespace cv { namespace cuda { namespace device
 
             findBestMatch<BLOCK_SIZE>(myBestDistance, myBestTrainIdx, s_distance, s_trainIdx);
 
-            if (queryIdx < query.rows && threadIdx.x == 0)
+            if (queryIdx < query.rows && hipThreadIdx_x == 0)
             {
                 bestTrainIdx[queryIdx] = myBestTrainIdx;
                 bestDistance[queryIdx] = myBestDistance;
@@ -482,27 +483,27 @@ namespace cv { namespace cuda { namespace device
         template <int BLOCK_SIZE, typename Dist, typename T, typename Mask>
         void match(const PtrStepSz<T>& query, const PtrStepSz<T>& train, const Mask& mask,
                    const PtrStepSzi& trainIdx, const PtrStepSzf& distance,
-                   cudaStream_t stream)
+                   hipStream_t stream)
         {
             const dim3 block(BLOCK_SIZE, BLOCK_SIZE);
             const dim3 grid(divUp(query.rows, BLOCK_SIZE));
 
             const size_t smemSize = (2 * BLOCK_SIZE * BLOCK_SIZE) * sizeof(int);
 
-            match<BLOCK_SIZE, Dist><<<grid, block, smemSize, stream>>>(query, train, mask, trainIdx.data, distance.data);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((match<BLOCK_SIZE, Dist>), dim3(grid), dim3(block), smemSize, stream, query, train, mask, trainIdx.data, distance.data);
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
         template <int BLOCK_SIZE, typename Dist, typename T, typename Mask>
         __global__ void match(const PtrStepSz<T> query, const PtrStepSz<T>* trains, int n, const Mask mask,
                               int* bestTrainIdx, int* bestImgIdx, float* bestDistance)
         {
-            extern __shared__ int smem[];
+            HIP_DYNAMIC_SHARED( int, smem)
 
-            const int queryIdx = blockIdx.x * BLOCK_SIZE + threadIdx.y;
+            const int queryIdx = hipBlockIdx_x * BLOCK_SIZE + hipThreadIdx_y;
 
             float myBestDistance = numeric_limits<float>::max();
             int myBestTrainIdx = -1;
@@ -527,7 +528,7 @@ namespace cv { namespace cuda { namespace device
 
             findBestMatch<BLOCK_SIZE>(myBestDistance, myBestTrainIdx, myBestImgIdx, s_distance, s_trainIdx, s_imgIdxIdx);
 
-            if (queryIdx < query.rows && threadIdx.x == 0)
+            if (queryIdx < query.rows && hipThreadIdx_x == 0)
             {
                 bestTrainIdx[queryIdx] = myBestTrainIdx;
                 bestImgIdx[queryIdx] = myBestImgIdx;
@@ -538,18 +539,18 @@ namespace cv { namespace cuda { namespace device
         template <int BLOCK_SIZE, typename Dist, typename T, typename Mask>
         void match(const PtrStepSz<T>& query, const PtrStepSz<T>* trains, int n, const Mask& mask,
                    const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance,
-                   cudaStream_t stream)
+                   hipStream_t stream)
         {
             const dim3 block(BLOCK_SIZE, BLOCK_SIZE);
             const dim3 grid(divUp(query.rows, BLOCK_SIZE));
 
             const size_t smemSize = (3 * BLOCK_SIZE * BLOCK_SIZE) * sizeof(int);
 
-            match<BLOCK_SIZE, Dist><<<grid, block, smemSize, stream>>>(query, trains, n, mask, trainIdx.data, imgIdx.data, distance.data);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((match<BLOCK_SIZE, Dist>), dim3(grid), dim3(block), smemSize, stream, query, trains, n, mask, trainIdx.data, imgIdx.data, distance.data);
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
         ///////////////////////////////////////////////////////////////////////////////
@@ -558,7 +559,7 @@ namespace cv { namespace cuda { namespace device
         template <typename Dist, typename T, typename Mask>
         void matchDispatcher(const PtrStepSz<T>& query, const PtrStepSz<T>& train, const Mask& mask,
                              const PtrStepSzi& trainIdx, const PtrStepSzf& distance,
-                             cudaStream_t stream)
+                             hipStream_t stream)
         {
             if (query.cols <= 64)
             {
@@ -589,7 +590,7 @@ namespace cv { namespace cuda { namespace device
         template <typename Dist, typename T, typename Mask>
         void matchDispatcher(const PtrStepSz<T>& query, const PtrStepSz<T>* trains, int n, const Mask& mask,
                              const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance,
-                             cudaStream_t stream)
+                             hipStream_t stream)
         {
             if (query.cols <= 64)
             {
@@ -622,7 +623,7 @@ namespace cv { namespace cuda { namespace device
 
         template <typename T> void matchL1_gpu(const PtrStepSzb& query, const PtrStepSzb& train, const PtrStepSzb& mask,
                                                const PtrStepSzi& trainIdx, const PtrStepSzf& distance,
-                                               cudaStream_t stream)
+                                               hipStream_t stream)
         {
             if (mask.data)
             {
@@ -638,16 +639,16 @@ namespace cv { namespace cuda { namespace device
             }
         }
 
-        template void matchL1_gpu<uchar >(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, cudaStream_t stream);
-        //template void matchL1_gpu<schar >(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, cudaStream_t stream);
-        template void matchL1_gpu<ushort>(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, cudaStream_t stream);
-        template void matchL1_gpu<short >(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, cudaStream_t stream);
-        template void matchL1_gpu<int   >(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, cudaStream_t stream);
-        template void matchL1_gpu<float >(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, cudaStream_t stream);
+        template void matchL1_gpu<uchar >(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, hipStream_t stream);
+        //template void matchL1_gpu<schar >(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, hipStream_t stream);
+        template void matchL1_gpu<ushort>(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, hipStream_t stream);
+        template void matchL1_gpu<short >(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, hipStream_t stream);
+        template void matchL1_gpu<int   >(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, hipStream_t stream);
+        template void matchL1_gpu<float >(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, hipStream_t stream);
 
         template <typename T> void matchL2_gpu(const PtrStepSzb& query, const PtrStepSzb& train, const PtrStepSzb& mask,
                                                const PtrStepSzi& trainIdx, const PtrStepSzf& distance,
-                                               cudaStream_t stream)
+                                               hipStream_t stream)
         {
             if (mask.data)
             {
@@ -663,16 +664,16 @@ namespace cv { namespace cuda { namespace device
             }
         }
 
-        //template void matchL2_gpu<uchar >(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, cudaStream_t stream);
-        //template void matchL2_gpu<schar >(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, cudaStream_t stream);
-        //template void matchL2_gpu<ushort>(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, cudaStream_t stream);
-        //template void matchL2_gpu<short >(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, cudaStream_t stream);
-        //template void matchL2_gpu<int   >(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, cudaStream_t stream);
-        template void matchL2_gpu<float >(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, cudaStream_t stream);
+        //template void matchL2_gpu<uchar >(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, hipStream_t stream);
+        //template void matchL2_gpu<schar >(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, hipStream_t stream);
+        //template void matchL2_gpu<ushort>(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, hipStream_t stream);
+        //template void matchL2_gpu<short >(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, hipStream_t stream);
+        //template void matchL2_gpu<int   >(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, hipStream_t stream);
+        template void matchL2_gpu<float >(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, hipStream_t stream);
 
         template <typename T> void matchHamming_gpu(const PtrStepSzb& query, const PtrStepSzb& train, const PtrStepSzb& mask,
                                                     const PtrStepSzi& trainIdx, const PtrStepSzf& distance,
-                                                    cudaStream_t stream)
+                                                    hipStream_t stream)
         {
             if (mask.data)
             {
@@ -688,15 +689,15 @@ namespace cv { namespace cuda { namespace device
             }
         }
 
-        template void matchHamming_gpu<uchar >(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, cudaStream_t stream);
-        //template void matchHamming_gpu<schar >(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, cudaStream_t stream);
-        template void matchHamming_gpu<ushort>(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, cudaStream_t stream);
-        //template void matchHamming_gpu<short >(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, cudaStream_t stream);
-        template void matchHamming_gpu<int   >(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, cudaStream_t stream);
+        template void matchHamming_gpu<uchar >(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, hipStream_t stream);
+        //template void matchHamming_gpu<schar >(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, hipStream_t stream);
+        template void matchHamming_gpu<ushort>(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, hipStream_t stream);
+        //template void matchHamming_gpu<short >(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, hipStream_t stream);
+        template void matchHamming_gpu<int   >(const PtrStepSzb& queryDescs, const PtrStepSzb& trainDescs, const PtrStepSzb& mask, const PtrStepSzi& trainIdx, const PtrStepSzf& distance, hipStream_t stream);
 
         template <typename T> void matchL1_gpu(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks,
                                                const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance,
-                                                cudaStream_t stream)
+                                                hipStream_t stream)
         {
             if (masks.data)
             {
@@ -712,16 +713,16 @@ namespace cv { namespace cuda { namespace device
             }
         }
 
-        template void matchL1_gpu<uchar >(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, cudaStream_t stream);
-        //template void matchL1_gpu<schar >(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, cudaStream_t stream);
-        template void matchL1_gpu<ushort>(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, cudaStream_t stream);
-        template void matchL1_gpu<short >(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, cudaStream_t stream);
-        template void matchL1_gpu<int   >(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, cudaStream_t stream);
-        template void matchL1_gpu<float >(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, cudaStream_t stream);
+        template void matchL1_gpu<uchar >(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, hipStream_t stream);
+        //template void matchL1_gpu<schar >(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, hipStream_t stream);
+        template void matchL1_gpu<ushort>(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, hipStream_t stream);
+        template void matchL1_gpu<short >(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, hipStream_t stream);
+        template void matchL1_gpu<int   >(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, hipStream_t stream);
+        template void matchL1_gpu<float >(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, hipStream_t stream);
 
         template <typename T> void matchL2_gpu(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks,
                                                const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance,
-                                               cudaStream_t stream)
+                                               hipStream_t stream)
         {
             if (masks.data)
             {
@@ -737,16 +738,16 @@ namespace cv { namespace cuda { namespace device
             }
         }
 
-        //template void matchL2_gpu<uchar >(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, cudaStream_t stream);
-        //template void matchL2_gpu<schar >(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, cudaStream_t stream);
-        //template void matchL2_gpu<ushort>(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, cudaStream_t stream);
-        //template void matchL2_gpu<short >(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, cudaStream_t stream);
-        //template void matchL2_gpu<int   >(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, cudaStream_t stream);
-        template void matchL2_gpu<float >(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& maskCollection, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, cudaStream_t stream);
+        //template void matchL2_gpu<uchar >(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, hipStream_t stream);
+        //template void matchL2_gpu<schar >(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, hipStream_t stream);
+        //template void matchL2_gpu<ushort>(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, hipStream_t stream);
+        //template void matchL2_gpu<short >(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, hipStream_t stream);
+        //template void matchL2_gpu<int   >(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, hipStream_t stream);
+        template void matchL2_gpu<float >(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& maskCollection, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, hipStream_t stream);
 
         template <typename T> void matchHamming_gpu(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks,
                                                     const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance,
-                                                    cudaStream_t stream)
+                                                    hipStream_t stream)
         {
             if (masks.data)
             {
@@ -762,11 +763,11 @@ namespace cv { namespace cuda { namespace device
             }
         }
 
-        template void matchHamming_gpu<uchar >(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, cudaStream_t stream);
-        //template void matchHamming_gpu<schar >(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, cudaStream_t stream);
-        template void matchHamming_gpu<ushort>(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, cudaStream_t stream);
-        //template void matchHamming_gpu<short >(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, cudaStream_t stream);
-        template void matchHamming_gpu<int   >(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, cudaStream_t stream);
+        template void matchHamming_gpu<uchar >(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, hipStream_t stream);
+        //template void matchHamming_gpu<schar >(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, hipStream_t stream);
+        template void matchHamming_gpu<ushort>(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, hipStream_t stream);
+        //template void matchHamming_gpu<short >(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, hipStream_t stream);
+        template void matchHamming_gpu<int   >(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks, const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, hipStream_t stream);
     } // namespace bf_match
 }}} // namespace cv { namespace cuda { namespace cudev {
 

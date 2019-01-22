@@ -55,9 +55,9 @@ namespace cv { namespace cuda { namespace device
 {
     namespace stereobm
     {
-        void stereoBM_CUDA(const PtrStepSzb& left, const PtrStepSzb& right, const PtrStepSzb& disp, int ndisp, int winsz, const PtrStepSz<unsigned int>& minSSD_buf, cudaStream_t & stream);
-        void prefilter_xsobel(const PtrStepSzb& input, const PtrStepSzb& output, int prefilterCap /*= 31*/, cudaStream_t & stream);
-        void postfilter_textureness(const PtrStepSzb& input, int winsz, float avgTexturenessThreshold, const PtrStepSzb& disp, cudaStream_t & stream);
+        void stereoBM_CUDA(const PtrStepSzb& left, const PtrStepSzb& right, const PtrStepSzb& disp, int ndisp, int winsz, const PtrStepSz<unsigned int>& minSSD_buf, hipStream_t & stream);
+        void prefilter_xsobel(const PtrStepSzb& input, const PtrStepSzb& output, int prefilterCap /*= 31*/, hipStream_t & stream);
+        void postfilter_textureness(const PtrStepSzb& input, int winsz, float avgTexturenessThreshold, const PtrStepSzb& disp, hipStream_t & stream);
     }
 }}}
 
@@ -151,7 +151,7 @@ namespace
         _disparity.create(left.size(), CV_8UC1);
         GpuMat disparity = _disparity.getGpuMat();
 
-        cudaStream_t stream = StreamAccessor::getStream(_stream);
+        hipStream_t stream = StreamAccessor::getStream(_stream);
 
         cuda::ensureSizeIsEnough(left.size(), CV_32SC1, minSSD_);
 

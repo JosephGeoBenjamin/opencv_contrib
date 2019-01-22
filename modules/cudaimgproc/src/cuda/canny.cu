@@ -137,9 +137,11 @@ namespace canny
         mag(y, x) = norm(dxVal, dyVal);
     }
 
-    template <class Norm> __global__
+    template <class Norm> 
+    __global__
     void calcMagnitudeKernel(const SrcTexObject src, PtrStepi dx, PtrStepi dy, PtrStepSzf mag, const Norm norm)
     {
+
         const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
         const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
@@ -153,6 +155,7 @@ namespace canny
         dy(y, x) = dyVal;
 
         mag(y, x) = norm(dxVal, dyVal);
+
     }
 
     void calcMagnitude(PtrStepSzb srcWhole, int xoff, int yoff, PtrStepSzi dx, PtrStepSzi dy, PtrStepSzf mag, bool L2Grad, hipStream_t stream)
@@ -187,16 +190,12 @@ namespace canny
             if (L2Grad)
             {
                 L2 norm;
-                #ifdef HIP_TO_DO
-                hipLaunchKernelGGL((calcMagnitudeKernel), dim3(grid), dim3(block), 0, stream, (const SrcTex)src, dx, dy, mag, norm);
-                #endif //HIP_TO_DO
+                hipLaunchKernelGGL((calcMagnitudeKernel<L2>), dim3(grid), dim3(block), 0, stream, src, (PtrStepi)dx, (PtrStepi)dy, (PtrStepSzf)mag, norm);
             }
             else
             {
                 L1 norm;
-                #ifdef HIP_TO_DO
-                hipLaunchKernelGGL((calcMagnitudeKernel), dim3(grid), dim3(block), 0, stream, (const SrcTexObject)src, dx, dy, mag, norm);
-                #endif //HIP_TO_DO
+                hipLaunchKernelGGL((calcMagnitudeKernel), dim3(grid), dim3(block), 0, stream, src, (PtrStepi)dx, (PtrStepi)dy, (PtrStepSzf)mag, norm);
             }
 
             cudaSafeCall( hipGetLastError() );
@@ -216,16 +215,12 @@ namespace canny
             if (L2Grad)
             {
                 L2 norm;
-                #ifdef HIP_TO_DO
-                hipLaunchKernelGGL((calcMagnitudeKernel), dim3(grid), dim3(block), 0, stream, (const SrcTex)src, dx, dy, mag, norm);
-                #endif //HIP_TO_DO
+                hipLaunchKernelGGL((calcMagnitudeKernel), dim3(grid), dim3(block), 0, stream, src, (PtrStepi)dx, (PtrStepi)dy, (PtrStepSzf)mag, norm);
             }
             else
             {
                 L1 norm;
-                #ifdef HIP_TO_DO
-                hipLaunchKernelGGL((calcMagnitudeKernel), dim3(grid), dim3(block), 0, stream, (const SrcTexObject)src, dx, dy, mag, norm);
-                #endif //HIP_TO_DO
+                hipLaunchKernelGGL((calcMagnitudeKernel), dim3(grid), dim3(block), 0, stream, src, (PtrStepi)dx, (PtrStepi)dy, (PtrStepSzf)mag, norm);
             }
 
             cudaSafeCall( hipGetLastError() );
@@ -385,10 +380,9 @@ namespace canny
 
             hipTextureObject_t tex=0;
             hipCreateTextureObject(&tex, &resDesc, &texDesc, NULL);
-            #ifdef HIP_TO_DO
-            hipLaunchKernelGGL((calcMapKernel), dim3(grid), dim3(block), 0, stream, (const PtrStepSzi)dx, (const PtrStepSzi)dy, map, (const float)low_thresh, (const float)high_thresh, tex);
+            
+            hipLaunchKernelGGL((calcMapKernel), dim3(grid), dim3(block), 0, stream, (const PtrStepSzi)dx, (const PtrStepi)dy, (const PtrStepi)map, (const float)low_thresh, (const float)high_thresh, (const hipTextureObject_t)tex);
             cudaSafeCall( hipGetLastError() );
-            #endif //HIP_TO_DO
 
             if (stream == NULL)
                 cudaSafeCall( hipDeviceSynchronize() );
@@ -401,10 +395,9 @@ namespace canny
         {
             // Use the texture reference
             bindTexture(&tex_mag, mag);
-            #ifdef HIP_TO_DO
-            hipLaunchKernelGGL((calcMapKernel), dim3(grid), dim3(block), 0, stream, (const PtrStepSzi)dx, (const PtrStepSzi)dy, map, (const float)low_thresh, (const float)high_thresh);
+            
+            hipLaunchKernelGGL((calcMapKernel), dim3(grid), dim3(block), 0, stream, (const PtrStepSzi)dx, (const PtrStepi)dy, (const PtrStepi)map, (const float)low_thresh, (const float)high_thresh);
             cudaSafeCall( hipGetLastError() );
-            #endif //HIP_TO_DO
 
             if (stream == NULL)
                 cudaSafeCall( hipDeviceSynchronize() );

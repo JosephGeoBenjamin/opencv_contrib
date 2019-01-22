@@ -57,22 +57,22 @@ using namespace cv::cuda;
 
 namespace tvl1flow
 {
-    void centeredGradient(PtrStepSzf src, PtrStepSzf dx, PtrStepSzf dy, cudaStream_t stream);
+    void centeredGradient(PtrStepSzf src, PtrStepSzf dx, PtrStepSzf dy, hipStream_t stream);
     void warpBackward(PtrStepSzf I0, PtrStepSzf I1, PtrStepSzf I1x, PtrStepSzf I1y,
                       PtrStepSzf u1, PtrStepSzf u2,
                       PtrStepSzf I1w, PtrStepSzf I1wx, PtrStepSzf I1wy,
                       PtrStepSzf grad, PtrStepSzf rho,
-                      cudaStream_t stream);
+                      hipStream_t stream);
     void estimateU(PtrStepSzf I1wx, PtrStepSzf I1wy,
                    PtrStepSzf grad, PtrStepSzf rho_c,
                    PtrStepSzf p11, PtrStepSzf p12, PtrStepSzf p21, PtrStepSzf p22, PtrStepSzf p31, PtrStepSzf p32,
                    PtrStepSzf u1, PtrStepSzf u2, PtrStepSzf u3, PtrStepSzf error,
                    float l_t, float theta, float gamma, bool calcError,
-                   cudaStream_t stream);
+                   hipStream_t stream);
     void estimateDualVariables(PtrStepSzf u1, PtrStepSzf u2, PtrStepSzf u3,
                                PtrStepSzf p11, PtrStepSzf p12, PtrStepSzf p21, PtrStepSzf p22, PtrStepSzf p31, PtrStepSzf p32,
                                float taut, float gamma,
-                               cudaStream_t stream);
+                               hipStream_t stream);
 }
 
 namespace
@@ -300,7 +300,7 @@ namespace
     {
         using namespace tvl1flow;
 
-        cudaStream_t stream = StreamAccessor::getStream(_stream);
+        hipStream_t stream = StreamAccessor::getStream(_stream);
 
         const double scaledEpsilon = epsilon_ * epsilon_ * I0.size().area();
 

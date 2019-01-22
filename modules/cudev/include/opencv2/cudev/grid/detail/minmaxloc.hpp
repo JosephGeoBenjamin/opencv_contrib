@@ -165,7 +165,9 @@ namespace grid_minmaxloc_detail
         hipLaunchKernelGGL((minMaxLoc_pass_1<Policy::block_size_x * Policy::block_size_y>), dim3(grid), dim3(block), 0, stream, src, minVal, maxVal, minLoc, maxLoc, mask, rows, cols, patch_y, patch_x);
         CV_CUDEV_SAFE_CALL( hipGetLastError() );
 
-        hipLaunchKernelGGL((minMaxLoc_pass_2<Policy::block_size_x * Policy::block_size_y>), dim3(1), dim3(Policy::block_size_x * Policy::block_size_y), 0, stream, minVal, maxVal, minLoc, maxLoc, grid.x * grid.y);
+        hipLaunchKernelGGL( (minMaxLoc_pass_2<Policy::block_size_x * Policy::block_size_y, ResType>),
+            dim3(1), dim3(Policy::block_size_x * Policy::block_size_y), 0, stream,
+            minVal, maxVal, minLoc, maxLoc, grid.x * grid.y);
         CV_CUDEV_SAFE_CALL( hipGetLastError() );
 
         if (stream == 0)

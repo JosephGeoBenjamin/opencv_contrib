@@ -55,18 +55,18 @@ namespace cv { namespace cuda { namespace device
 {
     namespace orb
     {
-        int cull_gpu(int* loc, float* response, int size, int n_points, cudaStream_t stream);
+        int cull_gpu(int* loc, float* response, int size, int n_points, hipStream_t stream);
 
-        void HarrisResponses_gpu(PtrStepSzb img, const short2* loc, float* response, const int npoints, int blockSize, float harris_k, cudaStream_t stream);
+        void HarrisResponses_gpu(PtrStepSzb img, const short2* loc, float* response, const int npoints, int blockSize, float harris_k, hipStream_t stream);
 
         void loadUMax(const int* u_max, int count);
 
-        void IC_Angle_gpu(PtrStepSzb image, const short2* loc, float* angle, int npoints, int half_k, cudaStream_t stream);
+        void IC_Angle_gpu(PtrStepSzb image, const short2* loc, float* angle, int npoints, int half_k, hipStream_t stream);
 
         void computeOrbDescriptor_gpu(PtrStepb img, const short2* loc, const float* angle, const int npoints,
-            const int* pattern_x, const int* pattern_y, PtrStepb desc, int dsize, int WTA_K, cudaStream_t stream);
+            const int* pattern_x, const int* pattern_y, PtrStepb desc, int dsize, int WTA_K, hipStream_t stream);
 
-        void mergeLocation_gpu(const short2* loc, float* x, float* y, int npoints, float scale, cudaStream_t stream);
+        void mergeLocation_gpu(const short2* loc, float* x, float* y, int npoints, float scale, hipStream_t stream);
     }
 }}}
 

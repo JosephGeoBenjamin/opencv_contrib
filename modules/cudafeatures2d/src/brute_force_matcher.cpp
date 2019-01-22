@@ -57,71 +57,71 @@ namespace cv { namespace cuda { namespace device
     {
         template <typename T> void matchL1_gpu(const PtrStepSzb& query, const PtrStepSzb& train, const PtrStepSzb& mask,
             const PtrStepSzi& trainIdx, const PtrStepSzf& distance,
-            cudaStream_t stream);
+            hipStream_t stream);
         template <typename T> void matchL2_gpu(const PtrStepSzb& query, const PtrStepSzb& train, const PtrStepSzb& mask,
             const PtrStepSzi& trainIdx, const PtrStepSzf& distance,
-            cudaStream_t stream);
+            hipStream_t stream);
         template <typename T> void matchHamming_gpu(const PtrStepSzb& query, const PtrStepSzb& train, const PtrStepSzb& mask,
             const PtrStepSzi& trainIdx, const PtrStepSzf& distance,
-            cudaStream_t stream);
+            hipStream_t stream);
 
         template <typename T> void matchL1_gpu(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks,
             const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance,
-            cudaStream_t stream);
+            hipStream_t stream);
         template <typename T> void matchL2_gpu(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks,
             const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance,
-            cudaStream_t stream);
+            hipStream_t stream);
         template <typename T> void matchHamming_gpu(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks,
             const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance,
-            cudaStream_t stream);
+            hipStream_t stream);
     }
 
     namespace bf_knnmatch
     {
         template <typename T> void matchL1_gpu(const PtrStepSzb& query, const PtrStepSzb& train, int k, const PtrStepSzb& mask,
             const PtrStepSzb& trainIdx, const PtrStepSzb& distance, const PtrStepSzf& allDist,
-            cudaStream_t stream);
+            hipStream_t stream);
         template <typename T> void matchL2_gpu(const PtrStepSzb& query, const PtrStepSzb& train, int k, const PtrStepSzb& mask,
             const PtrStepSzb& trainIdx, const PtrStepSzb& distance, const PtrStepSzf& allDist,
-            cudaStream_t stream);
+            hipStream_t stream);
         template <typename T> void matchHamming_gpu(const PtrStepSzb& query, const PtrStepSzb& train, int k, const PtrStepSzb& mask,
             const PtrStepSzb& trainIdx, const PtrStepSzb& distance, const PtrStepSzf& allDist,
-            cudaStream_t stream);
+            hipStream_t stream);
 
         template <typename T> void match2L1_gpu(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks,
             const PtrStepSzb& trainIdx, const PtrStepSzb& imgIdx, const PtrStepSzb& distance,
-            cudaStream_t stream);
+            hipStream_t stream);
         template <typename T> void match2L2_gpu(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks,
             const PtrStepSzb& trainIdx, const PtrStepSzb& imgIdx, const PtrStepSzb& distance,
-            cudaStream_t stream);
+            hipStream_t stream);
         template <typename T> void match2Hamming_gpu(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks,
             const PtrStepSzb& trainIdx, const PtrStepSzb& imgIdx, const PtrStepSzb& distance,
-            cudaStream_t stream);
+            hipStream_t stream);
     }
 
     namespace bf_radius_match
     {
         template <typename T> void matchL1_gpu(const PtrStepSzb& query, const PtrStepSzb& train, float maxDistance, const PtrStepSzb& mask,
             const PtrStepSzi& trainIdx, const PtrStepSzf& distance, const PtrStepSz<unsigned int>& nMatches,
-            cudaStream_t stream);
+            hipStream_t stream);
         template <typename T> void matchL2_gpu(const PtrStepSzb& query, const PtrStepSzb& train, float maxDistance, const PtrStepSzb& mask,
             const PtrStepSzi& trainIdx, const PtrStepSzf& distance, const PtrStepSz<unsigned int>& nMatches,
-            cudaStream_t stream);
+            hipStream_t stream);
         template <typename T> void matchHamming_gpu(const PtrStepSzb& query, const PtrStepSzb& train, float maxDistance, const PtrStepSzb& mask,
             const PtrStepSzi& trainIdx, const PtrStepSzf& distance, const PtrStepSz<unsigned int>& nMatches,
-            cudaStream_t stream);
+            hipStream_t stream);
 
         template <typename T> void matchL1_gpu(const PtrStepSzb& query, const PtrStepSzb* trains, int n, float maxDistance, const PtrStepSzb* masks,
             const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, const PtrStepSz<unsigned int>& nMatches,
-            cudaStream_t stream);
+            hipStream_t stream);
 
         template <typename T> void matchL2_gpu(const PtrStepSzb& query, const PtrStepSzb* trains, int n, float maxDistance, const PtrStepSzb* masks,
             const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, const PtrStepSz<unsigned int>& nMatches,
-            cudaStream_t stream);
+            hipStream_t stream);
 
         template <typename T> void matchHamming_gpu(const PtrStepSzb& query, const PtrStepSzb* trains, int n, float maxDistance, const PtrStepSzb* masks,
             const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, const PtrStepSz<unsigned int>& nMatches,
-            cudaStream_t stream);
+            hipStream_t stream);
     }
 }}}
 
@@ -334,7 +334,7 @@ namespace
 
         typedef void (*caller_t)(const PtrStepSzb& query, const PtrStepSzb& train, const PtrStepSzb& mask,
                                  const PtrStepSzi& trainIdx, const PtrStepSzf& distance,
-                                 cudaStream_t stream);
+                                 hipStream_t stream);
 
         static const caller_t callersL1[] =
         {
@@ -396,7 +396,7 @@ namespace
 
         typedef void (*caller_t)(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks,
                                  const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance,
-                                 cudaStream_t stream);
+                                 hipStream_t stream);
 
         static const caller_t callersL1[] =
         {
@@ -595,7 +595,7 @@ namespace
 
         typedef void (*caller_t)(const PtrStepSzb& query, const PtrStepSzb& train, int k, const PtrStepSzb& mask,
                                  const PtrStepSzb& trainIdx, const PtrStepSzb& distance, const PtrStepSzf& allDist,
-                                 cudaStream_t stream);
+                                 hipStream_t stream);
 
         static const caller_t callersL1[] =
         {
@@ -681,7 +681,7 @@ namespace
 
         typedef void (*caller_t)(const PtrStepSzb& query, const PtrStepSzb& trains, const PtrStepSz<PtrStepb>& masks,
                                  const PtrStepSzb& trainIdx, const PtrStepSzb& imgIdx, const PtrStepSzb& distance,
-                                 cudaStream_t stream);
+                                 hipStream_t stream);
 
         static const caller_t callersL1[] =
         {
@@ -864,7 +864,7 @@ namespace
 
         typedef void (*caller_t)(const PtrStepSzb& query, const PtrStepSzb& train, float maxDistance, const PtrStepSzb& mask,
                                  const PtrStepSzi& trainIdx, const PtrStepSzf& distance, const PtrStepSz<unsigned int>& nMatches,
-                                 cudaStream_t stream);
+                                 hipStream_t stream);
 
         static const caller_t callersL1[] =
         {
@@ -933,7 +933,7 @@ namespace
 
         typedef void (*caller_t)(const PtrStepSzb& query, const PtrStepSzb* trains, int n, float maxDistance, const PtrStepSzb* masks,
                                  const PtrStepSzi& trainIdx, const PtrStepSzi& imgIdx, const PtrStepSzf& distance, const PtrStepSz<unsigned int>& nMatches,
-                                 cudaStream_t stream);
+                                 hipStream_t stream);
 
         static const caller_t callersL1[] =
         {

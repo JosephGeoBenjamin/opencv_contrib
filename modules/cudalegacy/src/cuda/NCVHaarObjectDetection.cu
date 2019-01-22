@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -105,7 +106,7 @@ __device__ Ncv32u warpScanInclusive(Ncv32u idata, volatile Ncv32u *s_Data)
 
     return idata;
 #else
-    Ncv32u pos = 2 * threadIdx.x - (threadIdx.x & (K_WARP_SIZE - 1));
+    Ncv32u pos = 2 * hipThreadIdx_x - (hipThreadIdx_x & (K_WARP_SIZE - 1));
     s_Data[pos] = 0;
     pos += K_WARP_SIZE;
     s_Data[pos] = idata;
@@ -136,25 +137,25 @@ __device__ Ncv32u scan1Inclusive(Ncv32u idata, volatile Ncv32u *s_Data)
         //Save top elements of each warp for exclusive warp scan
         //sync to wait for warp scans to complete (because s_Data is being overwritten)
         __syncthreads();
-        if( (threadIdx.x & (K_WARP_SIZE - 1)) == (K_WARP_SIZE - 1) )
+        if( (hipThreadIdx_x & (K_WARP_SIZE - 1)) == (K_WARP_SIZE - 1) )
         {
-            s_Data[threadIdx.x >> K_LOG2_WARP_SIZE] = warpResult;
+            s_Data[hipThreadIdx_x >> K_LOG2_WARP_SIZE] = warpResult;
         }
 
         //wait for warp scans to complete
         __syncthreads();
 
-        if( threadIdx.x < (tiNumScanThreads / K_WARP_SIZE) )
+        if( hipThreadIdx_x < (tiNumScanThreads / K_WARP_SIZE) )
         {
             //grab top warp elements
-            Ncv32u val = s_Data[threadIdx.x];
+            Ncv32u val = s_Data[hipThreadIdx_x];
             //calculate exclusive scan and write back to shared memory
-            s_Data[threadIdx.x] = warpScanExclusive(val, s_Data);
+            s_Data[hipThreadIdx_x] = warpScanExclusive(val, s_Data);
         }
 
         //return updated warp scans with exclusive scan results
         __syncthreads();
-        return warpResult + s_Data[threadIdx.x >> K_LOG2_WARP_SIZE];
+        return warpResult + s_Data[hipThreadIdx_x >> K_LOG2_WARP_SIZE];
     }
     else
     {
@@ -183,7 +184,7 @@ const Ncv32u NUM_THREADS_ANCHORSPARALLEL = 64;
 /** \internal
 * Haar features solid array.
 */
-texture<uint2, 1, cudaReadModeElementType> texHaarFeatures;
+texture<uint2, 1, hipReadModeElementType> texHaarFeatures;
 
 
 /** \internal
@@ -192,10 +193,10 @@ texture<uint2, 1, cudaReadModeElementType> texHaarFeatures;
 * Drawback: breaks tree locality (might cause more cache misses
 * Advantage: No need to introduce additional 32-bit field to index root nodes offsets
 */
-texture<uint4, 1, cudaReadModeElementType> texHaarClassifierNodes;
+texture<uint4, 1, hipReadModeElementType> texHaarClassifierNodes;
 
 
-texture<Ncv32u, 1, cudaReadModeElementType> texIImage;
+texture<Ncv32u, 1, hipReadModeElementType> texIImage;
 
 
 __device__ HaarStage64 getStage(Ncv32u iStage, HaarStage64 *d_Stages)
@@ -267,7 +268,7 @@ __device__ void compactBlockWriteOutAnchorParallel(Ncv32u threadPassFlag, Ncv32u
     Ncv32u incScan = scan1Inclusive<NUM_THREADS_ANCHORSPARALLEL>(threadPassFlag, shmem);
     __syncthreads();
 
-    if (threadIdx.x == NUM_THREADS_ANCHORSPARALLEL-1)
+    if (hipThreadIdx_x == NUM_THREADS_ANCHORSPARALLEL-1)
     {
         numPassed = incScan;
         outMaskOffset = atomicAdd(&d_outMaskPosition, incScan);
@@ -281,9 +282,9 @@ __device__ void compactBlockWriteOutAnchorParallel(Ncv32u threadPassFlag, Ncv32u
 
     __syncthreads();
 
-    if (threadIdx.x < numPassed)
+    if (hipThreadIdx_x < numPassed)
     {
-        vectorOut[outMaskOffset + threadIdx.x] = shmem[threadIdx.x];
+        vectorOut[outMaskOffset + hipThreadIdx_x] = shmem[hipThreadIdx_x];
     }
 #endif
 }
@@ -310,7 +311,7 @@ __global__ void applyHaarClassifierAnchorParallel(Ncv32u *d_IImg, Ncv32u IImgStr
 
     if (tbReadPixelIndexFromVector)
     {
-        maskOffset = (MAX_GRID_DIM * blockIdx.y + blockIdx.x) * NUM_THREADS_ANCHORSPARALLEL + threadIdx.x;
+        maskOffset = (MAX_GRID_DIM * hipBlockIdx_y + hipBlockIdx_x) * NUM_THREADS_ANCHORSPARALLEL + hipThreadIdx_x;
 
         if (maskOffset >= mask1Dlen)
         {
@@ -326,8 +327,8 @@ __global__ void applyHaarClassifierAnchorParallel(Ncv32u *d_IImg, Ncv32u IImgStr
     }
     else
     {
-        y_offs = blockIdx.y;
-        x_offs = blockIdx.x * NUM_THREADS_ANCHORSPARALLEL + threadIdx.x;
+        y_offs = hipBlockIdx_y;
+        x_offs = hipBlockIdx_x * NUM_THREADS_ANCHORSPARALLEL + hipThreadIdx_x;
 
         if (x_offs >= mask2Dstride)
         {
@@ -489,7 +490,7 @@ __global__ void applyHaarClassifierClassifierParallel(Ncv32u *d_IImg, Ncv32u IIm
                                                       Ncv32u mask1Dlen, Ncv32u mask2Dstride,
                                                       NcvSize32u anchorsRoi, Ncv32u startStageInc, Ncv32u endStageExc, Ncv32f scaleArea)
 {
-    Ncv32u maskOffset = MAX_GRID_DIM * blockIdx.y + blockIdx.x;
+    Ncv32u maskOffset = MAX_GRID_DIM * hipBlockIdx_y + hipBlockIdx_x;
 
     if (maskOffset >= mask1Dlen)
     {
@@ -510,7 +511,7 @@ __global__ void applyHaarClassifierClassifierParallel(Ncv32u *d_IImg, Ncv32u IIm
 
         HaarStage64 curStage = getStage(iStage, d_Stages);
         Ncv32s numRootNodesInStage = curStage.getNumClassifierRootNodes();
-        Ncv32u curRootNodeOffset = curStage.getStartClassifierRootNodeOffset() + threadIdx.x;
+        Ncv32u curRootNodeOffset = curStage.getStartClassifierRootNodeOffset() + hipThreadIdx_x;
         Ncv32f stageThreshold = curStage.getStageThreshold();
 
         Ncv32u numRootChunks = (numRootNodesInStage + NUM_THREADS_CLASSIFIERPARALLEL - 1) >> NUM_THREADS_CLASSIFIERPARALLEL_LOG2;
@@ -519,7 +520,7 @@ __global__ void applyHaarClassifierClassifierParallel(Ncv32u *d_IImg, Ncv32u IIm
         {
             NcvBool bMoreNodesToTraverse = true;
 
-            if (chunkId * NUM_THREADS_CLASSIFIERPARALLEL + threadIdx.x < numRootNodesInStage)
+            if (chunkId * NUM_THREADS_CLASSIFIERPARALLEL + hipThreadIdx_x < numRootNodesInStage)
             {
                 Ncv32u iNode = curRootNodeOffset;
 
@@ -606,7 +607,7 @@ __global__ void applyHaarClassifierClassifierParallel(Ncv32u *d_IImg, Ncv32u IIm
     {
         if (!bPass || d_inMask != d_outMask)
         {
-            if (!threadIdx.x)
+            if (!hipThreadIdx_x)
             {
                 d_outMask[maskOffset] = outMaskVal;
             }
@@ -615,7 +616,7 @@ __global__ void applyHaarClassifierClassifierParallel(Ncv32u *d_IImg, Ncv32u IIm
     else
     {
 #if __CUDA_ARCH__ && __CUDA_ARCH__ >= 110
-        if (bPass && !threadIdx.x)
+        if (bPass && !hipThreadIdx_x)
         {
             Ncv32u outMaskOffset = atomicAdd(&d_outMaskPosition, 1);
             d_outMask[outMaskOffset] = outMaskVal;
@@ -631,9 +632,9 @@ __global__ void initializeMaskVector(Ncv32u *d_inMask, Ncv32u *d_outMask,
                                      Ncv32u mask1Dlen, Ncv32u mask2Dstride,
                                      NcvSize32u anchorsRoi, Ncv32u step)
 {
-    Ncv32u y_offs = blockIdx.y;
-    Ncv32u x_offs = blockIdx.x * NUM_THREADS_ANCHORSPARALLEL + threadIdx.x;
-    Ncv32u outMaskOffset = y_offs * gridDim.x * blockDim.x + x_offs;
+    Ncv32u y_offs = hipBlockIdx_y;
+    Ncv32u x_offs = hipBlockIdx_x * NUM_THREADS_ANCHORSPARALLEL + hipThreadIdx_x;
+    Ncv32u outMaskOffset = y_offs * hipGridDim_x * hipBlockDim_x + x_offs;
 
     Ncv32u y_offs_upsc = step * y_offs;
     Ncv32u x_offs_upsc = step * x_offs;
@@ -663,7 +664,7 @@ __global__ void initializeMaskVector(Ncv32u *d_inMask, Ncv32u *d_outMask,
 struct applyHaarClassifierAnchorParallelFunctor
 {
     dim3 gridConf, blockConf;
-    cudaStream_t cuStream;
+    hipStream_t cuStream;
 
     //Kernel arguments are stored as members;
     Ncv32u *d_IImg;
@@ -683,7 +684,7 @@ struct applyHaarClassifierAnchorParallelFunctor
     Ncv32f scaleArea;
 
     //Arguments are passed through the constructor
-    applyHaarClassifierAnchorParallelFunctor(dim3 _gridConf, dim3 _blockConf, cudaStream_t _cuStream,
+    applyHaarClassifierAnchorParallelFunctor(dim3 _gridConf, dim3 _blockConf, hipStream_t _cuStream,
                                              Ncv32u *_d_IImg, Ncv32u _IImgStride,
                                              Ncv32f *_d_weights, Ncv32u _weightsStride,
                                              HaarFeature64 *_d_Features, HaarClassifierNode128 *_d_ClassifierNodes, HaarStage64 *_d_Stages,
@@ -715,14 +716,14 @@ struct applyHaarClassifierAnchorParallelFunctor
     void call(TList tl)
     {
         CV_UNUSED(tl);
-        applyHaarClassifierAnchorParallel <
+        hipLaunchKernelGGL((applyHaarClassifierAnchorParallel <
             Loki::TL::TypeAt<TList, 0>::Result::value,
             Loki::TL::TypeAt<TList, 1>::Result::value,
             Loki::TL::TypeAt<TList, 2>::Result::value,
             Loki::TL::TypeAt<TList, 3>::Result::value,
-            Loki::TL::TypeAt<TList, 4>::Result::value >
-            <<<gridConf, blockConf, 0, cuStream>>>
-            (d_IImg, IImgStride,
+            Loki::TL::TypeAt<TList, 4>::Result::value >),
+            dim3(gridConf), dim3(blockConf), 0, cuStream,
+            d_IImg, IImgStride,
             d_weights, weightsStride,
             d_Features, d_ClassifierNodes, d_Stages,
             d_inMask, d_outMask,
@@ -739,7 +740,7 @@ void applyHaarClassifierAnchorParallelDynTemplate(NcvBool tbInitMaskPositively,
                                                   NcvBool tbReadPixelIndexFromVector,
                                                   NcvBool tbDoAtomicCompaction,
 
-                                                  dim3 gridConf, dim3 blockConf, cudaStream_t cuStream,
+                                                  dim3 gridConf, dim3 blockConf, hipStream_t cuStream,
 
                                                   Ncv32u *d_IImg, Ncv32u IImgStride,
                                                   Ncv32f *d_weights, Ncv32u weightsStride,
@@ -773,7 +774,7 @@ void applyHaarClassifierAnchorParallelDynTemplate(NcvBool tbInitMaskPositively,
 struct applyHaarClassifierClassifierParallelFunctor
 {
     dim3 gridConf, blockConf;
-    cudaStream_t cuStream;
+    hipStream_t cuStream;
 
     //Kernel arguments are stored as members;
     Ncv32u *d_IImg;
@@ -793,7 +794,7 @@ struct applyHaarClassifierClassifierParallelFunctor
     Ncv32f scaleArea;
 
     //Arguments are passed through the constructor
-    applyHaarClassifierClassifierParallelFunctor(dim3 _gridConf, dim3 _blockConf, cudaStream_t _cuStream,
+    applyHaarClassifierClassifierParallelFunctor(dim3 _gridConf, dim3 _blockConf, hipStream_t _cuStream,
                                                  Ncv32u *_d_IImg, Ncv32u _IImgStride,
                                                  Ncv32f *_d_weights, Ncv32u _weightsStride,
                                                  HaarFeature64 *_d_Features, HaarClassifierNode128 *_d_ClassifierNodes, HaarStage64 *_d_Stages,
@@ -825,12 +826,12 @@ struct applyHaarClassifierClassifierParallelFunctor
     void call(TList tl)
     {
         CV_UNUSED(tl);
-        applyHaarClassifierClassifierParallel <
+        hipLaunchKernelGGL((applyHaarClassifierClassifierParallel <
             Loki::TL::TypeAt<TList, 0>::Result::value,
             Loki::TL::TypeAt<TList, 1>::Result::value,
-            Loki::TL::TypeAt<TList, 2>::Result::value >
-            <<<gridConf, blockConf, 0, cuStream>>>
-            (d_IImg, IImgStride,
+            Loki::TL::TypeAt<TList, 2>::Result::value >),
+            dim3(gridConf), dim3(blockConf), 0, cuStream,
+            d_IImg, IImgStride,
             d_weights, weightsStride,
             d_Features, d_ClassifierNodes, d_Stages,
             d_inMask, d_outMask,
@@ -845,7 +846,7 @@ void applyHaarClassifierClassifierParallelDynTemplate(NcvBool tbCacheTextureIImg
                                                       NcvBool tbCacheTextureCascade,
                                                       NcvBool tbDoAtomicCompaction,
 
-                                                      dim3 gridConf, dim3 blockConf, cudaStream_t cuStream,
+                                                      dim3 gridConf, dim3 blockConf, hipStream_t cuStream,
 
                                                       Ncv32u *d_IImg, Ncv32u IImgStride,
                                                       Ncv32f *d_weights, Ncv32u weightsStride,
@@ -876,7 +877,7 @@ void applyHaarClassifierClassifierParallelDynTemplate(NcvBool tbCacheTextureIImg
 struct initializeMaskVectorFunctor
 {
     dim3 gridConf, blockConf;
-    cudaStream_t cuStream;
+    hipStream_t cuStream;
 
     //Kernel arguments are stored as members;
     Ncv32u *d_inMask;
@@ -887,7 +888,7 @@ struct initializeMaskVectorFunctor
     Ncv32u step;
 
     //Arguments are passed through the constructor
-    initializeMaskVectorFunctor(dim3 _gridConf, dim3 _blockConf, cudaStream_t _cuStream,
+    initializeMaskVectorFunctor(dim3 _gridConf, dim3 _blockConf, hipStream_t _cuStream,
                                 Ncv32u *_d_inMask, Ncv32u *_d_outMask,
                                 Ncv32u _mask1Dlen, Ncv32u _mask2Dstride,
                                 NcvSize32u _anchorsRoi, Ncv32u _step) :
@@ -906,11 +907,11 @@ struct initializeMaskVectorFunctor
     void call(TList tl)
     {
         CV_UNUSED(tl);
-        initializeMaskVector <
+        hipLaunchKernelGGL((initializeMaskVector <
             Loki::TL::TypeAt<TList, 0>::Result::value,
-            Loki::TL::TypeAt<TList, 1>::Result::value >
-            <<<gridConf, blockConf, 0, cuStream>>>
-            (d_inMask, d_outMask,
+            Loki::TL::TypeAt<TList, 1>::Result::value >),
+             dim3(gridConf), dim3(blockConf), 0, cuStream,
+             d_inMask, d_outMask,
              mask1Dlen, mask2Dstride,
              anchorsRoi, step);
     }
@@ -920,7 +921,7 @@ struct initializeMaskVectorFunctor
 void initializeMaskVectorDynTemplate(NcvBool tbMaskByInmask,
                                      NcvBool tbDoAtomicCompaction,
 
-                                     dim3 gridConf, dim3 blockConf, cudaStream_t cuStream,
+                                     dim3 gridConf, dim3 blockConf, hipStream_t cuStream,
 
                                      Ncv32u *d_inMask, Ncv32u *d_outMask,
                                      Ncv32u mask1Dlen, Ncv32u mask2Dstride,
@@ -969,8 +970,8 @@ NCVStatus ncvApplyHaarClassifierCascade_device(NCVMatrix<Ncv32u> &integral,
                                                Ncv32f scaleArea,
                                                INCVMemAllocator &gpuAllocator,
                                                INCVMemAllocator &cpuAllocator,
-                                               cudaDeviceProp &devProp,
-                                               cudaStream_t cuStream)
+                                               hipDeviceProp_t &devProp,
+                                               hipStream_t cuStream)
 {
     ncvAssertReturn(integral.memType() == d_weights.memType()&&
                     integral.memType() == d_pixelMask.memType() &&
@@ -1041,7 +1042,7 @@ NCVStatus ncvApplyHaarClassifierCascade_device(NCVMatrix<Ncv32u> &integral,
     ncvAssertReturnNcvStat(ncvStat);
     ncvStat = d_HaarFeatures.copySolid(h_HaarFeatures, 0);
     ncvAssertReturnNcvStat(ncvStat);
-    ncvAssertCUDAReturn(cudaStreamSynchronize(0), NCV_CUDA_ERROR);
+    ncvAssertCUDAReturn(hipStreamSynchronize(0), NCV_CUDA_ERROR);
 
     for (Ncv32u i=0; i<(Ncv32u)anchorsRoi.height; i++)
     {
@@ -1091,6 +1092,7 @@ NCVStatus ncvApplyHaarClassifierCascade_device(NCVMatrix<Ncv32u> &integral,
     NCVVector<Ncv32u> *d_ptrNowData = &d_vecPixelMask;
     NCVVector<Ncv32u> *d_ptrNowTmp = &d_vecPixelMaskTmp;
 
+#ifdef NPP_ENABLE
     Ncv32u szNppCompactTmpBuf;
     nppsStCompactGetSize_32u(static_cast<Ncv32u>(d_vecPixelMask.length()), &szNppCompactTmpBuf, devProp);
     if (bDoAtomicCompaction)
@@ -1098,32 +1100,33 @@ NCVStatus ncvApplyHaarClassifierCascade_device(NCVMatrix<Ncv32u> &integral,
         szNppCompactTmpBuf = 0;
     }
     NCVVectorAlloc<Ncv8u> d_tmpBufCompact(gpuAllocator, szNppCompactTmpBuf);
+#endif //NPP_ENABLE
 
     NCV_SKIP_COND_BEGIN
 
     if (bTexCacheIImg)
     {
-        cudaChannelFormatDesc cfdTexIImage;
-        cfdTexIImage = cudaCreateChannelDesc<Ncv32u>();
+        hipChannelFormatDesc cfdTexIImage;
+        cfdTexIImage = hipCreateChannelDesc<Ncv32u>();
 
         size_t alignmentOffset;
-        ncvAssertCUDAReturn(cudaBindTexture(&alignmentOffset, texIImage, integral.ptr(), cfdTexIImage,
+        ncvAssertCUDAReturn(hipBindTexture(&alignmentOffset, texIImage, integral.ptr(), cfdTexIImage,
             (anchorsRoi.height + haar.ClassifierSize.height) * integral.pitch()), NCV_CUDA_ERROR);
         ncvAssertReturn(alignmentOffset==0, NCV_TEXTURE_BIND_ERROR);
     }
 
     if (bTexCacheCascade)
     {
-        cudaChannelFormatDesc cfdTexHaarFeatures;
-        cudaChannelFormatDesc cfdTexHaarClassifierNodes;
-        cfdTexHaarFeatures = cudaCreateChannelDesc<uint2>();
-        cfdTexHaarClassifierNodes = cudaCreateChannelDesc<uint4>();
+        hipChannelFormatDesc cfdTexHaarFeatures;
+        hipChannelFormatDesc cfdTexHaarClassifierNodes;
+        cfdTexHaarFeatures = hipCreateChannelDesc<uint2>();
+        cfdTexHaarClassifierNodes = hipCreateChannelDesc<uint4>();
 
         size_t alignmentOffset;
-        ncvAssertCUDAReturn(cudaBindTexture(&alignmentOffset, texHaarFeatures,
+        ncvAssertCUDAReturn(hipBindTexture(&alignmentOffset, texHaarFeatures,
             d_HaarFeatures.ptr(), cfdTexHaarFeatures,sizeof(HaarFeature64) * haar.NumFeatures), NCV_CUDA_ERROR);
         ncvAssertReturn(alignmentOffset==0, NCV_TEXTURE_BIND_ERROR);
-        ncvAssertCUDAReturn(cudaBindTexture(&alignmentOffset, texHaarClassifierNodes,
+        ncvAssertCUDAReturn(hipBindTexture(&alignmentOffset, texHaarClassifierNodes,
             d_HaarNodes.ptr(), cfdTexHaarClassifierNodes, sizeof(HaarClassifierNode128) * haar.NumClassifierTotalNodes), NCV_CUDA_ERROR);
         ncvAssertReturn(alignmentOffset==0, NCV_TEXTURE_BIND_ERROR);
     }
@@ -1158,9 +1161,9 @@ NCVStatus ncvApplyHaarClassifierCascade_device(NCVMatrix<Ncv32u> &integral,
     {
         if (bDoAtomicCompaction)
         {
-            ncvAssertCUDAReturn(cudaMemcpyToSymbolAsync(d_outMaskPosition, hp_zero, sizeof(Ncv32u),
-                                                        0, cudaMemcpyHostToDevice, cuStream), NCV_CUDA_ERROR);
-            ncvAssertCUDAReturn(cudaStreamSynchronize(cuStream), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipMemcpyToSymbolAsync(&d_outMaskPosition, hp_zero, sizeof(Ncv32u),
+                                                        0, hipMemcpyHostToDevice, cuStream), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipStreamSynchronize(cuStream), NCV_CUDA_ERROR);
         }
 
         dim3 gridInit((((anchorsRoi.width + pixelStep - 1) / pixelStep + NUM_THREADS_ANCHORSPARALLEL - 1) / NUM_THREADS_ANCHORSPARALLEL),
@@ -1180,23 +1183,26 @@ NCVStatus ncvApplyHaarClassifierCascade_device(NCVMatrix<Ncv32u> &integral,
                                         d_ptrNowTmp->ptr(),
                                         static_cast<Ncv32u>(d_vecPixelMask.length()), d_pixelMask.stride(),
                                         anchorsRoi, pixelStep);
-        ncvAssertCUDAReturn(cudaGetLastError(), NCV_CUDA_ERROR);
+        ncvAssertCUDAReturn(hipGetLastError(), NCV_CUDA_ERROR);
 
         if (bDoAtomicCompaction)
         {
-            ncvAssertCUDAReturn(cudaStreamSynchronize(cuStream), NCV_CUDA_ERROR);
-            ncvAssertCUDAReturn(cudaMemcpyFromSymbolAsync(hp_numDet, d_outMaskPosition, sizeof(Ncv32u),
-                                                          0, cudaMemcpyDeviceToHost, cuStream), NCV_CUDA_ERROR);
-            ncvAssertCUDAReturn(cudaStreamSynchronize(cuStream), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipStreamSynchronize(cuStream), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipMemcpyFromSymbol(hp_numDet, &d_outMaskPosition, sizeof(Ncv32u),
+                                                          0, hipMemcpyDeviceToHost), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipStreamSynchronize(cuStream), NCV_CUDA_ERROR);
             swap(d_ptrNowData, d_ptrNowTmp);
         }
         else
         {
+#ifdef NPP_ENABLE
             NCVStatus nppSt;
             nppSt = nppsStCompact_32u(d_ptrNowTmp->ptr(), static_cast<Ncv32u>(d_vecPixelMask.length()),
                                       d_ptrNowData->ptr(), hp_numDet, OBJDET_MASK_ELEMENT_INVALID_32U,
                                       d_tmpBufCompact.ptr(), szNppCompactTmpBuf, devProp);
             ncvAssertReturn(nppSt == NPPST_SUCCESS, NCV_NPP_ERROR);
+#endif //NPP_ENABLE
+
         }
         numDetections = *hp_numDet;
     }
@@ -1208,9 +1214,9 @@ NCVStatus ncvApplyHaarClassifierCascade_device(NCVMatrix<Ncv32u> &integral,
 
         if (bDoAtomicCompaction)
         {
-            ncvAssertCUDAReturn(cudaMemcpyToSymbolAsync(d_outMaskPosition, hp_zero, sizeof(Ncv32u),
-                                                        0, cudaMemcpyHostToDevice, cuStream), NCV_CUDA_ERROR);
-            ncvAssertCUDAReturn(cudaStreamSynchronize(cuStream), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipMemcpyToSymbolAsync(&d_outMaskPosition, hp_zero, sizeof(Ncv32u),
+                                                        0, hipMemcpyHostToDevice, cuStream), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipStreamSynchronize(cuStream), NCV_CUDA_ERROR);
         }
 
         dim3 grid1(((d_pixelMask.stride() + NUM_THREADS_ANCHORSPARALLEL - 1) / NUM_THREADS_ANCHORSPARALLEL),
@@ -1236,22 +1242,25 @@ NCVStatus ncvApplyHaarClassifierCascade_device(NCVMatrix<Ncv32u> &integral,
             pixParallelStageStops[pixParallelStageStopsIndex],
             pixParallelStageStops[pixParallelStageStopsIndex+1],
             scaleAreaPixels);
-        ncvAssertCUDAReturn(cudaGetLastError(), NCV_CUDA_ERROR);
+        ncvAssertCUDAReturn(hipGetLastError(), NCV_CUDA_ERROR);
 
         if (bDoAtomicCompaction)
         {
-            ncvAssertCUDAReturn(cudaStreamSynchronize(cuStream), NCV_CUDA_ERROR);
-            ncvAssertCUDAReturn(cudaMemcpyFromSymbolAsync(hp_numDet, d_outMaskPosition, sizeof(Ncv32u),
-                                                          0, cudaMemcpyDeviceToHost, cuStream), NCV_CUDA_ERROR);
-            ncvAssertCUDAReturn(cudaStreamSynchronize(cuStream), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipStreamSynchronize(cuStream), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipMemcpyFromSymbol(hp_numDet, &d_outMaskPosition, sizeof(Ncv32u),
+                                                          0, hipMemcpyDeviceToHost), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipStreamSynchronize(cuStream), NCV_CUDA_ERROR);
         }
         else
         {
+#ifdef NPP_ENABLE
             NCVStatus nppSt;
             nppSt = nppsStCompact_32u(d_ptrNowData->ptr(), static_cast<Ncv32u>(d_vecPixelMask.length()),
                                       d_ptrNowTmp->ptr(), hp_numDet, OBJDET_MASK_ELEMENT_INVALID_32U,
                                       d_tmpBufCompact.ptr(), szNppCompactTmpBuf, devProp);
             ncvAssertReturnNcvStat(nppSt);
+#endif //NPP_ENABLE
+
         }
 
         swap(d_ptrNowData, d_ptrNowTmp);
@@ -1273,9 +1282,9 @@ NCVStatus ncvApplyHaarClassifierCascade_device(NCVMatrix<Ncv32u> &integral,
 
         if (bDoAtomicCompaction)
         {
-            ncvAssertCUDAReturn(cudaMemcpyToSymbolAsync(d_outMaskPosition, hp_zero, sizeof(Ncv32u),
-                                                        0, cudaMemcpyHostToDevice, cuStream), NCV_CUDA_ERROR);
-            ncvAssertCUDAReturn(cudaStreamSynchronize(cuStream), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipMemcpyToSymbolAsync(&d_outMaskPosition, hp_zero, sizeof(Ncv32u),
+                                                        0, hipMemcpyHostToDevice, cuStream), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipStreamSynchronize(cuStream), NCV_CUDA_ERROR);
         }
 
         dim3 grid2((numDetections + NUM_THREADS_ANCHORSPARALLEL - 1) / NUM_THREADS_ANCHORSPARALLEL);
@@ -1306,22 +1315,25 @@ NCVStatus ncvApplyHaarClassifierCascade_device(NCVMatrix<Ncv32u> &integral,
             pixParallelStageStops[pixParallelStageStopsIndex],
             pixParallelStageStops[pixParallelStageStopsIndex+1],
             scaleAreaPixels);
-        ncvAssertCUDAReturn(cudaGetLastError(), NCV_CUDA_ERROR);
+        ncvAssertCUDAReturn(hipGetLastError(), NCV_CUDA_ERROR);
 
         if (bDoAtomicCompaction)
         {
-            ncvAssertCUDAReturn(cudaStreamSynchronize(cuStream), NCV_CUDA_ERROR);
-            ncvAssertCUDAReturn(cudaMemcpyFromSymbolAsync(hp_numDet, d_outMaskPosition, sizeof(Ncv32u),
-                                                          0, cudaMemcpyDeviceToHost, cuStream), NCV_CUDA_ERROR);
-            ncvAssertCUDAReturn(cudaStreamSynchronize(cuStream), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipStreamSynchronize(cuStream), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipMemcpyFromSymbol(hp_numDet, &d_outMaskPosition, sizeof(Ncv32u),
+                                                          0, hipMemcpyDeviceToHost), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipStreamSynchronize(cuStream), NCV_CUDA_ERROR);
         }
         else
         {
+#ifdef NPP_ENABLE
             NCVStatus nppSt;
             nppSt = nppsStCompact_32u(d_ptrNowData->ptr(), numDetections,
                                       d_ptrNowTmp->ptr(), hp_numDet, OBJDET_MASK_ELEMENT_INVALID_32U,
                                       d_tmpBufCompact.ptr(), szNppCompactTmpBuf, devProp);
             ncvAssertReturnNcvStat(nppSt);
+#endif //NPP_ENABLE
+
         }
 
         swap(d_ptrNowData, d_ptrNowTmp);
@@ -1336,9 +1348,9 @@ NCVStatus ncvApplyHaarClassifierCascade_device(NCVMatrix<Ncv32u> &integral,
     {
         if (bDoAtomicCompaction)
         {
-            ncvAssertCUDAReturn(cudaMemcpyToSymbolAsync(d_outMaskPosition, hp_zero, sizeof(Ncv32u),
-                                                        0, cudaMemcpyHostToDevice, cuStream), NCV_CUDA_ERROR);
-            ncvAssertCUDAReturn(cudaStreamSynchronize(cuStream), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipMemcpyToSymbolAsync(&d_outMaskPosition, hp_zero, sizeof(Ncv32u),
+                                                        0, hipMemcpyHostToDevice, cuStream), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipStreamSynchronize(cuStream), NCV_CUDA_ERROR);
         }
 
         dim3 grid3(numDetections);
@@ -1367,22 +1379,25 @@ NCVStatus ncvApplyHaarClassifierCascade_device(NCVMatrix<Ncv32u> &integral,
             stageMiddleSwitch,
             stageEndClassifierParallel,
             scaleAreaPixels);
-        ncvAssertCUDAReturn(cudaGetLastError(), NCV_CUDA_ERROR);
+        ncvAssertCUDAReturn(hipGetLastError(), NCV_CUDA_ERROR);
 
         if (bDoAtomicCompaction)
         {
-            ncvAssertCUDAReturn(cudaStreamSynchronize(cuStream), NCV_CUDA_ERROR);
-            ncvAssertCUDAReturn(cudaMemcpyFromSymbolAsync(hp_numDet, d_outMaskPosition, sizeof(Ncv32u),
-                                                          0, cudaMemcpyDeviceToHost, cuStream), NCV_CUDA_ERROR);
-            ncvAssertCUDAReturn(cudaStreamSynchronize(cuStream), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipStreamSynchronize(cuStream), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipMemcpyFromSymbol(hp_numDet, &d_outMaskPosition, sizeof(Ncv32u),
+                                                          0, hipMemcpyDeviceToHost), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipStreamSynchronize(cuStream), NCV_CUDA_ERROR);
         }
         else
         {
+#ifdef NPP_ENABLE
             NCVStatus nppSt;
             nppSt = nppsStCompact_32u(d_ptrNowData->ptr(), numDetections,
                                       d_ptrNowTmp->ptr(), hp_numDet, OBJDET_MASK_ELEMENT_INVALID_32U,
                                       d_tmpBufCompact.ptr(), szNppCompactTmpBuf, devProp);
             ncvAssertReturnNcvStat(nppSt);
+#endif //NPP_ENABLE
+
         }
 
         swap(d_ptrNowData, d_ptrNowTmp);
@@ -1392,14 +1407,14 @@ NCVStatus ncvApplyHaarClassifierCascade_device(NCVMatrix<Ncv32u> &integral,
     if (d_ptrNowData != &d_vecPixelMask)
     {
         d_vecPixelMaskTmp.copySolid(d_vecPixelMask, cuStream);
-        ncvAssertCUDAReturn(cudaStreamSynchronize(cuStream), NCV_CUDA_ERROR);
+        ncvAssertCUDAReturn(hipStreamSynchronize(cuStream), NCV_CUDA_ERROR);
     }
 
 #if defined _SELF_TEST_
 
     ncvStat = d_pixelMask.copySolid(h_pixelMask_d, 0);
     ncvAssertReturnNcvStat(ncvStat);
-    ncvAssertCUDAReturn(cudaStreamSynchronize(cuStream), NCV_CUDA_ERROR);
+    ncvAssertCUDAReturn(hipStreamSynchronize(cuStream), NCV_CUDA_ERROR);
 
     if (bDoAtomicCompaction)
     {
@@ -1470,8 +1485,8 @@ __global__ void growDetectionsKernel(Ncv32u *pixelMask, Ncv32u numElements,
                                      NcvRect32u *hypotheses,
                                      Ncv32u rectWidth, Ncv32u rectHeight, Ncv32f curScale)
 {
-    Ncv32u blockId = blockIdx.y * 65535 + blockIdx.x;
-    Ncv32u elemAddr = blockId * NUM_GROW_THREADS + threadIdx.x;
+    Ncv32u blockId = hipBlockIdx_y * 65535 + hipBlockIdx_x;
+    Ncv32u elemAddr = blockId * NUM_GROW_THREADS + hipThreadIdx_x;
     if (elemAddr >= numElements)
     {
         return;
@@ -1488,7 +1503,7 @@ NCVStatus ncvGrowDetectionsVector_device(NCVVector<Ncv32u> &pixelMask,
                                          Ncv32u rectWidth,
                                          Ncv32u rectHeight,
                                          Ncv32f curScale,
-                                         cudaStream_t cuStream)
+                                         hipStream_t cuStream)
 {
     ncvAssertReturn(pixelMask.ptr() != NULL && hypotheses.ptr() != NULL, NCV_NULL_PTR);
 
@@ -1524,10 +1539,10 @@ NCVStatus ncvGrowDetectionsVector_device(NCVVector<Ncv32u> &pixelMask,
         grid.y = (grid.x + 65534) / 65535;
         grid.x = 65535;
     }
-    growDetectionsKernel<<<grid, block, 0, cuStream>>>(pixelMask.ptr(), numDetsToCopy,
+    hipLaunchKernelGGL((growDetectionsKernel), dim3(grid), dim3(block), 0, cuStream, pixelMask.ptr(), numDetsToCopy,
                                                        hypotheses.ptr() + totalDetections,
                                                        rectWidth, rectHeight, curScale);
-    ncvAssertCUDAReturn(cudaGetLastError(), NCV_CUDA_ERROR);
+    ncvAssertCUDAReturn(hipGetLastError(), NCV_CUDA_ERROR);
 
     totalDetections += numDetsToCopy;
     return ncvStat;
@@ -1560,8 +1575,8 @@ NCVStatus ncvDetectObjectsMultiScale_device(NCVMatrix<Ncv8u> &d_srcImg,
 
                                             INCVMemAllocator &gpuAllocator,
                                             INCVMemAllocator &cpuAllocator,
-                                            cudaDeviceProp &devProp,
-                                            cudaStream_t cuStream)
+                                            hipDeviceProp_t &devProp,
+                                            hipStream_t cuStream)
 {
     ncvAssertReturn(d_srcImg.memType() == d_dstRects.memType() &&
                     d_srcImg.memType() == gpuAllocator.memType() &&
@@ -1625,17 +1640,18 @@ NCVStatus ncvDetectObjectsMultiScale_device(NCVMatrix<Ncv8u> &d_srcImg,
     NCVVectorAlloc<NcvRect32u> h_hypothesesIntermediate(cpuAllocator, d_srcImg.width() * d_srcImg.height());
     ncvAssertReturn(h_hypothesesIntermediate.isMemAllocated(), NCV_ALLOCATOR_BAD_ALLOC);
 
+#ifdef NPP_ENABLE
     NCVStatus nppStat;
     Ncv32u szTmpBufIntegral, szTmpBufSqIntegral;
     nppStat = nppiStIntegralGetSize_8u32u(NcvSize32u(d_srcImg.width(), d_srcImg.height()), &szTmpBufIntegral, devProp);
     ncvAssertReturnNcvStat(nppStat);
     nppStat = nppiStSqrIntegralGetSize_8u64u(NcvSize32u(d_srcImg.width(), d_srcImg.height()), &szTmpBufSqIntegral, devProp);
     ncvAssertReturnNcvStat(nppStat);
+
     NCVVectorAlloc<Ncv8u> d_tmpIIbuf(gpuAllocator, std::max(szTmpBufIntegral, szTmpBufSqIntegral));
     ncvAssertReturn(d_tmpIIbuf.isMemAllocated(), NCV_ALLOCATOR_BAD_ALLOC);
 
     NCV_SKIP_COND_BEGIN
-
     nppStat = nppiStIntegral_8u32u_C1R(d_srcImg.ptr(), d_srcImg.pitch(),
                                        integral.ptr(), integral.pitch(),
                                        NcvSize32u(d_srcImg.width(), d_srcImg.height()),
@@ -1647,8 +1663,9 @@ NCVStatus ncvDetectObjectsMultiScale_device(NCVMatrix<Ncv8u> &d_srcImg,
                                           NcvSize32u(d_srcImg.width(), d_srcImg.height()),
                                           d_tmpIIbuf.ptr(), szTmpBufSqIntegral, devProp);
     ncvAssertReturnNcvStat(nppStat);
-
     NCV_SKIP_COND_END
+
+#endif //NPP_ENABLE
 
     dstNumRects = 0;
 
@@ -1722,7 +1739,7 @@ NCVStatus ncvDetectObjectsMultiScale_device(NCVMatrix<Ncv8u> &d_srcImg,
         searchRoi.height = scaledIIRoi.height - haar.ClassifierSize.height;
 
         NCV_SKIP_COND_BEGIN
-
+#ifdef NPP_ENABLE
         nppStat = nppiStDecimate_32u_C1R(
             integral.ptr(), integral.pitch(),
             d_scaledIntegralImage.ptr(), d_scaledIntegralImage.pitch(),
@@ -1783,11 +1800,11 @@ NCVStatus ncvDetectObjectsMultiScale_device(NCVMatrix<Ncv8u> &d_srcImg,
 
             if (dstNumRects != 0)
             {
-                ncvAssertCUDAReturn(cudaStreamSynchronize(cuStream), NCV_CUDA_ERROR);
+                ncvAssertCUDAReturn(hipStreamSynchronize(cuStream), NCV_CUDA_ERROR);
                 ncvStat = d_hypothesesIntermediate.copySolid(h_hypothesesIntermediate, cuStream,
                                                              dstNumRects * sizeof(NcvRect32u));
                 ncvAssertReturnNcvStat(ncvStat);
-                ncvAssertCUDAReturn(cudaStreamSynchronize(cuStream), NCV_CUDA_ERROR);
+                ncvAssertCUDAReturn(hipStreamSynchronize(cuStream), NCV_CUDA_ERROR);
             }
 
             Ncv32u numStrongHypothesesNow = dstNumRects;
@@ -1821,7 +1838,7 @@ NCVStatus ncvDetectObjectsMultiScale_device(NCVMatrix<Ncv8u> &d_srcImg,
                 break;
             }
         }
-
+#endif //NPP_ENABLE
         NCV_SKIP_COND_END
 
         if (gpuAllocator.isCounting())
@@ -1829,6 +1846,7 @@ NCVStatus ncvDetectObjectsMultiScale_device(NCVMatrix<Ncv8u> &d_srcImg,
             break;
         }
     }
+
 
     NCVStatus ncvRetCode = NCV_SUCCESS;
 
@@ -1846,11 +1864,11 @@ NCVStatus ncvDetectObjectsMultiScale_device(NCVMatrix<Ncv8u> &d_srcImg,
         //TODO: move hypotheses filtration to GPU pipeline (the only CPU-resident element of the pipeline left)
         if (dstNumRects != 0)
         {
-            ncvAssertCUDAReturn(cudaStreamSynchronize(cuStream), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipStreamSynchronize(cuStream), NCV_CUDA_ERROR);
             ncvStat = d_hypothesesIntermediate.copySolid(h_hypothesesIntermediate, cuStream,
                                                          dstNumRects * sizeof(NcvRect32u));
             ncvAssertReturnNcvStat(ncvStat);
-            ncvAssertCUDAReturn(cudaStreamSynchronize(cuStream), NCV_CUDA_ERROR);
+            ncvAssertCUDAReturn(hipStreamSynchronize(cuStream), NCV_CUDA_ERROR);
         }
 
         ncvStat = ncvGroupRectangles_host(
@@ -1877,7 +1895,7 @@ NCVStatus ncvDetectObjectsMultiScale_device(NCVMatrix<Ncv8u> &d_srcImg,
 
     if (flags & NCVPipeObjDet_VisualizeInPlace)
     {
-        ncvAssertCUDAReturn(cudaStreamSynchronize(cuStream), NCV_CUDA_ERROR);
+        ncvAssertCUDAReturn(hipStreamSynchronize(cuStream), NCV_CUDA_ERROR);
         ncvDrawRects_8u_device(d_srcImg.ptr(), d_srcImg.stride(),
                                d_srcImg.width(), d_srcImg.height(),
                                d_dstRects.ptr(), dstNumRects, 255, cuStream);

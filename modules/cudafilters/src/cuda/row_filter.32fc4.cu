@@ -46,7 +46,7 @@
 
 namespace filter
 {
-    template void linearRow<float4, float4>(PtrStepSzb src, PtrStepSzb dst, const float* kernel, int ksize, int anchor, int brd_type, int cc, cudaStream_t stream);
+    template void linearRow<float4, float4>(PtrStepSzb src, PtrStepSzb dst, const float* kernel, int ksize, int anchor, int brd_type, int cc, hipStream_t stream);
 }
 
 #endif /* CUDA_DISABLER */

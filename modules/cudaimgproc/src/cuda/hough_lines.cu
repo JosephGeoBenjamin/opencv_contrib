@@ -178,9 +178,8 @@ namespace cv { namespace cuda { namespace device
         int linesGetResult_gpu(PtrStepSzi accum, float2* out, int* votes, int maxSize, float rho, float theta, int threshold, bool doSort)
         {
             void* counterPtr;
-#ifdef HIP_TODO
-            cudaSafeCall( hipGetSymbolAddress(&counterPtr, g_counter) );
-#endif
+
+            cudaSafeCall( hipGetSymbolAddress(&counterPtr, &g_counter) );
 
             cudaSafeCall( hipMemset(counterPtr, 0, sizeof(int)) );
 

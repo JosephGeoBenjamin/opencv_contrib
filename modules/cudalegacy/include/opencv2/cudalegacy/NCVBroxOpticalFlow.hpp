@@ -103,7 +103,7 @@ NCVStatus NCVBroxOpticalFlow(const NCVBroxOpticalFlowDescriptor desc,
                              const NCVMatrix<Ncv32f> &frame1,
                              NCVMatrix<Ncv32f> &u,
                              NCVMatrix<Ncv32f> &v,
-                             cudaStream_t stream);
+                             hipStream_t stream);
 
 //! @}
 

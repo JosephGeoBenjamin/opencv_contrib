@@ -47,7 +47,7 @@ namespace opencv_test { namespace {
 //////////////////////////////////////////////////////////////////////
 // GEMM
 
-#ifdef HAVE_CUBLAS
+#ifdef HAVE_HIPBLAS
 
 CV_FLAGS(GemmFlags, 0, cv::GEMM_1_T, cv::GEMM_2_T, cv::GEMM_3_T)
 #define ALL_GEMM_FLAGS Values(GemmFlags(0), GemmFlags(cv::GEMM_1_T), GemmFlags(cv::GEMM_2_T), GemmFlags(cv::GEMM_3_T), \

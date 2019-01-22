@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -84,8 +85,8 @@ namespace cv { namespace cuda { namespace device
 
         template <class Transform> __global__ void buildWarpMaps(PtrStepSzf xmap, PtrStepf ymap)
         {
-            const int x = blockDim.x * blockIdx.x + threadIdx.x;
-            const int y = blockDim.y * blockIdx.y + threadIdx.y;
+            const int x = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
+            const int y = hipBlockDim_y * hipBlockIdx_y + hipThreadIdx_y;
 
             if (x < xmap.cols && y < xmap.rows)
             {
@@ -96,28 +97,28 @@ namespace cv { namespace cuda { namespace device
             }
         }
 
-        template <class Transform> void buildWarpMaps_caller(PtrStepSzf xmap, PtrStepSzf ymap, cudaStream_t stream)
+        template <class Transform> void buildWarpMaps_caller(PtrStepSzf xmap, PtrStepSzf ymap, hipStream_t stream)
         {
             dim3 block(32, 8);
             dim3 grid(divUp(xmap.cols, block.x), divUp(xmap.rows, block.y));
 
-            buildWarpMaps<Transform><<<grid, block, 0, stream>>>(xmap, ymap);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((buildWarpMaps<Transform>), dim3(grid), dim3(block), 0, stream, xmap, ymap);
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
-        void buildWarpAffineMaps_gpu(float coeffs[2 * 3], PtrStepSzf xmap, PtrStepSzf ymap, cudaStream_t stream)
+        void buildWarpAffineMaps_gpu(float coeffs[2 * 3], PtrStepSzf xmap, PtrStepSzf ymap, hipStream_t stream)
         {
-            cudaSafeCall( cudaMemcpyToSymbol(c_warpMat, coeffs, 2 * 3 * sizeof(float)) );
+            cudaSafeCall( hipMemcpyToSymbol(c_warpMat, coeffs, 2 * 3 * sizeof(float)) );
 
             buildWarpMaps_caller<AffineTransform>(xmap, ymap, stream);
         }
 
-        void buildWarpPerspectiveMaps_gpu(float coeffs[3 * 3], PtrStepSzf xmap, PtrStepSzf ymap, cudaStream_t stream)
+        void buildWarpPerspectiveMaps_gpu(float coeffs[3 * 3], PtrStepSzf xmap, PtrStepSzf ymap, hipStream_t stream)
         {
-            cudaSafeCall( cudaMemcpyToSymbol(c_warpMat, coeffs, 3 * 3 * sizeof(float)) );
+            cudaSafeCall( hipMemcpyToSymbol(c_warpMat, coeffs, 3 * 3 * sizeof(float)) );
 
             buildWarpMaps_caller<PerspectiveTransform>(xmap, ymap, stream);
         }
@@ -127,8 +128,8 @@ namespace cv { namespace cuda { namespace device
 
         template <class Transform, class Ptr2D, typename T> __global__ void warp(const Ptr2D src, PtrStepSz<T> dst)
         {
-            const int x = blockDim.x * blockIdx.x + threadIdx.x;
-            const int y = blockDim.y * blockIdx.y + threadIdx.y;
+            const int x = hipBlockDim_x * hipBlockIdx_x + hipThreadIdx_x;
+            const int y = hipBlockDim_y * hipBlockIdx_y + hipThreadIdx_y;
 
             if (x < dst.cols && y < dst.rows)
             {
@@ -140,7 +141,7 @@ namespace cv { namespace cuda { namespace device
 
         template <class Transform, template <typename> class Filter, template <typename> class B, typename T> struct WarpDispatcherStream
         {
-            static void call(PtrStepSz<T> src, PtrStepSz<T> dst, const float* borderValue, cudaStream_t stream, bool)
+            static void call(PtrStepSz<T> src, PtrStepSz<T> dst, const float* borderValue, hipStream_t stream, bool)
             {
                 typedef typename TypeVec<float, VecTraits<T>::cn>::vec_type work_type;
 
@@ -151,8 +152,8 @@ namespace cv { namespace cuda { namespace device
                 BorderReader< PtrStep<T>, B<work_type> > brdSrc(src, brd);
                 Filter< BorderReader< PtrStep<T>, B<work_type> > > filter_src(brdSrc);
 
-                warp<Transform><<<grid, block, 0, stream>>>(filter_src, dst);
-                cudaSafeCall( cudaGetLastError() );
+                hipLaunchKernelGGL((warp<Transform>), dim3(grid), dim3(block), 0, stream, filter_src, dst);
+                cudaSafeCall( hipGetLastError() );
             }
         };
 
@@ -173,15 +174,15 @@ namespace cv { namespace cuda { namespace device
                 BorderReader< PtrStep<T>, B<work_type> > brdSrc(src, brd);
                 Filter< BorderReader< PtrStep<T>, B<work_type> > > filter_src(brdSrc);
 
-                warp<Transform><<<grid, block>>>(filter_src, dst);
-                cudaSafeCall( cudaGetLastError() );
+                hipLaunchKernelGGL((warp<Transform>), dim3(grid), dim3(block), 0, 0, filter_src, dst);
+                cudaSafeCall( hipGetLastError() );
 
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
             }
         };
 
         #define OPENCV_CUDA_IMPLEMENT_WARP_TEX(type) \
-            texture< type , cudaTextureType2D > tex_warp_ ## type (0, cudaFilterModePoint, cudaAddressModeClamp); \
+            texture< type , hipTextureType2D > tex_warp_ ## type (0, hipFilterModePoint, hipAddressModeClamp); \
             struct tex_warp_ ## type ## _reader \
             { \
                 typedef type elem_type; \
@@ -205,9 +206,9 @@ namespace cv { namespace cuda { namespace device
                     B<work_type> brd(src.rows, src.cols, VecTraits<work_type>::make(borderValue)); \
                     BorderReader< tex_warp_ ## type ##_reader, B<work_type> > brdSrc(texSrc, brd); \
                     Filter< BorderReader< tex_warp_ ## type ##_reader, B<work_type> > > filter_src(brdSrc); \
-                    warp<Transform><<<grid, block>>>(filter_src, dst); \
-                    cudaSafeCall( cudaGetLastError() ); \
-                    cudaSafeCall( cudaDeviceSynchronize() ); \
+                    hipLaunchKernelGGL((warp<Transform>), dim3(grid), dim3(block), 0, 0, filter_src, dst); \
+                    cudaSafeCall( hipGetLastError() ); \
+                    cudaSafeCall( hipDeviceSynchronize() ); \
                 } \
             }; \
             template <class Transform, template <typename> class Filter> struct WarpDispatcherNonStream<Transform, Filter, BrdReplicate, type> \
@@ -221,17 +222,17 @@ namespace cv { namespace cuda { namespace device
                     if (srcWhole.cols == src.cols && srcWhole.rows == src.rows) \
                     { \
                         Filter< tex_warp_ ## type ##_reader > filter_src(texSrc); \
-                        warp<Transform><<<grid, block>>>(filter_src, dst); \
+                        hipLaunchKernelGGL((warp<Transform>), dim3(grid), dim3(block), 0, 0, filter_src, dst); \
                     } \
                     else \
                     { \
                         BrdReplicate<type> brd(src.rows, src.cols); \
                         BorderReader< tex_warp_ ## type ##_reader, BrdReplicate<type> > brdSrc(texSrc, brd); \
                         Filter< BorderReader< tex_warp_ ## type ##_reader, BrdReplicate<type> > > filter_src(brdSrc); \
-                        warp<Transform><<<grid, block>>>(filter_src, dst); \
+                        hipLaunchKernelGGL((warp<Transform>), dim3(grid), dim3(block), 0, 0, filter_src, dst); \
                     } \
-                    cudaSafeCall( cudaGetLastError() ); \
-                    cudaSafeCall( cudaDeviceSynchronize() ); \
+                    cudaSafeCall( hipGetLastError() ); \
+                    cudaSafeCall( hipDeviceSynchronize() ); \
                 } \
             };
 
@@ -263,7 +264,7 @@ namespace cv { namespace cuda { namespace device
 
         template <class Transform, template <typename> class Filter, template <typename> class B, typename T> struct WarpDispatcher
         {
-            static void call(PtrStepSz<T> src, PtrStepSz<T> srcWhole, int xoff, int yoff, PtrStepSz<T> dst, const float* borderValue, cudaStream_t stream, bool cc20)
+            static void call(PtrStepSz<T> src, PtrStepSz<T> srcWhole, int xoff, int yoff, PtrStepSz<T> dst, const float* borderValue, hipStream_t stream, bool cc20)
             {
                 if (stream == 0)
                     WarpDispatcherNonStream<Transform, Filter, B, T>::call(src, srcWhole, xoff, yoff, dst, borderValue, cc20);
@@ -274,9 +275,9 @@ namespace cv { namespace cuda { namespace device
 
         template <class Transform, typename T>
         void warp_caller(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, PtrStepSzb dst, int interpolation,
-                         int borderMode, const float* borderValue, cudaStream_t stream, bool cc20)
+                         int borderMode, const float* borderValue, hipStream_t stream, bool cc20)
         {
-            typedef void (*func_t)(PtrStepSz<T> src, PtrStepSz<T> srcWhole, int xoff, int yoff, PtrStepSz<T> dst, const float* borderValue, cudaStream_t stream, bool cc20);
+            typedef void (*func_t)(PtrStepSz<T> src, PtrStepSz<T> srcWhole, int xoff, int yoff, PtrStepSz<T> dst, const float* borderValue, hipStream_t stream, bool cc20);
 
             static const func_t funcs[3][5] =
             {
@@ -308,80 +309,80 @@ namespace cv { namespace cuda { namespace device
         }
 
         template <typename T> void warpAffine_gpu(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation,
-                                                  int borderMode, const float* borderValue, cudaStream_t stream, bool cc20)
+                                                  int borderMode, const float* borderValue, hipStream_t stream, bool cc20)
         {
-            cudaSafeCall( cudaMemcpyToSymbol(c_warpMat, coeffs, 2 * 3 * sizeof(float)) );
+            cudaSafeCall( hipMemcpyToSymbol(c_warpMat, coeffs, 2 * 3 * sizeof(float)) );
 
             warp_caller<AffineTransform, T>(src, srcWhole, xoff, yoff, dst, interpolation, borderMode, borderValue, stream, cc20);
         }
 
-        template void warpAffine_gpu<uchar >(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        //template void warpAffine_gpu<uchar2>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        template void warpAffine_gpu<uchar3>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        template void warpAffine_gpu<uchar4>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
+        template void warpAffine_gpu<uchar >(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        //template void warpAffine_gpu<uchar2>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        template void warpAffine_gpu<uchar3>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        template void warpAffine_gpu<uchar4>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
 
-        //template void warpAffine_gpu<schar>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        //template void warpAffine_gpu<char2>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        //template void warpAffine_gpu<char3>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        //template void warpAffine_gpu<char4>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
+        //template void warpAffine_gpu<schar>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        //template void warpAffine_gpu<char2>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        //template void warpAffine_gpu<char3>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        //template void warpAffine_gpu<char4>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
 
-        template void warpAffine_gpu<ushort >(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        //template void warpAffine_gpu<ushort2>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        template void warpAffine_gpu<ushort3>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        template void warpAffine_gpu<ushort4>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
+        template void warpAffine_gpu<ushort >(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        //template void warpAffine_gpu<ushort2>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        template void warpAffine_gpu<ushort3>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        template void warpAffine_gpu<ushort4>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
 
-        template void warpAffine_gpu<short >(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        //template void warpAffine_gpu<short2>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        template void warpAffine_gpu<short3>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        template void warpAffine_gpu<short4>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
+        template void warpAffine_gpu<short >(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        //template void warpAffine_gpu<short2>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        template void warpAffine_gpu<short3>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        template void warpAffine_gpu<short4>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
 
-        //template void warpAffine_gpu<int >(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        //template void warpAffine_gpu<int2>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        //template void warpAffine_gpu<int3>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        //template void warpAffine_gpu<int4>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
+        //template void warpAffine_gpu<int >(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        //template void warpAffine_gpu<int2>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        //template void warpAffine_gpu<int3>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        //template void warpAffine_gpu<int4>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
 
-        template void warpAffine_gpu<float >(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        //template void warpAffine_gpu<float2>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        template void warpAffine_gpu<float3>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        template void warpAffine_gpu<float4>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
+        template void warpAffine_gpu<float >(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        //template void warpAffine_gpu<float2>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        template void warpAffine_gpu<float3>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        template void warpAffine_gpu<float4>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
 
         template <typename T> void warpPerspective_gpu(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation,
-                                                  int borderMode, const float* borderValue, cudaStream_t stream, bool cc20)
+                                                  int borderMode, const float* borderValue, hipStream_t stream, bool cc20)
         {
-            cudaSafeCall( cudaMemcpyToSymbol(c_warpMat, coeffs, 3 * 3 * sizeof(float)) );
+            cudaSafeCall( hipMemcpyToSymbol(c_warpMat, coeffs, 3 * 3 * sizeof(float)) );
 
             warp_caller<PerspectiveTransform, T>(src, srcWhole, xoff, yoff, dst, interpolation, borderMode, borderValue, stream, cc20);
         }
 
-        template void warpPerspective_gpu<uchar >(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        //template void warpPerspective_gpu<uchar2>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        template void warpPerspective_gpu<uchar3>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        template void warpPerspective_gpu<uchar4>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
+        template void warpPerspective_gpu<uchar >(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        //template void warpPerspective_gpu<uchar2>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        template void warpPerspective_gpu<uchar3>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        template void warpPerspective_gpu<uchar4>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
 
-        //template void warpPerspective_gpu<schar>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        //template void warpPerspective_gpu<char2>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        //template void warpPerspective_gpu<char3>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        //template void warpPerspective_gpu<char4>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
+        //template void warpPerspective_gpu<schar>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        //template void warpPerspective_gpu<char2>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        //template void warpPerspective_gpu<char3>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        //template void warpPerspective_gpu<char4>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
 
-        template void warpPerspective_gpu<ushort >(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        //template void warpPerspective_gpu<ushort2>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        template void warpPerspective_gpu<ushort3>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        template void warpPerspective_gpu<ushort4>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
+        template void warpPerspective_gpu<ushort >(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        //template void warpPerspective_gpu<ushort2>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        template void warpPerspective_gpu<ushort3>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        template void warpPerspective_gpu<ushort4>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
 
-        template void warpPerspective_gpu<short >(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        //template void warpPerspective_gpu<short2>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        template void warpPerspective_gpu<short3>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        template void warpPerspective_gpu<short4>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
+        template void warpPerspective_gpu<short >(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        //template void warpPerspective_gpu<short2>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        template void warpPerspective_gpu<short3>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        template void warpPerspective_gpu<short4>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
 
-        //template void warpPerspective_gpu<int >(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        //template void warpPerspective_gpu<int2>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        //template void warpPerspective_gpu<int3>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        //template void warpPerspective_gpu<int4>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
+        //template void warpPerspective_gpu<int >(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        //template void warpPerspective_gpu<int2>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        //template void warpPerspective_gpu<int3>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        //template void warpPerspective_gpu<int4>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
 
-        template void warpPerspective_gpu<float >(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        //template void warpPerspective_gpu<float2>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        template void warpPerspective_gpu<float3>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
-        template void warpPerspective_gpu<float4>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
+        template void warpPerspective_gpu<float >(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        //template void warpPerspective_gpu<float2>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        template void warpPerspective_gpu<float3>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
+        template void warpPerspective_gpu<float4>(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation, int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
     } // namespace imgproc
 }}} // namespace cv { namespace cuda { namespace cudev
 

@@ -101,7 +101,7 @@ bool TestDrawRects<T>::process()
     ncvAssertReturn(this->src.fill(h_img), false);
     ncvStat = h_img.copySolid(d_img, 0);
     ncvAssertReturn(ncvStat == NCV_SUCCESS, false);
-    ncvAssertCUDAReturn(cudaStreamSynchronize(0), false);
+    ncvAssertCUDAReturn(hipStreamSynchronize(0), false);
 
     //fill vector of rectangles with random rects covering the input
     NCVVectorReuse<Ncv32u> h_rects_as32u(h_rects.getSegment());
@@ -116,7 +116,7 @@ bool TestDrawRects<T>::process()
     }
     ncvStat = h_rects.copySolid(d_rects, 0);
     ncvAssertReturn(ncvStat == NCV_SUCCESS, false);
-    ncvAssertCUDAReturn(cudaStreamSynchronize(0), false);
+    ncvAssertCUDAReturn(hipStreamSynchronize(0), false);
 
     if (sizeof(T) == sizeof(Ncv32u))
     {
@@ -137,7 +137,7 @@ bool TestDrawRects<T>::process()
 
     ncvStat = d_img.copySolid(h_img_d, 0);
     ncvAssertReturn(ncvStat == NCV_SUCCESS, false);
-    ncvAssertCUDAReturn(cudaStreamSynchronize(0), false);
+    ncvAssertCUDAReturn(hipStreamSynchronize(0), false);
 
     NCV_SKIP_COND_BEGIN
     if (sizeof(T) == sizeof(Ncv32u))

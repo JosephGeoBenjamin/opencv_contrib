@@ -46,7 +46,7 @@
 
 namespace filter
 {
-    template void linearColumn<float3, int3>(PtrStepSzb src, PtrStepSzb dst, const float* kernel, int ksize, int anchor, int brd_type, int cc, cudaStream_t stream);
+    template void linearColumn<float3, int3>(PtrStepSzb src, PtrStepSzb dst, const float* kernel, int ksize, int anchor, int brd_type, int cc, hipStream_t stream);
 }
 
 #endif /* CUDA_DISABLER */

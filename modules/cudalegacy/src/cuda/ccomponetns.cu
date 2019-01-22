@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -181,8 +182,8 @@ namespace cv { namespace cuda { namespace device
         template<typename T, typename F>
         __global__ void computeConnectivity(const PtrStepSz<T> image, PtrStepSzb components, F connected)
         {
-            int x = threadIdx.x + blockIdx.x * blockDim.x;
-            int y = threadIdx.y + blockIdx.y * blockDim.y;
+            int x = hipThreadIdx_x + hipBlockIdx_x * hipBlockDim_x;
+            int y = hipThreadIdx_y + hipBlockIdx_y * hipBlockDim_y;
 
             if (x >= image.cols || y >= image.rows) return;
 
@@ -205,7 +206,7 @@ namespace cv { namespace cuda { namespace device
         }
 
         template< typename T>
-        void computeEdges(const PtrStepSzb& image, PtrStepSzb edges, const float4& lo, const float4& hi, cudaStream_t stream)
+        void computeEdges(const PtrStepSzb& image, PtrStepSzb edges, const float4& lo, const float4& hi, hipStream_t stream)
         {
             dim3 block(CTA_SIZE_X, CTA_SIZE_Y);
             dim3 grid(divUp(image.cols, block.x), divUp(image.rows, block.y));
@@ -213,26 +214,26 @@ namespace cv { namespace cuda { namespace device
             typedef InInterval<typename IntervalsTraits<T>::dist_type, IntervalsTraits<T>::ch> Int_t;
 
             Int_t inInt(lo, hi);
-            computeConnectivity<T, Int_t><<<grid, block, 0, stream>>>(static_cast<const PtrStepSz<T> >(image), edges, inInt);
+            hipLaunchKernelGGL((computeConnectivity<T, Int_t>), dim3(grid), dim3(block), 0, stream, static_cast<const PtrStepSz<T> >(image), edges, inInt);
 
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
-        template void computeEdges<uchar>  (const PtrStepSzb& image, PtrStepSzb edges, const float4& lo, const float4& hi, cudaStream_t stream);
-        template void computeEdges<uchar3> (const PtrStepSzb& image, PtrStepSzb edges, const float4& lo, const float4& hi, cudaStream_t stream);
-        template void computeEdges<uchar4> (const PtrStepSzb& image, PtrStepSzb edges, const float4& lo, const float4& hi, cudaStream_t stream);
-        template void computeEdges<ushort> (const PtrStepSzb& image, PtrStepSzb edges, const float4& lo, const float4& hi, cudaStream_t stream);
-        template void computeEdges<ushort3>(const PtrStepSzb& image, PtrStepSzb edges, const float4& lo, const float4& hi, cudaStream_t stream);
-        template void computeEdges<ushort4>(const PtrStepSzb& image, PtrStepSzb edges, const float4& lo, const float4& hi, cudaStream_t stream);
-        template void computeEdges<int>    (const PtrStepSzb& image, PtrStepSzb edges, const float4& lo, const float4& hi, cudaStream_t stream);
-        template void computeEdges<float>  (const PtrStepSzb& image, PtrStepSzb edges, const float4& lo, const float4& hi, cudaStream_t stream);
+        template void computeEdges<uchar>  (const PtrStepSzb& image, PtrStepSzb edges, const float4& lo, const float4& hi, hipStream_t stream);
+        template void computeEdges<uchar3> (const PtrStepSzb& image, PtrStepSzb edges, const float4& lo, const float4& hi, hipStream_t stream);
+        template void computeEdges<uchar4> (const PtrStepSzb& image, PtrStepSzb edges, const float4& lo, const float4& hi, hipStream_t stream);
+        template void computeEdges<ushort> (const PtrStepSzb& image, PtrStepSzb edges, const float4& lo, const float4& hi, hipStream_t stream);
+        template void computeEdges<ushort3>(const PtrStepSzb& image, PtrStepSzb edges, const float4& lo, const float4& hi, hipStream_t stream);
+        template void computeEdges<ushort4>(const PtrStepSzb& image, PtrStepSzb edges, const float4& lo, const float4& hi, hipStream_t stream);
+        template void computeEdges<int>    (const PtrStepSzb& image, PtrStepSzb edges, const float4& lo, const float4& hi, hipStream_t stream);
+        template void computeEdges<float>  (const PtrStepSzb& image, PtrStepSzb edges, const float4& lo, const float4& hi, hipStream_t stream);
 
         __global__ void lableTiles(const PtrStepSzb edges, PtrStepSzi comps)
         {
-            int x = threadIdx.x + blockIdx.x * TILE_COLS;
-            int y = threadIdx.y + blockIdx.y * TILE_ROWS;
+            int x = hipThreadIdx_x + hipBlockIdx_x * TILE_COLS;
+            int y = hipThreadIdx_y + hipBlockIdx_y * TILE_ROWS;
 
             if (x >= edges.cols || y >= edges.rows) return;
 
@@ -250,8 +251,8 @@ namespace cv { namespace cuda { namespace device
                 #pragma unroll
                 for (int j = 0; j < TPB_X; ++j)
                 {
-                    int yloc = threadIdx.y + CTA_SIZE_Y * i;
-                    int xloc = threadIdx.x + CTA_SIZE_X * j;
+                    int yloc = hipThreadIdx_y + CTA_SIZE_Y * i;
+                    int xloc = hipThreadIdx_x + CTA_SIZE_X * j;
                     component c = edges(bounds * (y + CTA_SIZE_Y * i), x + CTA_SIZE_X * j);
 
                     if (!xloc) c &= ~LEFT;
@@ -272,8 +273,8 @@ namespace cv { namespace cuda { namespace device
                     #pragma unroll
                     for (int j = 0; j < TPB_X; ++j)
                     {
-                        int yloc = threadIdx.y + CTA_SIZE_Y * i;
-                        int xloc = threadIdx.x + CTA_SIZE_X * j;
+                        int yloc = hipThreadIdx_y + CTA_SIZE_Y * i;
+                        int xloc = hipThreadIdx_x + CTA_SIZE_X * j;
 
                         old_labels[i][j]       = new_labels[i][j];
                         labelsTile[yloc][xloc] = new_labels[i][j];
@@ -287,8 +288,8 @@ namespace cv { namespace cuda { namespace device
                     #pragma unroll
                     for (int j = 0; j < TPB_X; ++j)
                     {
-                        int yloc = threadIdx.y + CTA_SIZE_Y * i;
-                        int xloc = threadIdx.x + CTA_SIZE_X * j;
+                        int yloc = hipThreadIdx_y + CTA_SIZE_Y * i;
+                        int xloc = hipThreadIdx_x + CTA_SIZE_X * j;
 
                         component c = edgesTile[yloc][xloc];
                         int label = new_labels[i][j];
@@ -354,8 +355,8 @@ namespace cv { namespace cuda { namespace device
                     int yloc = label / TILE_COLS;
                     int xloc = label - yloc * TILE_COLS;
 
-                    xloc += blockIdx.x * TILE_COLS;
-                    yloc += blockIdx.y * TILE_ROWS;
+                    xloc += hipBlockIdx_x * TILE_COLS;
+                    yloc += hipBlockIdx_y * TILE_ROWS;
 
                     label = yloc * edges.cols + xloc;
                     // do it for x too.
@@ -399,13 +400,13 @@ namespace cv { namespace cuda { namespace device
         __global__ void crossMerge(const int tilesNumY, const int tilesNumX, int tileSizeY, int tileSizeX,
             const PtrStepSzb edges, PtrStepSzi comps, const int yIncomplete, int xIncomplete)
         {
-            int tid = threadIdx.y * blockDim.x + threadIdx.x;
-            int stride = blockDim.y * blockDim.x;
+            int tid = hipThreadIdx_y * hipBlockDim_x + hipThreadIdx_x;
+            int stride = hipBlockDim_y * hipBlockDim_x;
 
-            int ybegin = blockIdx.y * (tilesNumY * tileSizeY);
+            int ybegin = hipBlockIdx_y * (tilesNumY * tileSizeY);
             int yend   = ybegin + tilesNumY * tileSizeY;
 
-            if (blockIdx.y == gridDim.y - 1)
+            if (hipBlockIdx_y == hipGridDim_y - 1)
             {
                 yend -= yIncomplete * tileSizeY;
                 yend -= tileSizeY;
@@ -414,10 +415,10 @@ namespace cv { namespace cuda { namespace device
                 yend += tileSizeY;
             }
 
-            int xbegin = blockIdx.x * tilesNumX * tileSizeX;
+            int xbegin = hipBlockIdx_x * tilesNumX * tileSizeX;
             int xend   = xbegin + tilesNumX * tileSizeX;
 
-            if (blockIdx.x == gridDim.x - 1)
+            if (hipBlockIdx_x == hipGridDim_x - 1)
             {
                 if (xIncomplete) yend = ybegin;
                 xend -= xIncomplete * tileSizeX;
@@ -427,7 +428,7 @@ namespace cv { namespace cuda { namespace device
                 xend += tileSizeX;
             }
 
-            if (blockIdx.y == (gridDim.y - 1) && yIncomplete)
+            if (hipBlockIdx_y == (hipGridDim_y - 1) && yIncomplete)
             {
                 xend = xbegin;
             }
@@ -487,8 +488,8 @@ namespace cv { namespace cuda { namespace device
 
         __global__ void flatten(const PtrStepSzb edges, PtrStepSzi comps)
         {
-            int x = threadIdx.x + blockIdx.x * blockDim.x;
-            int y = threadIdx.y + blockIdx.y * blockDim.y;
+            int x = hipThreadIdx_x + hipBlockIdx_x * hipBlockDim_x;
+            int y = hipThreadIdx_y + hipBlockIdx_y * hipBlockDim_y;
 
             if( x < comps.cols && y < comps.rows)
                 comps(y, x) = root(comps, comps(y, x));
@@ -496,14 +497,14 @@ namespace cv { namespace cuda { namespace device
 
         enum {CC_NO_COMPACT = 0, CC_COMPACT_LABELS = 1};
 
-        void labelComponents(const PtrStepSzb& edges, PtrStepSzi comps, int flags, cudaStream_t stream)
+        void labelComponents(const PtrStepSzb& edges, PtrStepSzi comps, int flags, hipStream_t stream)
         {
             CV_UNUSED(flags);
             dim3 block(CTA_SIZE_X, CTA_SIZE_Y);
             dim3 grid(divUp(edges.cols, TILE_COLS), divUp(edges.rows, TILE_ROWS));
 
-            lableTiles<<<grid, block, 0, stream>>>(edges, comps);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((lableTiles), dim3(grid), dim3(block), 0, stream, edges, comps);
+            cudaSafeCall( hipGetLastError() );
 
             int tileSizeX = TILE_COLS, tileSizeY = TILE_ROWS;
             while (grid.x > 1 || grid.y > 1)
@@ -512,21 +513,21 @@ namespace cv { namespace cuda { namespace device
                 dim3 mergeBlock(STA_SIZE_MERGE_X, STA_SIZE_MERGE_Y);
                 // debug log
                 // std::cout << "merging: " << grid.y  << " x " << grid.x << " ---> " << mergeGrid.y <<  " x " << mergeGrid.x << " for tiles: " << tileSizeY << " x " << tileSizeX << std::endl;
-                crossMerge<<<mergeGrid, mergeBlock, 0, stream>>>(2, 2, tileSizeY, tileSizeX, edges, comps, (int)ceilf(grid.y / 2.f) - grid.y / 2, (int)ceilf(grid.x / 2.f) - grid.x / 2);
+                hipLaunchKernelGGL((crossMerge), dim3(mergeGrid), dim3(mergeBlock), 0, stream, 2, 2, tileSizeY, tileSizeX, edges, comps, (int)ceilf(grid.y / 2.f) - grid.y / 2, (int)ceilf(grid.x / 2.f) - grid.x / 2);
                 tileSizeX <<= 1;
                 tileSizeY <<= 1;
                 grid = mergeGrid;
 
-                cudaSafeCall( cudaGetLastError() );
+                cudaSafeCall( hipGetLastError() );
             }
 
             grid.x = divUp(edges.cols, block.x);
             grid.y = divUp(edges.rows, block.y);
-            flatten<<<grid, block, 0, stream>>>(edges, comps);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((flatten), dim3(grid), dim3(block), 0, stream, edges, comps);
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
     }
 } } }

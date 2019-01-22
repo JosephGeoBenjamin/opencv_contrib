@@ -84,7 +84,11 @@ template<> struct TConvVec2Base<double1> {typedef Ncv64f TBase;};
 template<> struct TConvVec2Base<double3> {typedef Ncv64f TBase;};
 template<> struct TConvVec2Base<double4> {typedef Ncv64f TBase;};
 
-#define NC(T)       (sizeof(T) / sizeof(TConvVec2Base<T>::TBase))
+template<> struct TConvVec2Base<float>  {typedef Ncv32f TBase;};
+template<> struct TConvVec2Base<int>  {typedef Ncv32s TBase;};
+
+//HIP_TODO: Macro gives count as for 4 for float3, uchar3 and ushort3 <HPI_vector types>
+#define NC(T)       (sizeof(T) / sizeof(typename TConvVec2Base<T>::TBase))
 
 template<typename TBase, Ncv32u NC> struct TConvBase2Vec;
 template<> struct TConvBase2Vec<Ncv8u, 1>  {typedef uchar1 TVec;};
@@ -103,6 +107,9 @@ template<> struct TConvBase2Vec<Ncv64f, 1> {typedef double1 TVec;};
 template<> struct TConvBase2Vec<Ncv64f, 3> {typedef double3 TVec;};
 template<> struct TConvBase2Vec<Ncv64f, 4> {typedef double4 TVec;};
 
+template<> struct TConvBase2Vec<Ncv32f, 0> {typedef float1 TVec;};
+template<> struct TConvBase2Vec<Ncv32s, 0> {typedef int1 TVec;};
+
 //TODO: consider using CUDA intrinsics to avoid branching
 template<typename Tin> inline __host__ __device__ void _TDemoteClampZ(Tin &a, Ncv8u &out) {out = (Ncv8u)CLAMP_0_255(a);}
 template<typename Tin> inline __host__ __device__ void _TDemoteClampZ(Tin &a, Ncv16u &out) {out = (Ncv16u)CLAMP(a, 0, USHRT_MAX);}
@@ -115,7 +122,7 @@ template<typename Tin> inline __host__ __device__ void _TDemoteClampNN(Tin &a, N
 template<typename Tin> inline __host__ __device__ void _TDemoteClampNN(Tin &a, Ncv32u &out) {out = (Ncv32u)CLAMP(a+0.5f, 0, UINT_MAX);}
 template<typename Tin> inline __host__ __device__ void _TDemoteClampNN(Tin &a, Ncv32f &out) {out = (Ncv32f)a;}
 
-template<typename Tout> inline Tout _pixMakeZero();
+template<typename Tout> __host__ __device__ inline Tout _pixMakeZero();
 template<> inline __host__ __device__ uchar1 _pixMakeZero<uchar1>() {return make_uchar1(0);}
 template<> inline __host__ __device__ uchar3 _pixMakeZero<uchar3>() {return make_uchar3(0,0,0);}
 template<> inline __host__ __device__ uchar4 _pixMakeZero<uchar4>() {return make_uchar4(0,0,0,0);}
@@ -180,6 +187,36 @@ static __host__ __device__ Tout _pixDemoteClampZ_CN(Tin &pix)
     return out;
 }};
 
+//HIP_NOTE: Added to metigate template match with HIP_vectors due to NC() issue
+template<typename Tin> struct __pixDemoteClampZ_CN<Tin, ushort3, 4> {
+static __host__ __device__ ushort3 _pixDemoteClampZ_CN(Tin &pix)
+{
+    ushort3 out;
+    _TDemoteClampZ(pix.x, out.x);
+    _TDemoteClampZ(pix.y, out.y);
+    _TDemoteClampZ(pix.z, out.z);
+    return out;
+}};
+
+template<typename Tin> struct __pixDemoteClampZ_CN<Tin, uchar3, 4> {
+static __host__ __device__ uchar3 _pixDemoteClampZ_CN(Tin &pix)
+{
+    uchar3 out;
+    _TDemoteClampZ(pix.x, out.x);
+    _TDemoteClampZ(pix.y, out.y);
+    _TDemoteClampZ(pix.z, out.z);
+    return out;
+}};
+
+template<typename Tin> struct __pixDemoteClampZ_CN<Tin, float3, 4> {
+static __host__ __device__ float3 _pixDemoteClampZ_CN(Tin &pix)
+{
+    float3 out;
+    _TDemoteClampZ(pix.x, out.x);
+    _TDemoteClampZ(pix.y, out.y);
+    _TDemoteClampZ(pix.z, out.z);
+    return out;
+}};
 template<typename Tin, typename Tout> inline __host__ __device__ Tout _pixDemoteClampZ(Tin &pix)
 {
     return __pixDemoteClampZ_CN<Tin, Tout, NC(Tin)>::_pixDemoteClampZ_CN(pix);

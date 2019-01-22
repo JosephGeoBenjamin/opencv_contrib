@@ -60,10 +60,11 @@
 
 namespace cv { namespace cuda
 {
+#ifdef NPP_ENABLE
     class NppStStreamHandler
     {
     public:
-        inline explicit NppStStreamHandler(cudaStream_t newStream = 0)
+        inline explicit NppStStreamHandler(hipStream_t newStream = 0)
         {
             oldStream = nppStSetActiveCUDAstream(newStream);
         }
@@ -74,9 +75,9 @@ namespace cv { namespace cuda
         }
 
     private:
-        cudaStream_t oldStream;
+        hipStream_t oldStream;
     };
-
+#endif //NPP_ENABLE
     CV_EXPORTS cv::String getNcvErrorMessage(int code);
 
     static inline void checkNcvError(int err, const char* file, const int line, const char* func)
@@ -87,6 +88,7 @@ namespace cv { namespace cuda
             cv::error(cv::Error::GpuApiCallError, msg, func, file, line);
         }
     }
+
 }}
 
 #define ncvSafeCall(expr)  cv::cuda::checkNcvError(expr, __FILE__, __LINE__, CV_Func)

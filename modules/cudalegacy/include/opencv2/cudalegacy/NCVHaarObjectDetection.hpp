@@ -195,7 +195,7 @@ struct HaarClassifierNodeDescriptor32
         return *(Ncv32f_a *)&this->_ui1.x;
     }
 
-#ifdef __CUDACC__
+#ifdef __HIPCC__
     __device__ Ncv32f getLeafValue(void)
     {
         return __int_as_float(this->_ui1.x);
@@ -376,8 +376,8 @@ CV_EXPORTS NCVStatus ncvDetectObjectsMultiScale_device(NCVMatrix<Ncv8u> &d_srcIm
 
                                                         INCVMemAllocator &gpuAllocator,
                                                         INCVMemAllocator &cpuAllocator,
-                                                        cudaDeviceProp &devProp,
-                                                        cudaStream_t cuStream);
+                                                        hipDeviceProp_t &devProp,
+                                                        hipStream_t cuStream);
 
 
 #define OBJDET_MASK_ELEMENT_INVALID_32U     0xFFFFFFFF
@@ -399,8 +399,8 @@ CV_EXPORTS NCVStatus ncvApplyHaarClassifierCascade_device(NCVMatrix<Ncv32u> &d_i
                                                            Ncv32f scaleArea,
                                                            INCVMemAllocator &gpuAllocator,
                                                            INCVMemAllocator &cpuAllocator,
-                                                           cudaDeviceProp &devProp,
-                                                           cudaStream_t cuStream);
+                                                           hipDeviceProp_t &devProp,
+                                                           hipStream_t cuStream);
 
 
 CV_EXPORTS NCVStatus ncvApplyHaarClassifierCascade_host(NCVMatrix<Ncv32u> &h_integralImage,
@@ -428,7 +428,7 @@ CV_EXPORTS NCVStatus ncvGrowDetectionsVector_device(NCVVector<Ncv32u> &pixelMask
                                                      Ncv32u rectWidth,
                                                      Ncv32u rectHeight,
                                                      Ncv32f curScale,
-                                                     cudaStream_t cuStream);
+                                                     hipStream_t cuStream);
 
 
 CV_EXPORTS NCVStatus ncvGrowDetectionsVector_host(NCVVector<Ncv32u> &pixelMask,

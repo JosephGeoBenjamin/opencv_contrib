@@ -48,6 +48,11 @@
 
 #else
 
+// MCW-Note: Add_definition of __OPENCV_BUILD is not reflected in this module
+#ifndef __OPENCV_BUILD
+#define __OPENCV_BUILD
+#endif
+
 #include "opencv2/cudev.hpp"
 #include "opencv2/core/private.cuda.hpp"
 
@@ -88,6 +93,7 @@ namespace
         }
     };
 
+#ifdef NPP_ENABLE
     template <int DEPTH, int cn> struct NppBitwiseCFunc
     {
         typedef typename NPPTypeTraits<DEPTH>::npp_type npp_type;
@@ -101,7 +107,7 @@ namespace
 
         static void call(const GpuMat& src, cv::Scalar value, GpuMat& dst, Stream& _stream)
         {
-            cudaStream_t stream = StreamAccessor::getStream(_stream);
+            hipStream_t stream = StreamAccessor::getStream(_stream);
             NppStreamHandler h(stream);
 
             NppiSize oSizeROI;
@@ -119,9 +125,11 @@ namespace
             nppSafeCall( func(src.ptr<npp_type>(), static_cast<int>(src.step), pConstants, dst.ptr<npp_type>(), static_cast<int>(dst.step), oSizeROI) );
 
             if (stream == 0)
-                CV_CUDEV_SAFE_CALL( cudaDeviceSynchronize() );
+                CV_CUDEV_SAFE_CALL( hipDeviceSynchronize() );
         }
     };
+#endif //NPP_ENABLE
+
 }
 
 void bitScalar(const GpuMat& src, cv::Scalar value, bool, GpuMat& dst, const GpuMat& mask, double, Stream& stream, int op)
@@ -131,6 +139,7 @@ void bitScalar(const GpuMat& src, cv::Scalar value, bool, GpuMat& dst, const Gpu
     typedef void (*func_t)(const GpuMat& src, cv::Scalar value, GpuMat& dst, Stream& stream);
     static const func_t funcs[3][6][4] =
     {
+#ifdef NPP_ENABLE
         {
             {BitScalar<uchar, bitScalarOp<bit_and, uchar> >::call  , 0, NppBitwiseC<CV_8U , 3, nppiAndC_8u_C3R >::call, BitScalar4< bitScalarOp<bit_and, uint> >::call},
             {BitScalar<uchar, bitScalarOp<bit_and, uchar> >::call  , 0, NppBitwiseC<CV_8U , 3, nppiAndC_8u_C3R >::call, BitScalar4< bitScalarOp<bit_and, uint> >::call},
@@ -155,6 +164,8 @@ void bitScalar(const GpuMat& src, cv::Scalar value, bool, GpuMat& dst, const Gpu
             {BitScalar<uint, bitScalarOp<bit_xor, uint> >::call    , 0, NppBitwiseC<CV_32S, 3, nppiXorC_32s_C3R>::call, NppBitwiseC<CV_32S, 4, nppiXorC_32s_C4R>::call},
             {BitScalar<uint, bitScalarOp<bit_xor, uint> >::call    , 0, NppBitwiseC<CV_32S, 3, nppiXorC_32s_C3R>::call, NppBitwiseC<CV_32S, 4, nppiXorC_32s_C4R>::call}
         }
+#endif //NPP_ENABLE
+
     };
 
     const int depth = src.depth();

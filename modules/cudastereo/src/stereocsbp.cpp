@@ -160,7 +160,7 @@ namespace
         CV_Assert( left.type() == CV_8UC1 || left.type() == CV_8UC3 || left.type() == CV_8UC4 );
         CV_Assert( left.size() == right.size() && left.type() == right.type() );
 
-        cudaStream_t stream = StreamAccessor::getStream(_stream);
+        hipStream_t stream = StreamAccessor::getStream(_stream);
 
         ////////////////////////////////////////////////////////////////////////////////////////////
         // Init

@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -52,8 +53,8 @@ using namespace cv::cuda::device;
 
 namespace optflowbm
 {
-    texture<uchar, cudaTextureType2D, cudaReadModeElementType> tex_prev(false, cudaFilterModePoint, cudaAddressModeClamp);
-    texture<uchar, cudaTextureType2D, cudaReadModeElementType> tex_curr(false, cudaFilterModePoint, cudaAddressModeClamp);
+    texture<uchar, hipTextureType2D, hipReadModeElementType> tex_prev(false, hipFilterModePoint, hipAddressModeClamp);
+    texture<uchar, hipTextureType2D, hipReadModeElementType> tex_curr(false, hipFilterModePoint, hipAddressModeClamp);
 
     __device__ int cmpBlocks(int X1, int Y1, int X2, int Y2, int2 blockSize)
     {
@@ -72,8 +73,8 @@ namespace optflowbm
                                   const int maxX, const int maxY, const int acceptLevel, const int escapeLevel,
                                   const short2* ss, const int ssCount)
     {
-        const int j = blockIdx.x * blockDim.x + threadIdx.x;
-        const int i = blockIdx.y * blockDim.y + threadIdx.y;
+        const int j = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+        const int i = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
         if (i >= velx.rows || j >= velx.cols)
             return;
@@ -149,7 +150,7 @@ namespace optflowbm
     }
 
     void calc(PtrStepSzb prev, PtrStepSzb curr, PtrStepSzf velx, PtrStepSzf vely, int2 blockSize, int2 shiftSize, bool usePrevious,
-              int maxX, int maxY, int acceptLevel, int escapeLevel, const short2* ss, int ssCount, cudaStream_t stream)
+              int maxX, int maxY, int acceptLevel, int escapeLevel, const short2* ss, int ssCount, hipStream_t stream)
     {
         bindTexture(&tex_prev, prev);
         bindTexture(&tex_curr, curr);
@@ -157,12 +158,12 @@ namespace optflowbm
         const dim3 block(32, 8);
         const dim3 grid(divUp(velx.cols, block.x), divUp(vely.rows, block.y));
 
-        calcOptFlowBM<<<grid, block, 0, stream>>>(velx, vely, blockSize, shiftSize, usePrevious,
+        hipLaunchKernelGGL((calcOptFlowBM), dim3(grid), dim3(block), 0, stream, velx, vely, blockSize, shiftSize, usePrevious,
                                                   maxX, maxY, acceptLevel,  escapeLevel, ss, ssCount);
-        cudaSafeCall( cudaGetLastError() );
+        cudaSafeCall( hipGetLastError() );
 
         if (stream == 0)
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
     }
 }
 

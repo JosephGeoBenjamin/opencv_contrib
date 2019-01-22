@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -59,7 +60,7 @@ namespace cv { namespace cuda { namespace device
         ////////////////////////////////////////////////////////////////////////////////////////////////////////
         // cull
 
-        int cull_gpu(int* loc, float* response, int size, int n_points, cudaStream_t stream)
+        int cull_gpu(int* loc, float* response, int size, int n_points, hipStream_t stream)
         {
             thrust::device_ptr<int> loc_ptr(loc);
             thrust::device_ptr<float> response_ptr(response);
@@ -97,7 +98,7 @@ namespace cv { namespace cuda { namespace device
             __shared__ int smem1[8 * 32];
             __shared__ int smem2[8 * 32];
 
-            const int ptidx = blockIdx.x * blockDim.y + threadIdx.y;
+            const int ptidx = hipBlockIdx_x * hipBlockDim_y + hipThreadIdx_y;
 
             if (ptidx < npoints)
             {
@@ -109,7 +110,7 @@ namespace cv { namespace cuda { namespace device
 
                 int a = 0, b = 0, c = 0;
 
-                for (int ind = threadIdx.x; ind < blockSize * blockSize; ind += blockDim.x)
+                for (int ind = hipThreadIdx_x; ind < blockSize * blockSize; ind += hipBlockDim_x)
                 {
                     const int i = ind / blockSize;
                     const int j = ind % blockSize;
@@ -127,14 +128,14 @@ namespace cv { namespace cuda { namespace device
                     c += Ix * Iy;
                 }
 
-                int* srow0 = smem0 + threadIdx.y * blockDim.x;
-                int* srow1 = smem1 + threadIdx.y * blockDim.x;
-                int* srow2 = smem2 + threadIdx.y * blockDim.x;
+                int* srow0 = smem0 + hipThreadIdx_y * hipBlockDim_x;
+                int* srow1 = smem1 + hipThreadIdx_y * hipBlockDim_x;
+                int* srow2 = smem2 + hipThreadIdx_y * hipBlockDim_x;
 
                 plus<int> op;
-                reduce<32>(smem_tuple(srow0, srow1, srow2), thrust::tie(a, b, c), threadIdx.x, thrust::make_tuple(op, op, op));
+                reduce<32>(smem_tuple(srow0, srow1, srow2), thrust::tie(a, b, c), hipThreadIdx_x, thrust::make_tuple(op, op, op));
 
-                if (threadIdx.x == 0)
+                if (hipThreadIdx_x == 0)
                 {
                     float scale = (1 << 2) * blockSize * 255.0f;
                     scale = 1.0f / scale;
@@ -145,19 +146,19 @@ namespace cv { namespace cuda { namespace device
             }
         }
 
-        void HarrisResponses_gpu(PtrStepSzb img, const short2* loc, float* response, const int npoints, int blockSize, float harris_k, cudaStream_t stream)
+        void HarrisResponses_gpu(PtrStepSzb img, const short2* loc, float* response, const int npoints, int blockSize, float harris_k, hipStream_t stream)
         {
             dim3 block(32, 8);
 
             dim3 grid;
             grid.x = divUp(npoints, block.y);
 
-            HarrisResponses<<<grid, block, 0, stream>>>(img, loc, response, npoints, blockSize, harris_k);
+            hipLaunchKernelGGL((HarrisResponses), dim3(grid), dim3(block), 0, stream, img, loc, response, npoints, blockSize, harris_k);
 
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -167,7 +168,7 @@ namespace cv { namespace cuda { namespace device
 
         void loadUMax(const int* u_max, int count)
         {
-            cudaSafeCall( cudaMemcpyToSymbol(c_u_max, u_max, count * sizeof(int)) );
+            cudaSafeCall( hipMemcpyToSymbol(c_u_max, u_max, count * sizeof(int)) );
         }
 
         __global__ void IC_Angle(const PtrStepb image, const short2* loc_, float* angle, const int npoints, const int half_k)
@@ -175,12 +176,12 @@ namespace cv { namespace cuda { namespace device
             __shared__ int smem0[8 * 32];
             __shared__ int smem1[8 * 32];
 
-            int* srow0 = smem0 + threadIdx.y * blockDim.x;
-            int* srow1 = smem1 + threadIdx.y * blockDim.x;
+            int* srow0 = smem0 + hipThreadIdx_y * hipBlockDim_x;
+            int* srow1 = smem1 + hipThreadIdx_y * hipBlockDim_x;
 
             plus<int> op;
 
-            const int ptidx = blockIdx.x * blockDim.y + threadIdx.y;
+            const int ptidx = hipBlockIdx_x * hipBlockDim_y + hipThreadIdx_y;
 
             if (ptidx < npoints)
             {
@@ -189,10 +190,10 @@ namespace cv { namespace cuda { namespace device
                 const short2 loc = loc_[ptidx];
 
                 // Treat the center line differently, v=0
-                for (int u = threadIdx.x - half_k; u <= half_k; u += blockDim.x)
+                for (int u = hipThreadIdx_x - half_k; u <= half_k; u += hipBlockDim_x)
                     m_10 += u * image(loc.y, loc.x + u);
 
-                reduce<32>(srow0, m_10, threadIdx.x, op);
+                reduce<32>(srow0, m_10, hipThreadIdx_x, op);
 
                 for (int v = 1; v <= half_k; ++v)
                 {
@@ -201,7 +202,7 @@ namespace cv { namespace cuda { namespace device
                     int m_sum = 0;
                     const int d = c_u_max[v];
 
-                    for (int u = threadIdx.x - d; u <= d; u += blockDim.x)
+                    for (int u = hipThreadIdx_x - d; u <= d; u += hipBlockDim_x)
                     {
                         int val_plus = image(loc.y + v, loc.x + u);
                         int val_minus = image(loc.y - v, loc.x + u);
@@ -210,13 +211,13 @@ namespace cv { namespace cuda { namespace device
                         m_sum += u * (val_plus + val_minus);
                     }
 
-                    reduce<32>(smem_tuple(srow0, srow1), thrust::tie(v_sum, m_sum), threadIdx.x, thrust::make_tuple(op, op));
+                    reduce<32>(smem_tuple(srow0, srow1), thrust::tie(v_sum, m_sum), hipThreadIdx_x, thrust::make_tuple(op, op));
 
                     m_10 += m_sum;
                     m_01 += v * v_sum;
                 }
 
-                if (threadIdx.x == 0)
+                if (hipThreadIdx_x == 0)
                 {
                     float kp_dir = ::atan2f((float)m_01, (float)m_10);
                     kp_dir += (kp_dir < 0) * (2.0f * CV_PI_F);
@@ -227,19 +228,19 @@ namespace cv { namespace cuda { namespace device
             }
         }
 
-        void IC_Angle_gpu(PtrStepSzb image, const short2* loc, float* angle, int npoints, int half_k, cudaStream_t stream)
+        void IC_Angle_gpu(PtrStepSzb image, const short2* loc, float* angle, int npoints, int half_k, hipStream_t stream)
         {
             dim3 block(32, 8);
 
             dim3 grid;
             grid.x = divUp(npoints, block.y);
 
-            IC_Angle<<<grid, block, 0, stream>>>(image, loc, angle, npoints, half_k);
+            hipLaunchKernelGGL((IC_Angle), dim3(grid), dim3(block), 0, stream, image, loc, angle, npoints, half_k);
 
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -365,8 +366,8 @@ namespace cv { namespace cuda { namespace device
         __global__ void computeOrbDescriptor(const PtrStepb img, const short2* loc, const float* angle_, const int npoints,
             const int* pattern_x, const int* pattern_y, PtrStepb desc, int dsize)
         {
-            const int descidx = blockIdx.x * blockDim.x + threadIdx.x;
-            const int ptidx = blockIdx.y * blockDim.y + threadIdx.y;
+            const int descidx = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int ptidx = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (ptidx < npoints && descidx < dsize)
             {
@@ -381,7 +382,7 @@ namespace cv { namespace cuda { namespace device
         }
 
         void computeOrbDescriptor_gpu(PtrStepb img, const short2* loc, const float* angle, const int npoints,
-            const int* pattern_x, const int* pattern_y, PtrStepb desc, int dsize, int WTA_K, cudaStream_t stream)
+            const int* pattern_x, const int* pattern_y, PtrStepb desc, int dsize, int WTA_K, hipStream_t stream)
         {
             dim3 block(32, 8);
 
@@ -392,22 +393,22 @@ namespace cv { namespace cuda { namespace device
             switch (WTA_K)
             {
             case 2:
-                computeOrbDescriptor<2><<<grid, block, 0, stream>>>(img, loc, angle, npoints, pattern_x, pattern_y, desc, dsize);
+                hipLaunchKernelGGL((computeOrbDescriptor<2>), dim3(grid), dim3(block), 0, stream, img, loc, angle, npoints, pattern_x, pattern_y, desc, dsize);
                 break;
 
             case 3:
-                computeOrbDescriptor<3><<<grid, block, 0, stream>>>(img, loc, angle, npoints, pattern_x, pattern_y, desc, dsize);
+                hipLaunchKernelGGL((computeOrbDescriptor<3>), dim3(grid), dim3(block), 0, stream, img, loc, angle, npoints, pattern_x, pattern_y, desc, dsize);
                 break;
 
             case 4:
-                computeOrbDescriptor<4><<<grid, block, 0, stream>>>(img, loc, angle, npoints, pattern_x, pattern_y, desc, dsize);
+                hipLaunchKernelGGL((computeOrbDescriptor<4>), dim3(grid), dim3(block), 0, stream, img, loc, angle, npoints, pattern_x, pattern_y, desc, dsize);
                 break;
             }
 
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -415,7 +416,7 @@ namespace cv { namespace cuda { namespace device
 
         __global__ void mergeLocation(const short2* loc_, float* x, float* y, const int npoints, float scale)
         {
-            const int ptidx = blockIdx.x * blockDim.x + threadIdx.x;
+            const int ptidx = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
 
             if (ptidx < npoints)
             {
@@ -426,19 +427,19 @@ namespace cv { namespace cuda { namespace device
             }
         }
 
-        void mergeLocation_gpu(const short2* loc, float* x, float* y, int npoints, float scale, cudaStream_t stream)
+        void mergeLocation_gpu(const short2* loc, float* x, float* y, int npoints, float scale, hipStream_t stream)
         {
             dim3 block(256);
 
             dim3 grid;
             grid.x = divUp(npoints, block.x);
 
-            mergeLocation<<<grid, block, 0, stream>>>(loc, x, y, npoints, scale);
+            hipLaunchKernelGGL((mergeLocation), dim3(grid), dim3(block), 0, stream, loc, x, y, npoints, scale);
 
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
     }
 }}}

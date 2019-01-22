@@ -59,7 +59,7 @@ namespace cv { namespace cuda { namespace device
 {
     namespace imgproc
     {
-        template <typename T> void pyrDown_gpu(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
+        template <typename T> void pyrDown_gpu(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
     }
 }}}
 
@@ -67,7 +67,7 @@ void cv::cuda::pyrDown(InputArray _src, OutputArray _dst, Stream& stream)
 {
     using namespace cv::cuda::device::imgproc;
 
-    typedef void (*func_t)(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
+    typedef void (*func_t)(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
     static const func_t funcs[6][4] =
     {
         {pyrDown_gpu<uchar>      , 0 /*pyrDown_gpu<uchar2>*/ , pyrDown_gpu<uchar3>      , pyrDown_gpu<uchar4>      },
@@ -99,7 +99,7 @@ namespace cv { namespace cuda { namespace device
 {
     namespace imgproc
     {
-        template <typename T> void pyrUp_gpu(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
+        template <typename T> void pyrUp_gpu(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
     }
 }}}
 
@@ -107,7 +107,7 @@ void cv::cuda::pyrUp(InputArray _src, OutputArray _dst, Stream& stream)
 {
     using namespace cv::cuda::device::imgproc;
 
-    typedef void (*func_t)(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
+    typedef void (*func_t)(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
     static const func_t funcs[6][4] =
     {
         {pyrUp_gpu<uchar>      , 0 /*pyrUp_gpu<uchar2>*/ , pyrUp_gpu<uchar3>      , pyrUp_gpu<uchar4>      },

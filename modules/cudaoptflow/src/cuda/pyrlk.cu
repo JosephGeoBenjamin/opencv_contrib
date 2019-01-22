@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -64,25 +65,25 @@ namespace pyrlk
     __constant__ int c_halfWin_y;
     __constant__ int c_iters;
 
-    texture<uchar, cudaTextureType2D, cudaReadModeNormalizedFloat> tex_I8U(false, cudaFilterModeLinear, cudaAddressModeClamp);
-    texture<uchar4, cudaTextureType2D, cudaReadModeNormalizedFloat> tex_I8UC4(false, cudaFilterModeLinear, cudaAddressModeClamp);
+    texture<uchar, hipTextureType2D, hipReadModeNormalizedFloat> tex_I8U(false, hipFilterModeLinear, hipAddressModeClamp);
+    texture<uchar4, hipTextureType2D, hipReadModeNormalizedFloat> tex_I8UC4(false, hipFilterModeLinear, hipAddressModeClamp);
 
-    texture<ushort4, cudaTextureType2D, cudaReadModeNormalizedFloat> tex_I16UC4(false, cudaFilterModeLinear, cudaAddressModeClamp);
-
-
-    texture<float, cudaTextureType2D, cudaReadModeElementType> tex_If(false, cudaFilterModeLinear, cudaAddressModeClamp);
-    texture<float4, cudaTextureType2D, cudaReadModeElementType> tex_If4(false, cudaFilterModeLinear, cudaAddressModeClamp);
-
-    texture<uchar, cudaTextureType2D, cudaReadModeElementType> tex_Ib(false, cudaFilterModePoint, cudaAddressModeClamp);
-
-    texture<uchar, cudaTextureType2D, cudaReadModeNormalizedFloat> tex_J8U(false, cudaFilterModeLinear, cudaAddressModeClamp);
-    texture<uchar4, cudaTextureType2D, cudaReadModeNormalizedFloat> tex_J8UC4(false, cudaFilterModeLinear, cudaAddressModeClamp);
-
-    texture<ushort4, cudaTextureType2D, cudaReadModeNormalizedFloat> tex_J16UC4(false, cudaFilterModeLinear, cudaAddressModeClamp);
+    texture<ushort4, hipTextureType2D, hipReadModeNormalizedFloat> tex_I16UC4(false, hipFilterModeLinear, hipAddressModeClamp);
 
 
-    texture<float, cudaTextureType2D, cudaReadModeElementType> tex_Jf(false, cudaFilterModeLinear, cudaAddressModeClamp);
-    texture<float4, cudaTextureType2D, cudaReadModeElementType> tex_Jf4(false, cudaFilterModeLinear, cudaAddressModeClamp);
+    texture<float, hipTextureType2D, hipReadModeElementType> tex_If(false, hipFilterModeLinear, hipAddressModeClamp);
+    texture<float4, hipTextureType2D, hipReadModeElementType> tex_If4(false, hipFilterModeLinear, hipAddressModeClamp);
+
+    texture<uchar, hipTextureType2D, hipReadModeElementType> tex_Ib(false, hipFilterModePoint, hipAddressModeClamp);
+
+    texture<uchar, hipTextureType2D, hipReadModeNormalizedFloat> tex_J8U(false, hipFilterModeLinear, hipAddressModeClamp);
+    texture<uchar4, hipTextureType2D, hipReadModeNormalizedFloat> tex_J8UC4(false, hipFilterModeLinear, hipAddressModeClamp);
+
+    texture<ushort4, hipTextureType2D, hipReadModeNormalizedFloat> tex_J16UC4(false, hipFilterModeLinear, hipAddressModeClamp);
+
+
+    texture<float, hipTextureType2D, hipReadModeElementType> tex_Jf(false, hipFilterModeLinear, hipAddressModeClamp);
+    texture<float4, hipTextureType2D, hipReadModeElementType> tex_Jf4(false, hipFilterModeLinear, hipAddressModeClamp);
 
 
     template <int cn, typename T> struct Tex_I
@@ -377,16 +378,16 @@ namespace pyrlk
         __shared__ float smem2[BLOCK_SIZE];
         __shared__ float smem3[BLOCK_SIZE];
 
-        const unsigned int tid = threadIdx.y * blockDim.x + threadIdx.x;
+        const unsigned int tid = hipThreadIdx_y * hipBlockDim_x + hipThreadIdx_x;
 
-        float2 prevPt = prevPts[blockIdx.x];
+        float2 prevPt = prevPts[hipBlockIdx_x];
         prevPt.x *= (1.0f / (1 << level));
         prevPt.y *= (1.0f / (1 << level));
 
         if (prevPt.x < 0 || prevPt.x >= cols || prevPt.y < 0 || prevPt.y >= rows)
         {
             if (tid == 0 && level == 0)
-                status[blockIdx.x] = 0;
+                status[hipBlockIdx_x] = 0;
 
             return;
         }
@@ -406,9 +407,9 @@ namespace pyrlk
         work_type dIdx_patch[PATCH_Y][PATCH_X];
         work_type dIdy_patch[PATCH_Y][PATCH_X];
 
-        for (int yBase = threadIdx.y, i = 0; yBase < c_winSize_y; yBase += blockDim.y, ++i)
+        for (int yBase = hipThreadIdx_y, i = 0; yBase < c_winSize_y; yBase += hipBlockDim_y, ++i)
         {
-            for (int xBase = threadIdx.x, j = 0; xBase < c_winSize_x; xBase += blockDim.x, ++j)
+            for (int xBase = hipThreadIdx_x, j = 0; xBase < c_winSize_x; xBase += hipBlockDim_x, ++j)
             {
                 float x = prevPt.x + xBase + 0.5f;
                 float y = prevPt.y + yBase + 0.5f;
@@ -454,7 +455,7 @@ namespace pyrlk
         if (D < numeric_limits<float>::epsilon())
         {
             if (tid == 0 && level == 0)
-                status[blockIdx.x] = 0;
+                status[hipBlockIdx_x] = 0;
 
             return;
         }
@@ -465,7 +466,7 @@ namespace pyrlk
         A12 *= D;
         A22 *= D;
 
-        float2 nextPt = nextPts[blockIdx.x];
+        float2 nextPt = nextPts[hipBlockIdx_x];
         nextPt.x *= 2.f;
         nextPt.y *= 2.f;
 
@@ -477,7 +478,7 @@ namespace pyrlk
             if (nextPt.x < -c_halfWin_x || nextPt.x >= cols || nextPt.y < -c_halfWin_y || nextPt.y >= rows)
             {
                 if (tid == 0 && level == 0)
-                    status[blockIdx.x] = 0;
+                    status[hipBlockIdx_x] = 0;
 
                 return;
             }
@@ -485,9 +486,9 @@ namespace pyrlk
             float b1 = 0;
             float b2 = 0;
 
-            for (int y = threadIdx.y, i = 0; y < c_winSize_y; y += blockDim.y, ++i)
+            for (int y = hipThreadIdx_y, i = 0; y < c_winSize_y; y += hipBlockDim_y, ++i)
             {
-                for (int x = threadIdx.x, j = 0; x < c_winSize_x; x += blockDim.x, ++j)
+                for (int x = hipThreadIdx_x, j = 0; x < c_winSize_x; x += hipBlockDim_x, ++j)
                 {
                     work_type I_val = I_patch[i][j];
                     work_type J_val = Tex_J<cn, T>::read(nextPt.x + x + 0.5f, nextPt.y + y + 0.5f);
@@ -528,9 +529,9 @@ namespace pyrlk
         float errval = 0;
         if (calcErr)
         {
-            for (int y = threadIdx.y, i = 0; y < c_winSize_y; y += blockDim.y, ++i)
+            for (int y = hipThreadIdx_y, i = 0; y < c_winSize_y; y += hipBlockDim_y, ++i)
             {
-                for (int x = threadIdx.x, j = 0; x < c_winSize_x; x += blockDim.x, ++j)
+                for (int x = hipThreadIdx_x, j = 0; x < c_winSize_x; x += hipBlockDim_x, ++j)
                 {
                     work_type I_val = I_patch[i][j];
                     work_type J_val = Tex_J<cn, T>::read(nextPt.x + x + 0.5f, nextPt.y + y + 0.5f);
@@ -549,10 +550,10 @@ namespace pyrlk
             nextPt.x += c_halfWin_x;
             nextPt.y += c_halfWin_y;
 
-            nextPts[blockIdx.x] = nextPt;
+            nextPts[hipBlockIdx_x] = nextPt;
 
             if (calcErr)
-                err[blockIdx.x] = static_cast<float>(errval) / (::min(cn, 3) * c_winSize_x * c_winSize_y) * DenormalizationFactor<T>::factor();
+                err[hipBlockIdx_x] = static_cast<float>(errval) / (::min(cn, 3) * c_winSize_x * c_winSize_y) * DenormalizationFactor<T>::factor();
         }
     }
 
@@ -570,16 +571,16 @@ namespace pyrlk
         __shared__ float smem2[BLOCK_SIZE];
         __shared__ float smem3[BLOCK_SIZE];
 
-        const unsigned int tid = threadIdx.y * blockDim.x + threadIdx.x;
+        const unsigned int tid = hipThreadIdx_y * hipBlockDim_x + hipThreadIdx_x;
 
-        float2 prevPt = prevPts[blockIdx.x];
+        float2 prevPt = prevPts[hipBlockIdx_x];
         prevPt.x *= (1.0f / (1 << level));
         prevPt.y *= (1.0f / (1 << level));
 
         if (prevPt.x < 0 || prevPt.x >= cols || prevPt.y < 0 || prevPt.y >= rows)
         {
             if (tid == 0 && level == 0)
-                status[blockIdx.x] = 0;
+                status[hipBlockIdx_x] = 0;
 
             return;
         }
@@ -599,9 +600,9 @@ namespace pyrlk
         work_type dIdx_patch[PATCH_Y][PATCH_X];
         work_type dIdy_patch[PATCH_Y][PATCH_X];
 
-        for (int yBase = threadIdx.y, i = 0; yBase < c_winSize_y; yBase += blockDim.y, ++i)
+        for (int yBase = hipThreadIdx_y, i = 0; yBase < c_winSize_y; yBase += hipBlockDim_y, ++i)
         {
-            for (int xBase = threadIdx.x, j = 0; xBase < c_winSize_x; xBase += blockDim.x, ++j)
+            for (int xBase = hipThreadIdx_x, j = 0; xBase < c_winSize_x; xBase += hipBlockDim_x, ++j)
             {
                 float x = prevPt.x + xBase + 0.5f;
                 float y = prevPt.y + yBase + 0.5f;
@@ -647,7 +648,7 @@ namespace pyrlk
         if (D < numeric_limits<float>::epsilon())
         {
             if (tid == 0 && level == 0)
-                status[blockIdx.x] = 0;
+                status[hipBlockIdx_x] = 0;
 
             return;
         }
@@ -658,7 +659,7 @@ namespace pyrlk
         A12 *= D;
         A22 *= D;
 
-        float2 nextPt = nextPts[blockIdx.x];
+        float2 nextPt = nextPts[hipBlockIdx_x];
         nextPt.x *= 2.f;
         nextPt.y *= 2.f;
 
@@ -670,7 +671,7 @@ namespace pyrlk
             if (nextPt.x < -c_halfWin_x || nextPt.x >= cols || nextPt.y < -c_halfWin_y || nextPt.y >= rows)
             {
                 if (tid == 0 && level == 0)
-                    status[blockIdx.x] = 0;
+                    status[hipBlockIdx_x] = 0;
 
                 return;
             }
@@ -678,9 +679,9 @@ namespace pyrlk
             float b1 = 0;
             float b2 = 0;
 
-            for (int y = threadIdx.y, i = 0; y < c_winSize_y; y += blockDim.y, ++i)
+            for (int y = hipThreadIdx_y, i = 0; y < c_winSize_y; y += hipBlockDim_y, ++i)
             {
-                for (int x = threadIdx.x, j = 0; x < c_winSize_x; x += blockDim.x, ++j)
+                for (int x = hipThreadIdx_x, j = 0; x < c_winSize_x; x += hipBlockDim_x, ++j)
                 {
                     work_type I_val = I_patch[i][j];
                     work_type J_val = ToFloat<T>(J(nextPt.y + y + 0.5f, nextPt.x + x + 0.5f));
@@ -721,9 +722,9 @@ namespace pyrlk
         float errval = 0;
         if (calcErr)
         {
-            for (int y = threadIdx.y, i = 0; y < c_winSize_y; y += blockDim.y, ++i)
+            for (int y = hipThreadIdx_y, i = 0; y < c_winSize_y; y += hipBlockDim_y, ++i)
             {
-                for (int x = threadIdx.x, j = 0; x < c_winSize_x; x += blockDim.x, ++j)
+                for (int x = hipThreadIdx_x, j = 0; x < c_winSize_x; x += hipBlockDim_x, ++j)
                 {
                     work_type I_val = I_patch[i][j];
                     work_type J_val = ToFloat<T>(J(nextPt.y + y + 0.5f, nextPt.x + x + 0.5f));
@@ -742,10 +743,10 @@ namespace pyrlk
             nextPt.x += c_halfWin_x;
             nextPt.y += c_halfWin_y;
 
-            nextPts[blockIdx.x] = nextPt;
+            nextPts[hipBlockIdx_x] = nextPt;
 
             if (calcErr)
-                err[blockIdx.x] = static_cast<float>(errval) / (::min(cn, 3)*c_winSize_x * c_winSize_y);
+                err[hipBlockIdx_x] = static_cast<float>(errval) / (::min(cn, 3)*c_winSize_x * c_winSize_y);
         }
     } // __global__ void sparseKernel_
 
@@ -754,20 +755,20 @@ namespace pyrlk
     {
     public:
         static void call(PtrStepSz<typename TypeVec<T, cn>::vec_type> I, PtrStepSz<typename TypeVec<T, cn>::vec_type> J, int rows, int cols, const float2* prevPts, float2* nextPts, uchar* status, float* err, int ptcount,
-            int level, dim3 block, cudaStream_t stream)
+            int level, dim3 block, hipStream_t stream)
         {
             dim3 grid(ptcount);
             CV_UNUSED(I);
             CV_UNUSED(J);
             if (level == 0 && err)
-                sparseKernel<cn, PATCH_X, PATCH_Y, true, T> <<<grid, block, 0, stream >>>(prevPts, nextPts, status, err, level, rows, cols);
+                hipLaunchKernelGGL((sparseKernel<cn, PATCH_X, PATCH_Y, true, T>), dim3(grid), dim3(block), 0, stream , prevPts, nextPts, status, err, level, rows, cols);
             else
-                sparseKernel<cn, PATCH_X, PATCH_Y, false, T> <<<grid, block, 0, stream >>>(prevPts, nextPts, status, err, level, rows, cols);
+                hipLaunchKernelGGL((sparseKernel<cn, PATCH_X, PATCH_Y, false, T>), dim3(grid), dim3(block), 0, stream , prevPts, nextPts, status, err, level, rows, cols);
 
-            cudaSafeCall(cudaGetLastError());
+            cudaSafeCall(hipGetLastError());
 
             if (stream == 0)
-                cudaSafeCall(cudaDeviceSynchronize());
+                cudaSafeCall(hipDeviceSynchronize());
         }
     };
     // Specialization to use non texture path because for some reason the texture path keeps failing accuracy tests
@@ -780,27 +781,27 @@ namespace pyrlk
         typedef BorderReader<Ptr2D, BrdType> Reader;
         typedef LinearFilter<Reader> Filter;
         static void call(Ptr2D I, Ptr2D J, int rows, int cols, const float2* prevPts, float2* nextPts, uchar* status, float* err, int ptcount,
-            int level, dim3 block, cudaStream_t stream)
+            int level, dim3 block, hipStream_t stream)
         {
             dim3 grid(ptcount);
             if (level == 0 && err)
             {
-                sparseKernel_<PATCH_X, PATCH_Y, true, 1, unsigned short> <<<grid, block, 0, stream >>>(
+                hipLaunchKernelGGL((sparseKernel_<PATCH_X, PATCH_Y, true, 1, unsigned short>), dim3(grid), dim3(block), 0, stream ,
                     Filter(Reader(I, BrdType(rows, cols))),
                     Filter(Reader(J, BrdType(rows, cols))),
                     prevPts, nextPts, status, err, level, rows, cols);
             }
             else
             {
-                sparseKernel_<PATCH_X, PATCH_Y, false, 1, unsigned short> <<<grid, block, 0, stream >>>(
+                hipLaunchKernelGGL((sparseKernel_<PATCH_X, PATCH_Y, false, 1, unsigned short>), dim3(grid), dim3(block), 0, stream ,
                     Filter(Reader(I, BrdType(rows, cols))),
                     Filter(Reader(J, BrdType(rows, cols))),
                     prevPts, nextPts, status, err, level, rows, cols);
             }
-            cudaSafeCall(cudaGetLastError());
+            cudaSafeCall(hipGetLastError());
 
             if (stream == 0)
-                cudaSafeCall(cudaDeviceSynchronize());
+                cudaSafeCall(hipDeviceSynchronize());
         }
     };
     // Specialization for int because the texture path keeps failing
@@ -813,27 +814,27 @@ namespace pyrlk
         typedef BorderReader<Ptr2D, BrdType> Reader;
         typedef LinearFilter<Reader> Filter;
         static void call(Ptr2D I, Ptr2D J, int rows, int cols, const float2* prevPts, float2* nextPts, uchar* status, float* err, int ptcount,
-            int level, dim3 block, cudaStream_t stream)
+            int level, dim3 block, hipStream_t stream)
         {
             dim3 grid(ptcount);
             if (level == 0 && err)
             {
-                sparseKernel_<PATCH_X, PATCH_Y, true, 1, int> <<<grid, block, 0, stream >>>(
+                hipLaunchKernelGGL((sparseKernel_<PATCH_X, PATCH_Y, true, 1, int>), dim3(grid), dim3(block), 0, stream ,
                     Filter(Reader(I, BrdType(rows, cols))),
                     Filter(Reader(J, BrdType(rows, cols))),
                     prevPts, nextPts, status, err, level, rows, cols);
             }
             else
             {
-                sparseKernel_<PATCH_X, PATCH_Y, false, 1, int> <<<grid, block, 0, stream >>>(
+                hipLaunchKernelGGL((sparseKernel_<PATCH_X, PATCH_Y, false, 1, int>), dim3(grid), dim3(block), 0, stream ,
                     Filter(Reader(I, BrdType(rows, cols))),
                     Filter(Reader(J, BrdType(rows, cols))),
                     prevPts, nextPts, status, err, level, rows, cols);
             }
-            cudaSafeCall(cudaGetLastError());
+            cudaSafeCall(hipGetLastError());
 
             if (stream == 0)
-                cudaSafeCall(cudaDeviceSynchronize());
+                cudaSafeCall(hipDeviceSynchronize());
         }
     };
     template<int PATCH_X, int PATCH_Y> class sparse_caller<4, PATCH_X, PATCH_Y, int>
@@ -845,27 +846,27 @@ namespace pyrlk
         typedef BorderReader<Ptr2D, BrdType> Reader;
         typedef LinearFilter<Reader> Filter;
         static void call(Ptr2D I, Ptr2D J, int rows, int cols, const float2* prevPts, float2* nextPts, uchar* status, float* err, int ptcount,
-            int level, dim3 block, cudaStream_t stream)
+            int level, dim3 block, hipStream_t stream)
         {
             dim3 grid(ptcount);
             if (level == 0 && err)
             {
-                sparseKernel_<PATCH_X, PATCH_Y, true, 4, int> <<<grid, block, 0, stream >>>(
+                hipLaunchKernelGGL((sparseKernel_<PATCH_X, PATCH_Y, true, 4, int>), dim3(grid), dim3(block), 0, stream ,
                     Filter(Reader(I, BrdType(rows, cols))),
                     Filter(Reader(J, BrdType(rows, cols))),
                     prevPts, nextPts, status, err, level, rows, cols);
             }
             else
             {
-                sparseKernel_<PATCH_X, PATCH_Y, false, 4, int> <<<grid, block, 0, stream >>>(
+                hipLaunchKernelGGL((sparseKernel_<PATCH_X, PATCH_Y, false, 4, int>), dim3(grid), dim3(block), 0, stream ,
                     Filter(Reader(I, BrdType(rows, cols))),
                     Filter(Reader(J, BrdType(rows, cols))),
                     prevPts, nextPts, status, err, level, rows, cols);
             }
-            cudaSafeCall(cudaGetLastError());
+            cudaSafeCall(hipGetLastError());
 
             if (stream == 0)
-                cudaSafeCall(cudaDeviceSynchronize());
+                cudaSafeCall(hipDeviceSynchronize());
         }
     };
     using namespace cv::cuda::device;
@@ -878,27 +879,27 @@ namespace pyrlk
         typedef BorderReader<Ptr2D, BrdType> Reader;
         typedef LinearFilter<Reader> Filter;
         static void call(Ptr2D I, Ptr2D J, int rows, int cols, const float2* prevPts, float2* nextPts, uchar* status, float* err, int ptcount,
-            int level, dim3 block, cudaStream_t stream)
+            int level, dim3 block, hipStream_t stream)
         {
             dim3 grid(ptcount);
             if (level == 0 && err)
             {
-                sparseKernel_<PATCH_X, PATCH_Y, true, 3, T> <<<grid, block, 0, stream >>>(
+                hipLaunchKernelGGL((sparseKernel_<PATCH_X, PATCH_Y, true, 3, T>), dim3(grid), dim3(block), 0, stream ,
                     Filter(Reader(I, BrdType(rows, cols))),
                     Filter(Reader(J, BrdType(rows, cols))),
                     prevPts, nextPts, status, err, level, rows, cols);
             }
             else
             {
-                sparseKernel_<PATCH_X, PATCH_Y, false, 3, T> <<<grid, block, 0, stream >>>(
+                hipLaunchKernelGGL((sparseKernel_<PATCH_X, PATCH_Y, false, 3, T>), dim3(grid), dim3(block), 0, stream ,
                     Filter(Reader(I, BrdType(rows, cols))),
                     Filter(Reader(J, BrdType(rows, cols))),
                     prevPts, nextPts, status, err, level, rows, cols);
             }
-            cudaSafeCall(cudaGetLastError());
+            cudaSafeCall(hipGetLastError());
 
             if (stream == 0)
-                cudaSafeCall(cudaDeviceSynchronize());
+                cudaSafeCall(hipDeviceSynchronize());
         }
     };
 
@@ -906,21 +907,21 @@ namespace pyrlk
     template <bool calcErr>
     __global__ void denseKernel(PtrStepf u, PtrStepf v, const PtrStepf prevU, const PtrStepf prevV, PtrStepf err, const int rows, const int cols)
     {
-        extern __shared__ int smem[];
+        HIP_DYNAMIC_SHARED( int, smem)
 
-        const int patchWidth  = blockDim.x + 2 * c_halfWin_x;
-        const int patchHeight = blockDim.y + 2 * c_halfWin_y;
+        const int patchWidth  = hipBlockDim_x + 2 * c_halfWin_x;
+        const int patchHeight = hipBlockDim_y + 2 * c_halfWin_y;
 
         int* I_patch = smem;
         int* dIdx_patch = I_patch + patchWidth * patchHeight;
         int* dIdy_patch = dIdx_patch + patchWidth * patchHeight;
 
-        const int xBase = blockIdx.x * blockDim.x;
-        const int yBase = blockIdx.y * blockDim.y;
+        const int xBase = hipBlockIdx_x * hipBlockDim_x;
+        const int yBase = hipBlockIdx_y * hipBlockDim_y;
 
-        for (int i = threadIdx.y; i < patchHeight; i += blockDim.y)
+        for (int i = hipThreadIdx_y; i < patchHeight; i += hipBlockDim_y)
         {
-            for (int j = threadIdx.x; j < patchWidth; j += blockDim.x)
+            for (int j = hipThreadIdx_x; j < patchWidth; j += hipBlockDim_x)
             {
                 float x = xBase - c_halfWin_x + j + 0.5f;
                 float y = yBase - c_halfWin_y + i + 0.5f;
@@ -939,8 +940,8 @@ namespace pyrlk
 
         __syncthreads();
 
-        const int x = xBase + threadIdx.x;
-        const int y = yBase + threadIdx.y;
+        const int x = xBase + hipThreadIdx_x;
+        const int y = yBase + hipThreadIdx_y;
 
         if (x >= cols || y >= rows)
             return;
@@ -954,8 +955,8 @@ namespace pyrlk
         {
             for (int j = 0; j < c_winSize_x; ++j)
             {
-                int dIdx = dIdx_patch[(threadIdx.y + i) * patchWidth + (threadIdx.x + j)];
-                int dIdy = dIdy_patch[(threadIdx.y + i) * patchWidth + (threadIdx.x + j)];
+                int dIdx = dIdx_patch[(hipThreadIdx_y + i) * patchWidth + (hipThreadIdx_x + j)];
+                int dIdy = dIdy_patch[(hipThreadIdx_y + i) * patchWidth + (hipThreadIdx_x + j)];
 
                 A11i += dIdx * dIdx;
                 A12i += dIdx * dIdy;
@@ -1003,13 +1004,13 @@ namespace pyrlk
             {
                 for (int j = 0; j < c_winSize_x; ++j)
                 {
-                    int I = I_patch[(threadIdx.y + i) * patchWidth + threadIdx.x + j];
+                    int I = I_patch[(hipThreadIdx_y + i) * patchWidth + hipThreadIdx_x + j];
                     int J = tex2D(tex_Jf, nextPt.x - c_halfWin_x + j + 0.5f, nextPt.y - c_halfWin_y + i + 0.5f);
 
                     int diff = (J - I) * 32;
 
-                    int dIdx = dIdx_patch[(threadIdx.y + i) * patchWidth + (threadIdx.x + j)];
-                    int dIdy = dIdy_patch[(threadIdx.y + i) * patchWidth + (threadIdx.x + j)];
+                    int dIdx = dIdx_patch[(hipThreadIdx_y + i) * patchWidth + (hipThreadIdx_x + j)];
+                    int dIdy = dIdy_patch[(hipThreadIdx_y + i) * patchWidth + (hipThreadIdx_x + j)];
 
                     b1 += diff * dIdx;
                     b2 += diff * dIdy;
@@ -1039,7 +1040,7 @@ namespace pyrlk
             {
                 for (int j = 0; j < c_winSize_x; ++j)
                 {
-                    int I = I_patch[(threadIdx.y + i) * patchWidth + threadIdx.x + j];
+                    int I = I_patch[(hipThreadIdx_y + i) * patchWidth + hipThreadIdx_x + j];
                     int J = tex2D(tex_Jf, nextPt.x - c_halfWin_x + j + 0.5f, nextPt.y - c_halfWin_y + i + 0.5f);
 
                     errval += ::abs(J - I);
@@ -1050,28 +1051,28 @@ namespace pyrlk
         }
     }
 
-    void loadWinSize(int* winSize, int* halfWinSize, cudaStream_t stream)
+    void loadWinSize(int* winSize, int* halfWinSize, hipStream_t stream)
     {
-        cudaSafeCall( cudaMemcpyToSymbolAsync(c_winSize_x, winSize, sizeof(int), 0, cudaMemcpyHostToDevice, stream) );
-        cudaSafeCall( cudaMemcpyToSymbolAsync(c_winSize_y, winSize + 1, sizeof(int), 0, cudaMemcpyHostToDevice, stream) );
+        cudaSafeCall( hipMemcpyToSymbolAsync(&c_winSize_x, winSize, sizeof(int), 0, hipMemcpyHostToDevice, stream) );
+        cudaSafeCall( hipMemcpyToSymbolAsync(&c_winSize_y, winSize + 1, sizeof(int), 0, hipMemcpyHostToDevice, stream) );
 
-        cudaSafeCall( cudaMemcpyToSymbolAsync(c_halfWin_x, halfWinSize, sizeof(int), 0, cudaMemcpyHostToDevice, stream) );
-        cudaSafeCall( cudaMemcpyToSymbolAsync(c_halfWin_y, halfWinSize + 1, sizeof(int), 0, cudaMemcpyHostToDevice, stream) );
+        cudaSafeCall( hipMemcpyToSymbolAsync(&c_halfWin_x, halfWinSize, sizeof(int), 0, hipMemcpyHostToDevice, stream) );
+        cudaSafeCall( hipMemcpyToSymbolAsync(&c_halfWin_y, halfWinSize + 1, sizeof(int), 0, hipMemcpyHostToDevice, stream) );
     }
 
-    void loadIters(int* iters, cudaStream_t stream)
+    void loadIters(int* iters, hipStream_t stream)
     {
-        cudaSafeCall( cudaMemcpyToSymbolAsync(c_iters, iters, sizeof(int), 0, cudaMemcpyHostToDevice, stream) );
+        cudaSafeCall( hipMemcpyToSymbolAsync(&c_iters, iters, sizeof(int), 0, hipMemcpyHostToDevice, stream) );
     }
 
-    void loadConstants(int2 winSize_, int iters_, cudaStream_t stream)
+    void loadConstants(int2 winSize_, int iters_, hipStream_t stream)
     {
         static int2 winSize = make_int2(0,0);
         if(winSize.x != winSize_.x || winSize.y != winSize_.y)
         {
             winSize = winSize_;
-            cudaSafeCall( cudaMemcpyToSymbolAsync(c_winSize_x, &winSize.x, sizeof(int), 0, cudaMemcpyHostToDevice, stream) );
-            cudaSafeCall( cudaMemcpyToSymbolAsync(c_winSize_y, &winSize.y, sizeof(int), 0, cudaMemcpyHostToDevice, stream) );
+            cudaSafeCall( hipMemcpyToSymbolAsync(&c_winSize_x, &winSize.x, sizeof(int), 0, hipMemcpyHostToDevice, stream) );
+            cudaSafeCall( hipMemcpyToSymbolAsync(&c_winSize_y, &winSize.y, sizeof(int), 0, hipMemcpyHostToDevice, stream) );
         }
 
         static int2 halfWin = make_int2(0,0);
@@ -1079,26 +1080,26 @@ namespace pyrlk
         if(halfWin.x != half.x || halfWin.y != half.y)
         {
             halfWin = half;
-            cudaSafeCall( cudaMemcpyToSymbolAsync(c_halfWin_x, &halfWin.x, sizeof(int), 0, cudaMemcpyHostToDevice, stream) );
-            cudaSafeCall( cudaMemcpyToSymbolAsync(c_halfWin_y, &halfWin.y, sizeof(int), 0, cudaMemcpyHostToDevice, stream) );
+            cudaSafeCall( hipMemcpyToSymbolAsync(&c_halfWin_x, &halfWin.x, sizeof(int), 0, hipMemcpyHostToDevice, stream) );
+            cudaSafeCall( hipMemcpyToSymbolAsync(&c_halfWin_y, &halfWin.y, sizeof(int), 0, hipMemcpyHostToDevice, stream) );
         }
 
         static int iters = 0;
         if(iters != iters_)
         {
             iters = iters_;
-            cudaSafeCall( cudaMemcpyToSymbolAsync(c_iters, &iters, sizeof(int), 0, cudaMemcpyHostToDevice, stream) );
+            cudaSafeCall( hipMemcpyToSymbolAsync(&c_iters, &iters, sizeof(int), 0, hipMemcpyHostToDevice, stream) );
         }
     }
 
     template<typename T, int cn> struct pyrLK_caller
     {
         static void sparse(PtrStepSz<typename TypeVec<T, cn>::vec_type> I, PtrStepSz<typename TypeVec<T, cn>::vec_type> J, const float2* prevPts, float2* nextPts, uchar* status, float* err, int ptcount,
-            int level, dim3 block, dim3 patch, cudaStream_t stream)
+            int level, dim3 block, dim3 patch, hipStream_t stream)
         {
             typedef void(*func_t)(PtrStepSz<typename TypeVec<T, cn>::vec_type> I, PtrStepSz<typename TypeVec<T, cn>::vec_type> J,
                 int rows, int cols, const float2* prevPts, float2* nextPts, uchar* status, float* err, int ptcount,
-                int level, dim3 block, cudaStream_t stream);
+                int level, dim3 block, hipStream_t stream);
 
             static const func_t funcs[5][5] =
             {
@@ -1115,7 +1116,7 @@ namespace pyrlk
             funcs[patch.y - 1][patch.x - 1](I, J, I.rows, I.cols, prevPts, nextPts, status, err, ptcount,
                 level, block, stream);
         }
-        static void dense(PtrStepSz<T> I, PtrStepSz<T> J, PtrStepSzf u, PtrStepSzf v, PtrStepSzf prevU, PtrStepSzf prevV, PtrStepSzf err, int2 winSize, cudaStream_t stream)
+        static void dense(PtrStepSz<T> I, PtrStepSz<T> J, PtrStepSzf u, PtrStepSzf v, PtrStepSzf prevU, PtrStepSzf prevV, PtrStepSzf err, int2 winSize, hipStream_t stream)
         {
             dim3 block(16, 16);
             dim3 grid(divUp(I.cols, block.x), divUp(I.rows, block.y));
@@ -1130,16 +1131,16 @@ namespace pyrlk
             if (err.data)
             {
                 denseKernel<true> << <grid, block, smem_size, stream >> >(u, v, prevU, prevV, err, I.rows, I.cols);
-                cudaSafeCall(cudaGetLastError());
+                cudaSafeCall(hipGetLastError());
             }
             else
             {
                 denseKernel<false> << <grid, block, smem_size, stream >> >(u, v, prevU, prevV, PtrStepf(), I.rows, I.cols);
-                cudaSafeCall(cudaGetLastError());
+                cudaSafeCall(hipGetLastError());
             }
 
             if (stream == 0)
-                cudaSafeCall(cudaDeviceSynchronize());
+                cudaSafeCall(hipDeviceSynchronize());
         }
     };
 

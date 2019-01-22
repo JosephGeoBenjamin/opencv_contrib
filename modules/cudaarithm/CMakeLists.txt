@@ -13,12 +13,12 @@ ocv_glob_module_sources()
 
 set(extra_libs "")
 
-if(HAVE_CUBLAS)
-  list(APPEND extra_libs ${CUDA_cublas_LIBRARY})
+if(HAVE_HIPBLAS)
+  list(APPEND extra_libs ${HIP_hipblas_LIBRARY})
 endif()
 
-if(HAVE_CUFFT)
-  list(APPEND extra_libs ${CUDA_cufft_LIBRARY})
+if(HAVE_ROCFFT)
+  list(APPEND extra_libs ${HIP_rocfft_LIBRARY})
 endif()
 
 ocv_create_module(${extra_libs})

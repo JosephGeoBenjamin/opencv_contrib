@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -56,8 +57,8 @@ namespace cv { namespace cuda { namespace device
     {
         typedef typename TypeVec<float, VecTraits<D>::cn>::vec_type sum_t;
 
-        const int x = blockIdx.x * blockDim.x + threadIdx.x;
-        const int y = blockIdx.y * blockDim.y + threadIdx.y;
+        const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+        const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
         if (x >= dst.cols || y >= dst.rows)
             return;
@@ -77,7 +78,7 @@ namespace cv { namespace cuda { namespace device
     template <typename T, typename D, template <typename> class Brd> struct Filter2DCaller;
 
     #define IMPLEMENT_FILTER2D_TEX_READER(type) \
-        texture< type , cudaTextureType2D, cudaReadModeElementType> tex_filter2D_ ## type (0, cudaFilterModePoint, cudaAddressModeClamp); \
+        texture< type , hipTextureType2D, hipReadModeElementType> tex_filter2D_ ## type (0, hipFilterModePoint, hipAddressModeClamp); \
         struct tex_filter2D_ ## type ## _reader \
         { \
             typedef type elem_type; \
@@ -93,7 +94,7 @@ namespace cv { namespace cuda { namespace device
         template <typename D, template <typename> class Brd> struct Filter2DCaller< type , D, Brd> \
         { \
             static void call(const PtrStepSz< type > srcWhole, int xoff, int yoff, PtrStepSz<D> dst, const float* kernel, \
-                int kWidth, int kHeight, int anchorX, int anchorY, const float* borderValue, cudaStream_t stream) \
+                int kWidth, int kHeight, int anchorX, int anchorY, const float* borderValue, hipStream_t stream) \
             { \
                 typedef typename TypeVec<float, VecTraits< type >::cn>::vec_type work_type; \
                 dim3 block(16, 16); \
@@ -102,10 +103,10 @@ namespace cv { namespace cuda { namespace device
                 tex_filter2D_ ## type ##_reader texSrc(xoff, yoff); \
                 Brd<work_type> brd(dst.rows, dst.cols, VecTraits<work_type>::make(borderValue)); \
                 BorderReader< tex_filter2D_ ## type ##_reader, Brd<work_type> > brdSrc(texSrc, brd); \
-                filter2D<<<grid, block, 0, stream>>>(brdSrc, dst, kernel, kWidth, kHeight, anchorX, anchorY); \
-                cudaSafeCall( cudaGetLastError() ); \
+                hipLaunchKernelGGL((filter2D), dim3(grid), dim3(block), 0, stream, brdSrc, dst, kernel, kWidth, kHeight, anchorX, anchorY); \
+                cudaSafeCall( hipGetLastError() ); \
                 if (stream == 0) \
-                    cudaSafeCall( cudaDeviceSynchronize() ); \
+                    cudaSafeCall( hipDeviceSynchronize() ); \
             } \
         };
 
@@ -123,10 +124,10 @@ namespace cv { namespace cuda { namespace device
     template <typename T, typename D>
     void filter2D(PtrStepSzb srcWhole, int ofsX, int ofsY, PtrStepSzb dst, const float* kernel,
                   int kWidth, int kHeight, int anchorX, int anchorY,
-                  int borderMode, const float* borderValue, cudaStream_t stream)
+                  int borderMode, const float* borderValue, hipStream_t stream)
     {
         typedef void (*func_t)(const PtrStepSz<T> srcWhole, int xoff, int yoff, PtrStepSz<D> dst, const float* kernel,
-                               int kWidth, int kHeight, int anchorX, int anchorY, const float* borderValue, cudaStream_t stream);
+                               int kWidth, int kHeight, int anchorX, int anchorY, const float* borderValue, hipStream_t stream);
         static const func_t funcs[] =
         {
             Filter2DCaller<T, D, BrdConstant>::call,
@@ -140,12 +141,12 @@ namespace cv { namespace cuda { namespace device
                           kWidth, kHeight, anchorX, anchorY, borderValue, stream);
     }
 
-    template void filter2D<uchar  , uchar  >(PtrStepSzb srcWhole, int ofsX, int ofsY, PtrStepSzb dst, const float* kernel, int kWidth, int kHeight, int anchorX, int anchorY, int borderMode, const float* borderValue, cudaStream_t stream);
-    template void filter2D<uchar4 , uchar4 >(PtrStepSzb srcWhole, int ofsX, int ofsY, PtrStepSzb dst, const float* kernel, int kWidth, int kHeight, int anchorX, int anchorY, int borderMode, const float* borderValue, cudaStream_t stream);
-    template void filter2D<ushort , ushort >(PtrStepSzb srcWhole, int ofsX, int ofsY, PtrStepSzb dst, const float* kernel, int kWidth, int kHeight, int anchorX, int anchorY, int borderMode, const float* borderValue, cudaStream_t stream);
-    template void filter2D<ushort4, ushort4>(PtrStepSzb srcWhole, int ofsX, int ofsY, PtrStepSzb dst, const float* kernel, int kWidth, int kHeight, int anchorX, int anchorY, int borderMode, const float* borderValue, cudaStream_t stream);
-    template void filter2D<float  , float  >(PtrStepSzb srcWhole, int ofsX, int ofsY, PtrStepSzb dst, const float* kernel, int kWidth, int kHeight, int anchorX, int anchorY, int borderMode, const float* borderValue, cudaStream_t stream);
-    template void filter2D<float4 , float4 >(PtrStepSzb srcWhole, int ofsX, int ofsY, PtrStepSzb dst, const float* kernel, int kWidth, int kHeight, int anchorX, int anchorY, int borderMode, const float* borderValue, cudaStream_t stream);
+    template void filter2D<uchar  , uchar  >(PtrStepSzb srcWhole, int ofsX, int ofsY, PtrStepSzb dst, const float* kernel, int kWidth, int kHeight, int anchorX, int anchorY, int borderMode, const float* borderValue, hipStream_t stream);
+    template void filter2D<uchar4 , uchar4 >(PtrStepSzb srcWhole, int ofsX, int ofsY, PtrStepSzb dst, const float* kernel, int kWidth, int kHeight, int anchorX, int anchorY, int borderMode, const float* borderValue, hipStream_t stream);
+    template void filter2D<ushort , ushort >(PtrStepSzb srcWhole, int ofsX, int ofsY, PtrStepSzb dst, const float* kernel, int kWidth, int kHeight, int anchorX, int anchorY, int borderMode, const float* borderValue, hipStream_t stream);
+    template void filter2D<ushort4, ushort4>(PtrStepSzb srcWhole, int ofsX, int ofsY, PtrStepSzb dst, const float* kernel, int kWidth, int kHeight, int anchorX, int anchorY, int borderMode, const float* borderValue, hipStream_t stream);
+    template void filter2D<float  , float  >(PtrStepSzb srcWhole, int ofsX, int ofsY, PtrStepSzb dst, const float* kernel, int kWidth, int kHeight, int anchorX, int anchorY, int borderMode, const float* borderValue, hipStream_t stream);
+    template void filter2D<float4 , float4 >(PtrStepSzb srcWhole, int ofsX, int ofsY, PtrStepSzb dst, const float* kernel, int kWidth, int kHeight, int anchorX, int anchorY, int borderMode, const float* borderValue, hipStream_t stream);
 }}}
 
 #endif // CUDA_DISABLER

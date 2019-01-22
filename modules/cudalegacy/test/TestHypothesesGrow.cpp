@@ -111,7 +111,7 @@ bool TestHypothesesGrow::process()
     ncvAssertReturn(ncvStat == NCV_SUCCESS, false);
     ncvStat = h_vecDst.copySolid(d_vecDst, 0);
     ncvAssertReturn(ncvStat == NCV_SUCCESS, false);
-    ncvAssertCUDAReturn(cudaStreamSynchronize(0), false);
+    ncvAssertCUDAReturn(hipStreamSynchronize(0), false);
 
     Ncv32u h_outElemNum_d = 0;
     Ncv32u h_outElemNum_h = 0;
@@ -123,7 +123,7 @@ bool TestHypothesesGrow::process()
     ncvAssertReturn(ncvStat == NCV_SUCCESS, false);
     ncvStat = d_vecDst.copySolid(h_vecDst_d, 0);
     ncvAssertReturn(ncvStat == NCV_SUCCESS, false);
-    ncvAssertCUDAReturn(cudaStreamSynchronize(0), false);
+    ncvAssertCUDAReturn(hipStreamSynchronize(0), false);
 
     h_outElemNum_h = this->lenDst;
     ncvStat = ncvGrowDetectionsVector_host(h_vecSrc, this->lenSrc,

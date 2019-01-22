@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -73,12 +74,12 @@ namespace cv { namespace cuda { namespace device
 
         void call(const PtrStepSz<float3> src, const float* rot,
                   const float* transl, PtrStepSz<float3> dst,
-                  cudaStream_t stream)
+                  hipStream_t stream)
         {
-            cudaSafeCall(cudaMemcpyToSymbol(crot0, rot, sizeof(float) * 3));
-            cudaSafeCall(cudaMemcpyToSymbol(crot1, rot + 3, sizeof(float) * 3));
-            cudaSafeCall(cudaMemcpyToSymbol(crot2, rot + 6, sizeof(float) * 3));
-            cudaSafeCall(cudaMemcpyToSymbol(ctransl, transl, sizeof(float) * 3));
+            cudaSafeCall(hipMemcpyToSymbol(&crot0, rot, sizeof(float) * 3));
+            cudaSafeCall(hipMemcpyToSymbol(&crot1, rot + 3, sizeof(float) * 3));
+            cudaSafeCall(hipMemcpyToSymbol(&crot2, rot + 6, sizeof(float) * 3));
+            cudaSafeCall(hipMemcpyToSymbol(&ctransl, transl, sizeof(float) * 3));
             cv::cuda::device::transform(src, dst, TransformOp(), WithOutMask(), stream);
         }
     } // namespace transform_points
@@ -112,14 +113,14 @@ namespace cv { namespace cuda { namespace device
 
         void call(const PtrStepSz<float3> src, const float* rot,
                   const float* transl, const float* proj, PtrStepSz<float2> dst,
-                  cudaStream_t stream)
+                  hipStream_t stream)
         {
-            cudaSafeCall(cudaMemcpyToSymbol(crot0, rot, sizeof(float) * 3));
-            cudaSafeCall(cudaMemcpyToSymbol(crot1, rot + 3, sizeof(float) * 3));
-            cudaSafeCall(cudaMemcpyToSymbol(crot2, rot + 6, sizeof(float) * 3));
-            cudaSafeCall(cudaMemcpyToSymbol(ctransl, transl, sizeof(float) * 3));
-            cudaSafeCall(cudaMemcpyToSymbol(cproj0, proj, sizeof(float) * 3));
-            cudaSafeCall(cudaMemcpyToSymbol(cproj1, proj + 3, sizeof(float) * 3));
+            cudaSafeCall(hipMemcpyToSymbol(&crot0, rot, sizeof(float) * 3));
+            cudaSafeCall(hipMemcpyToSymbol(&crot1, rot + 3, sizeof(float) * 3));
+            cudaSafeCall(hipMemcpyToSymbol(&crot2, rot + 6, sizeof(float) * 3));
+            cudaSafeCall(hipMemcpyToSymbol(&ctransl, transl, sizeof(float) * 3));
+            cudaSafeCall(hipMemcpyToSymbol(&cproj0, proj, sizeof(float) * 3));
+            cudaSafeCall(hipMemcpyToSymbol(&cproj1, proj + 3, sizeof(float) * 3));
             cv::cuda::device::transform(src, dst, ProjectOp(), WithOutMask(), stream);
         }
     } // namespace project_points
@@ -144,11 +145,11 @@ namespace cv { namespace cuda { namespace device
                 const int num_points, const float3* object, const float2* image,
                 const float dist_threshold, int* g_num_inliers)
         {
-            const float3* const &rot_mat = crot_matrices + blockIdx.x * 3;
-            const float3 &transl_vec = ctransl_vectors[blockIdx.x];
+            const float3* const &rot_mat = crot_matrices + hipBlockIdx_x * 3;
+            const float3 &transl_vec = ctransl_vectors[hipBlockIdx_x];
             int num_inliers = 0;
 
-            for (int i = threadIdx.x; i < num_points; i += blockDim.x)
+            for (int i = hipThreadIdx_x; i < num_points; i += hipBlockDim_x)
             {
                 float3 p = object[i];
                 p = make_float3(
@@ -163,10 +164,10 @@ namespace cv { namespace cuda { namespace device
             }
 
             __shared__ int s_num_inliers[BLOCK_SIZE];
-            reduce<BLOCK_SIZE>(s_num_inliers, num_inliers, threadIdx.x, plus<int>());
+            reduce<BLOCK_SIZE>(s_num_inliers, num_inliers, hipThreadIdx_x, plus<int>());
 
-            if (threadIdx.x == 0)
-                g_num_inliers[blockIdx.x] = num_inliers;
+            if (hipThreadIdx_x == 0)
+                g_num_inliers[hipBlockIdx_x] = num_inliers;
         }
 
         void computeHypothesisScores(
@@ -174,17 +175,17 @@ namespace cv { namespace cuda { namespace device
                 const float3* transl_vectors, const float3* object, const float2* image,
                 const float dist_threshold, int* hypothesis_scores)
         {
-            cudaSafeCall(cudaMemcpyToSymbol(crot_matrices, rot_matrices, num_hypotheses * 3 * sizeof(float3)));
-            cudaSafeCall(cudaMemcpyToSymbol(ctransl_vectors, transl_vectors, num_hypotheses * sizeof(float3)));
+            cudaSafeCall(hipMemcpyToSymbol(&crot_matrices, rot_matrices, num_hypotheses * 3 * sizeof(float3)));
+            cudaSafeCall(hipMemcpyToSymbol(&ctransl_vectors, transl_vectors, num_hypotheses * sizeof(float3)));
 
             dim3 threads(256);
             dim3 grid(num_hypotheses);
 
-            computeHypothesisScoresKernel<256><<<grid, threads>>>(
+            hipLaunchKernelGGL((computeHypothesisScoresKernel<256>), dim3(grid), dim3(threads), 0, 0,
                     num_points, object, image, dist_threshold, hypothesis_scores);
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
         }
     } // namespace solvepnp_ransac
 }}} // namespace cv { namespace cuda { namespace cudev

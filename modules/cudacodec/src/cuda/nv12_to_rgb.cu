@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -196,12 +197,12 @@ void videoDecPostProcessFrame(const GpuMat& decodedFrame, OutputArray _outFrame,
     dim3 block(32, 8);
     dim3 grid(divUp(width, 2 * block.x), divUp(height, block.y));
 
-    NV12_to_RGB<<<grid, block>>>(decodedFrame.ptr<uchar>(), decodedFrame.step,
+    hipLaunchKernelGGL((NV12_to_RGB), dim3(grid), dim3(block), 0, 0, decodedFrame.ptr<uchar>(), decodedFrame.step,
                                  outFrame.ptr<uint>(), outFrame.step,
                                  width, height);
 
-    CV_CUDEV_SAFE_CALL( cudaGetLastError() );
-    CV_CUDEV_SAFE_CALL( cudaDeviceSynchronize() );
+    CV_CUDEV_SAFE_CALL( hipGetLastError() );
+    CV_CUDEV_SAFE_CALL( hipDeviceSynchronize() );
 }
 
 #endif

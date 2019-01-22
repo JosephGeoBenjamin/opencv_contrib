@@ -86,68 +86,68 @@ namespace
     }
 }
 
-#ifdef HAVE_CUBLAS
+#ifdef HAVE_HIPBLAS
     namespace
     {
-        const ErrorEntry cublas_errors[] =
+        const ErrorEntry hipblas_errors[] =
         {
-            error_entry( CUBLAS_STATUS_SUCCESS ),
-            error_entry( CUBLAS_STATUS_NOT_INITIALIZED ),
-            error_entry( CUBLAS_STATUS_ALLOC_FAILED ),
-            error_entry( CUBLAS_STATUS_INVALID_VALUE ),
-            error_entry( CUBLAS_STATUS_ARCH_MISMATCH ),
-            error_entry( CUBLAS_STATUS_MAPPING_ERROR ),
-            error_entry( CUBLAS_STATUS_EXECUTION_FAILED ),
-            error_entry( CUBLAS_STATUS_INTERNAL_ERROR )
+            error_entry( HIPBLAS_STATUS_SUCCESS ),
+            error_entry( HIPBLAS_STATUS_NOT_INITIALIZED ),
+            error_entry( HIPBLAS_STATUS_ALLOC_FAILED ),
+            error_entry( HIPBLAS_STATUS_INVALID_VALUE ),
+            error_entry( HIPBLAS_STATUS_ARCH_MISMATCH ),
+            error_entry( HIPBLAS_STATUS_MAPPING_ERROR ),
+            error_entry( HIPBLAS_STATUS_EXECUTION_FAILED ),
+            error_entry( HIPBLAS_STATUS_INTERNAL_ERROR )
         };
 
-        const size_t cublas_error_num = sizeof(cublas_errors) / sizeof(cublas_errors[0]);
+        const size_t hipblas_error_num = sizeof(hipblas_errors) / sizeof(hipblas_errors[0]);
 
-        static inline void ___cublasSafeCall(cublasStatus_t err, const char* file, const int line, const char* func)
+        static inline void ___hipblasSafeCall(hipblasStatus_t err, const char* file, const int line, const char* func)
         {
-            if (CUBLAS_STATUS_SUCCESS != err)
+            if (HIPBLAS_STATUS_SUCCESS != err)
             {
-                String msg = getErrorString(err, cublas_errors, cublas_error_num);
+                String msg = getErrorString(err, hipblas_errors, hipblas_error_num);
                 cv::error(cv::Error::GpuApiCallError, msg, func, file, line);
             }
         }
     }
 
-    #define cublasSafeCall(expr)  ___cublasSafeCall(expr, __FILE__, __LINE__, CV_Func)
-#endif // HAVE_CUBLAS
+    #define hipblasSafeCall(expr)  ___hipblasSafeCall(expr, __FILE__, __LINE__, CV_Func)
+#endif // HAVE_HIPBLAS
 
-#ifdef HAVE_CUFFT
+#ifdef HAVE_ROCFFT
     namespace
     {
         //////////////////////////////////////////////////////////////////////////
-        // CUFFT errors
+        // ROCFFT errors
 
-        const ErrorEntry cufft_errors[] =
+        const ErrorEntry hipfft_errors[] =
         {
-            error_entry( CUFFT_INVALID_PLAN ),
-            error_entry( CUFFT_ALLOC_FAILED ),
-            error_entry( CUFFT_INVALID_TYPE ),
-            error_entry( CUFFT_INVALID_VALUE ),
-            error_entry( CUFFT_INTERNAL_ERROR ),
-            error_entry( CUFFT_EXEC_FAILED ),
-            error_entry( CUFFT_SETUP_FAILED ),
-            error_entry( CUFFT_INVALID_SIZE ),
-            error_entry( CUFFT_UNALIGNED_DATA )
+            error_entry( HIPFFT_INVALID_PLAN ),
+            error_entry( HIPFFT_ALLOC_FAILED ),
+            error_entry( HIPFFT_INVALID_TYPE ),
+            error_entry( HIPFFT_INVALID_VALUE ),
+            error_entry( HIPFFT_INTERNAL_ERROR ),
+            error_entry( HIPFFT_EXEC_FAILED ),
+            error_entry( HIPFFT_SETUP_FAILED ),
+            error_entry( HIPFFT_INVALID_SIZE ),
+            error_entry( HIPFFT_UNALIGNED_DATA )
         };
 
-        const int cufft_error_num = sizeof(cufft_errors) / sizeof(cufft_errors[0]);
+        const int hipfft_error_num = sizeof(hipfft_errors) / sizeof(hipfft_errors[0]);
 
-        void ___cufftSafeCall(int err, const char* file, const int line, const char* func)
+        void ___hipfftSafeCall(int err, const char* file, const int line, const char* func)
         {
-            if (CUFFT_SUCCESS != err)
+            if (HIPFFT_SUCCESS != err)
             {
-                String msg = getErrorString(err, cufft_errors, cufft_error_num);
+                String msg = getErrorString(err, hipfft_errors, hipfft_error_num);
                 cv::error(cv::Error::GpuApiCallError, msg, func, file, line);
             }
         }
     }
 
-    #define cufftSafeCall(expr)  ___cufftSafeCall(expr, __FILE__, __LINE__, CV_Func)
+    #define hipfftSafeCall(expr)  ___hipfftSafeCall(expr, __FILE__, __LINE__, CV_Func)
 
 #endif
 
@@ -156,7 +156,7 @@ namespace
 
 void cv::cuda::gemm(InputArray _src1, InputArray _src2, double alpha, InputArray _src3, double beta, OutputArray _dst, int flags, Stream& stream)
 {
-#ifndef HAVE_CUBLAS
+#ifndef HAVE_HIPBLAS
     CV_UNUSED(_src1);
     CV_UNUSED(_src2);
     CV_UNUSED(alpha);
@@ -165,9 +165,9 @@ void cv::cuda::gemm(InputArray _src1, InputArray _src2, double alpha, InputArray
     CV_UNUSED(_dst);
     CV_UNUSED(flags);
     CV_UNUSED(stream);
-    CV_Error(Error::StsNotImplemented, "The library was build without CUBLAS");
+    CV_Error(Error::StsNotImplemented, "The library was build without HIPBLAS");
 #else
-    // CUBLAS works with column-major matrices
+    // HIPBLAS works with column-major matrices
 
     GpuMat src1 = getInputMat(_src1, stream);
     GpuMat src2 = getInputMat(_src2, stream);
@@ -221,29 +221,29 @@ void cv::cuda::gemm(InputArray _src1, InputArray _src2, double alpha, InputArray
         }
     }
 
-    cublasHandle_t handle;
-    cublasSafeCall( cublasCreate_v2(&handle) );
+    hipblasHandle_t handle;
+    hipblasSafeCall( hipblasCreate(&handle) );
 
-    cublasSafeCall( cublasSetStream_v2(handle, StreamAccessor::getStream(stream)) );
+    hipblasSafeCall( hipblasSetStream(handle, StreamAccessor::getStream(stream)) );
 
-    cublasSafeCall( cublasSetPointerMode_v2(handle, CUBLAS_POINTER_MODE_HOST) );
+    hipblasSafeCall( hipblasSetPointerMode(handle, HIPBLAS_POINTER_MODE_HOST) );
 
     const float alphaf = static_cast<float>(alpha);
     const float betaf = static_cast<float>(beta);
 
-    const cuComplex alphacf = make_cuComplex(alphaf, 0);
-    const cuComplex betacf = make_cuComplex(betaf, 0);
+    const hipComplex alphacf = make_hipComplex(alphaf, 0);
+    const hipComplex betacf = make_hipComplex(betaf, 0);
 
-    const cuDoubleComplex alphac = make_cuDoubleComplex(alpha, 0);
-    const cuDoubleComplex betac = make_cuDoubleComplex(beta, 0);
+    const hipDoubleComplex alphac = make_hipDoubleComplex(alpha, 0);
+    const hipDoubleComplex betac = make_hipDoubleComplex(beta, 0);
 
-    cublasOperation_t transa = tr2 ? CUBLAS_OP_T : CUBLAS_OP_N;
-    cublasOperation_t transb = tr1 ? CUBLAS_OP_T : CUBLAS_OP_N;
+    hipblasOperation_t transa = tr2 ? HIPBLAS_OP_T : HIPBLAS_OP_N;
+    hipblasOperation_t transb = tr1 ? HIPBLAS_OP_T : HIPBLAS_OP_N;
 
     switch (src1.type())
     {
     case CV_32FC1:
-        cublasSafeCall( cublasSgemm_v2(handle, transa, transb, tr2 ? src2.rows : src2.cols, tr1 ? src1.cols : src1.rows, tr2 ? src2.cols : src2.rows,
+        hipblasSafeCall( hipblasSgemm(handle, transa, transb, tr2 ? src2.rows : src2.cols, tr1 ? src1.cols : src1.rows, tr2 ? src2.cols : src2.rows,
             &alphaf,
             src2.ptr<float>(), static_cast<int>(src2.step / sizeof(float)),
             src1.ptr<float>(), static_cast<int>(src1.step / sizeof(float)),
@@ -252,7 +252,7 @@ void cv::cuda::gemm(InputArray _src1, InputArray _src2, double alpha, InputArray
         break;
 
     case CV_64FC1:
-        cublasSafeCall( cublasDgemm_v2(handle, transa, transb, tr2 ? src2.rows : src2.cols, tr1 ? src1.cols : src1.rows, tr2 ? src2.cols : src2.rows,
+        hipblasSafeCall( hipblasDgemm(handle, transa, transb, tr2 ? src2.rows : src2.cols, tr1 ? src1.cols : src1.rows, tr2 ? src2.cols : src2.rows,
             &alpha,
             src2.ptr<double>(), static_cast<int>(src2.step / sizeof(double)),
             src1.ptr<double>(), static_cast<int>(src1.step / sizeof(double)),
@@ -261,25 +261,31 @@ void cv::cuda::gemm(InputArray _src1, InputArray _src2, double alpha, InputArray
         break;
 
     case CV_32FC2:
-        cublasSafeCall( cublasCgemm_v2(handle, transa, transb, tr2 ? src2.rows : src2.cols, tr1 ? src1.cols : src1.rows, tr2 ? src2.cols : src2.rows,
+#ifdef HIP_TODO
+//hipblasCgemm is not implemented by hipBlas
+        hipblasSafeCall( hipblasCgemm(handle, transa, transb, tr2 ? src2.rows : src2.cols, tr1 ? src1.cols : src1.rows, tr2 ? src2.cols : src2.rows,
             &alphacf,
-            src2.ptr<cuComplex>(), static_cast<int>(src2.step / sizeof(cuComplex)),
-            src1.ptr<cuComplex>(), static_cast<int>(src1.step / sizeof(cuComplex)),
+            src2.ptr<hipComplex>(), static_cast<int>(src2.step / sizeof(hipComplex)),
+            src1.ptr<hipComplex>(), static_cast<int>(src1.step / sizeof(hipComplex)),
             &betacf,
-            dst.ptr<cuComplex>(), static_cast<int>(dst.step / sizeof(cuComplex))) );
+            dst.ptr<hipComplex>(), static_cast<int>(dst.step / sizeof(hipComplex))) );
+#endif //HIP_TODO
         break;
 
     case CV_64FC2:
-        cublasSafeCall( cublasZgemm_v2(handle, transa, transb, tr2 ? src2.rows : src2.cols, tr1 ? src1.cols : src1.rows, tr2 ? src2.cols : src2.rows,
+#ifdef HIP_TODO
+//hipblasZgemm is not implemented by hipBlas
+        hipblasSafeCall( hipblasZgemm(handle, transa, transb, tr2 ? src2.rows : src2.cols, tr1 ? src1.cols : src1.rows, tr2 ? src2.cols : src2.rows,
             &alphac,
-            src2.ptr<cuDoubleComplex>(), static_cast<int>(src2.step / sizeof(cuDoubleComplex)),
-            src1.ptr<cuDoubleComplex>(), static_cast<int>(src1.step / sizeof(cuDoubleComplex)),
+            src2.ptr<hipDoubleComplex>(), static_cast<int>(src2.step / sizeof(hipDoubleComplex)),
+            src1.ptr<hipDoubleComplex>(), static_cast<int>(src1.step / sizeof(hipDoubleComplex)),
             &betac,
-            dst.ptr<cuDoubleComplex>(), static_cast<int>(dst.step / sizeof(cuDoubleComplex))) );
+            dst.ptr<hipDoubleComplex>(), static_cast<int>(dst.step / sizeof(hipDoubleComplex))) );
+#endif //HIP_TODO
         break;
     }
 
-    cublasSafeCall( cublasDestroy_v2(handle) );
+    hipblasSafeCall( hipblasDestroy(handle) );
 
     syncOutput(dst, _dst, stream);
 #endif
@@ -300,7 +306,7 @@ void cv::cuda::dft(InputArray _src, OutputArray _dst, Size dft_size, int flags, 
 //////////////////////////////////////////////////////////////////////////////
 // DFT algorithm
 
-#ifdef HAVE_CUFFT
+#ifdef HAVE_ROCFFT
 
 namespace
 {
@@ -310,8 +316,8 @@ namespace
         Size dft_size, dft_size_opt;
         bool is_1d_input, is_row_dft, is_scaled_dft, is_inverse, is_complex_input, is_complex_output;
 
-        cufftType dft_type;
-        cufftHandle plan;
+        hipfftType dft_type;
+        hipfftHandle plan;
 
     public:
         DFTImpl(Size dft_size, int flags)
@@ -323,7 +329,7 @@ namespace
               is_inverse((flags & DFT_INVERSE) != 0),
               is_complex_input((flags & DFT_COMPLEX_INPUT) != 0),
               is_complex_output(!(flags & DFT_REAL_OUTPUT)),
-              dft_type(!is_complex_input ? CUFFT_R2C : (is_complex_output ? CUFFT_C2C : CUFFT_C2R))
+              dft_type(!is_complex_input ? HIPFFT_R2C : (is_complex_output ? HIPFFT_C2C : HIPFFT_C2R))
         {
             // We don't support unpacked output (in the case of real input)
             CV_Assert( !(flags & DFT_COMPLEX_OUTPUT) );
@@ -341,14 +347,14 @@ namespace
             CV_Assert( dft_size_opt.width > 1 );
 
             if (is_1d_input || is_row_dft)
-                cufftSafeCall( cufftPlan1d(&plan, dft_size_opt.width, dft_type, dft_size_opt.height) );
+                hipfftSafeCall( hipfftPlan1d(&plan, dft_size_opt.width, dft_type, dft_size_opt.height) );
             else
-                cufftSafeCall( cufftPlan2d(&plan, dft_size_opt.height, dft_size_opt.width, dft_type) );
+                hipfftSafeCall( hipfftPlan2d(&plan, dft_size_opt.height, dft_size_opt.width, dft_type) );
         }
 
         ~DFTImpl()
         {
-            cufftSafeCall( cufftDestroy(plan) );
+            hipfftSafeCall( hipfftDestroy(plan) );
         }
 
         void compute(InputArray _src, OutputArray _dst, Stream& stream)
@@ -359,7 +365,7 @@ namespace
             CV_Assert( is_complex_input == (src.channels() == 2) );
 
             // Make sure here we work with the continuous input,
-            // as CUFFT can't handle gaps
+            // as ROCFFT can't handle gaps
             GpuMat src_cont;
             if (src.isContinuous())
             {
@@ -373,7 +379,7 @@ namespace
                 src.copyTo(src_cont, stream);
             }
 
-            cufftSafeCall( cufftSetStream(plan, StreamAccessor::getStream(stream)) );
+            hipfftSafeCall( hipfftSetStream(plan, StreamAccessor::getStream(stream)) );
 
             if (is_complex_input)
             {
@@ -382,17 +388,17 @@ namespace
                     createContinuous(dft_size, CV_32FC2, _dst);
                     GpuMat dst = _dst.getGpuMat();
 
-                    cufftSafeCall(cufftExecC2C(
-                            plan, src_cont.ptr<cufftComplex>(), dst.ptr<cufftComplex>(),
-                            is_inverse ? CUFFT_INVERSE : CUFFT_FORWARD));
+                    hipfftSafeCall(hipfftExecC2C(
+                            plan, src_cont.ptr<hipfftComplex>(), dst.ptr<hipfftComplex>(),
+                            is_inverse ? HIPFFT_BACKWARD : HIPFFT_FORWARD));
                 }
                 else
                 {
                     createContinuous(dft_size, CV_32F, _dst);
                     GpuMat dst = _dst.getGpuMat();
 
-                    cufftSafeCall(cufftExecC2R(
-                            plan, src_cont.ptr<cufftComplex>(), dst.ptr<cufftReal>()));
+                    hipfftSafeCall(hipfftExecC2R(
+                            plan, src_cont.ptr<hipfftComplex>(), dst.ptr<hipfftReal>()));
                 }
             }
             else
@@ -405,8 +411,8 @@ namespace
 
                 GpuMat dst = _dst.getGpuMat();
 
-                cufftSafeCall(cufftExecR2C(
-                                  plan, src_cont.ptr<cufftReal>(), dst.ptr<cufftComplex>()));
+                hipfftSafeCall(hipfftExecR2C(
+                                  plan, src_cont.ptr<hipfftReal>(), dst.ptr<hipfftComplex>()));
             }
 
             if (is_scaled_dft)
@@ -419,10 +425,10 @@ namespace
 
 Ptr<DFT> cv::cuda::createDFT(Size dft_size, int flags)
 {
-#ifndef HAVE_CUFFT
+#ifndef HAVE_ROCFFT
     CV_UNUSED(dft_size);
     CV_UNUSED(flags);
-    CV_Error(Error::StsNotImplemented, "The library was build without CUFFT");
+    CV_Error(Error::StsNotImplemented, "The library was build without ROCFFT");
     return Ptr<DFT>();
 #else
     return makePtr<DFTImpl>(dft_size, flags);
@@ -432,7 +438,7 @@ Ptr<DFT> cv::cuda::createDFT(Size dft_size, int flags)
 //////////////////////////////////////////////////////////////////////////////
 // Convolution
 
-#ifdef HAVE_CUFFT
+#ifdef HAVE_ROCFFT
 
 namespace
 {
@@ -468,8 +474,8 @@ namespace
         dft_size.width = 1 << int(ceil(std::log(block_size.width + templ_size.width - 1.) / std::log(2.)));
         dft_size.height = 1 << int(ceil(std::log(block_size.height + templ_size.height - 1.) / std::log(2.)));
 
-        // CUFFT has hard-coded kernels for power-of-2 sizes (up to 8192),
-        // see CUDA Toolkit 4.1 CUFFT Library Programming Guide
+        // ROCFFT has hard-coded kernels for power-of-2 sizes (up to 8192),
+        // see CUDA Toolkit 4.1 ROCFFT Library Programming Guide
         if (dft_size.width > 8192)
             dft_size.width = getOptimalDFTSize(block_size.width + templ_size.width - 1);
         if (dft_size.height > 8192)
@@ -514,20 +520,20 @@ namespace
 
         GpuMat result = getOutputMat(_result, result_size, CV_32FC1, _stream);
 
-        cudaStream_t stream = StreamAccessor::getStream(_stream);
+        hipStream_t stream = StreamAccessor::getStream(_stream);
 
-        cufftHandle planR2C, planC2R;
-        cufftSafeCall( cufftPlan2d(&planC2R, dft_size.height, dft_size.width, CUFFT_C2R) );
-        cufftSafeCall( cufftPlan2d(&planR2C, dft_size.height, dft_size.width, CUFFT_R2C) );
+        hipfftHandle planR2C, planC2R;
+        hipfftSafeCall( hipfftPlan2d(&planC2R, dft_size.height, dft_size.width, HIPFFT_C2R) );
+        hipfftSafeCall( hipfftPlan2d(&planR2C, dft_size.height, dft_size.width, HIPFFT_R2C) );
 
-        cufftSafeCall( cufftSetStream(planR2C, stream) );
-        cufftSafeCall( cufftSetStream(planC2R, stream) );
+        hipfftSafeCall( hipfftSetStream(planR2C, stream) );
+        hipfftSafeCall( hipfftSetStream(planC2R, stream) );
 
         GpuMat templ_roi(templ.size(), CV_32FC1, templ.data, templ.step);
         cuda::copyMakeBorder(templ_roi, templ_block, 0, templ_block.rows - templ_roi.rows, 0,
                             templ_block.cols - templ_roi.cols, 0, Scalar(), _stream);
 
-        cufftSafeCall( cufftExecR2C(planR2C, templ_block.ptr<cufftReal>(), templ_spect.ptr<cufftComplex>()) );
+        hipfftSafeCall( hipfftExecR2C(planR2C, templ_block.ptr<hipfftReal>(), templ_spect.ptr<hipfftComplex>()) );
 
         // Process all blocks of the result matrix
         for (int y = 0; y < result.rows; y += block_size.height)
@@ -541,12 +547,12 @@ namespace
                 cuda::copyMakeBorder(image_roi, image_block, 0, image_block.rows - image_roi.rows,
                                     0, image_block.cols - image_roi.cols, 0, Scalar(), _stream);
 
-                cufftSafeCall(cufftExecR2C(planR2C, image_block.ptr<cufftReal>(),
-                                           image_spect.ptr<cufftComplex>()));
+                hipfftSafeCall(hipfftExecR2C(planR2C, image_block.ptr<hipfftReal>(),
+                                           image_spect.ptr<hipfftComplex>()));
                 cuda::mulAndScaleSpectrums(image_spect, templ_spect, result_spect, 0,
                                           1.f / dft_size.area(), ccorr, _stream);
-                cufftSafeCall(cufftExecC2R(planC2R, result_spect.ptr<cufftComplex>(),
-                                           result_data.ptr<cufftReal>()));
+                hipfftSafeCall(hipfftExecC2R(planC2R, result_spect.ptr<hipfftComplex>(),
+                                           result_data.ptr<hipfftReal>()));
 
                 Size result_roi_size(std::min(x + block_size.width, result.cols) - x,
                                      std::min(y + block_size.height, result.rows) - y);
@@ -559,8 +565,8 @@ namespace
             }
         }
 
-        cufftSafeCall( cufftDestroy(planR2C) );
-        cufftSafeCall( cufftDestroy(planC2R) );
+        hipfftSafeCall( hipfftDestroy(planR2C) );
+        hipfftSafeCall( hipfftDestroy(planC2R) );
 
         syncOutput(result, _result, _stream);
     }
@@ -570,9 +576,9 @@ namespace
 
 Ptr<Convolution> cv::cuda::createConvolution(Size user_block_size)
 {
-#ifndef HAVE_CUFFT
+#ifndef HAVE_ROCFFT
     CV_UNUSED(user_block_size);
-    CV_Error(Error::StsNotImplemented, "The library was build without CUFFT");
+    CV_Error(Error::StsNotImplemented, "The library was build without ROCFFT");
     return Ptr<Convolution>();
 #else
     return makePtr<ConvolutionImpl>(user_block_size);

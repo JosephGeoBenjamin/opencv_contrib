@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -119,15 +120,15 @@ namespace cv { namespace cuda { namespace device
             varMin = ::fminf(varMin, varMax);
             varMax = ::fmaxf(varMin, varMax);
 
-            cudaSafeCall( cudaMemcpyToSymbol(c_nmixtures, &nmixtures, sizeof(int)) );
-            cudaSafeCall( cudaMemcpyToSymbol(c_Tb, &Tb, sizeof(float)) );
-            cudaSafeCall( cudaMemcpyToSymbol(c_TB, &TB, sizeof(float)) );
-            cudaSafeCall( cudaMemcpyToSymbol(c_Tg, &Tg, sizeof(float)) );
-            cudaSafeCall( cudaMemcpyToSymbol(c_varInit, &varInit, sizeof(float)) );
-            cudaSafeCall( cudaMemcpyToSymbol(c_varMin, &varMin, sizeof(float)) );
-            cudaSafeCall( cudaMemcpyToSymbol(c_varMax, &varMax, sizeof(float)) );
-            cudaSafeCall( cudaMemcpyToSymbol(c_tau, &tau, sizeof(float)) );
-            cudaSafeCall( cudaMemcpyToSymbol(c_shadowVal, &shadowVal, sizeof(unsigned char)) );
+            cudaSafeCall( hipMemcpyToSymbol(&c_nmixtures, &nmixtures, sizeof(int)) );
+            cudaSafeCall( hipMemcpyToSymbol(&c_Tb, &Tb, sizeof(float)) );
+            cudaSafeCall( hipMemcpyToSymbol(&c_TB, &TB, sizeof(float)) );
+            cudaSafeCall( hipMemcpyToSymbol(&c_Tg, &Tg, sizeof(float)) );
+            cudaSafeCall( hipMemcpyToSymbol(&c_varInit, &varInit, sizeof(float)) );
+            cudaSafeCall( hipMemcpyToSymbol(&c_varMin, &varMin, sizeof(float)) );
+            cudaSafeCall( hipMemcpyToSymbol(&c_varMax, &varMax, sizeof(float)) );
+            cudaSafeCall( hipMemcpyToSymbol(&c_tau, &tau, sizeof(float)) );
+            cudaSafeCall( hipMemcpyToSymbol(&c_shadowVal, &shadowVal, sizeof(unsigned char)) );
         }
 
         template <bool detectShadows, typename SrcT, typename WorkT>
@@ -135,8 +136,8 @@ namespace cv { namespace cuda { namespace device
                              PtrStepf gmm_weight, PtrStepf gmm_variance, PtrStep<WorkT> gmm_mean,
                              const float alphaT, const float alpha1, const float prune)
         {
-            const int x = blockIdx.x * blockDim.x + threadIdx.x;
-            const int y = blockIdx.y * blockDim.y + threadIdx.y;
+            const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (x >= frame.cols || y >= frame.rows)
                 return;
@@ -331,7 +332,7 @@ namespace cv { namespace cuda { namespace device
 
         template <typename SrcT, typename WorkT>
         void mog2_caller(PtrStepSzb frame, PtrStepSzb fgmask, PtrStepSzb modesUsed, PtrStepSzf weight, PtrStepSzf variance, PtrStepSzb mean,
-                         float alphaT, float prune, bool detectShadows, cudaStream_t stream)
+                         float alphaT, float prune, bool detectShadows, hipStream_t stream)
         {
             dim3 block(32, 8);
             dim3 grid(divUp(frame.cols, block.x), divUp(frame.rows, block.y));
@@ -340,31 +341,35 @@ namespace cv { namespace cuda { namespace device
 
             if (detectShadows)
             {
-                cudaSafeCall( cudaFuncSetCacheConfig(mog2<true, SrcT, WorkT>, cudaFuncCachePreferL1) );
+#ifdef HIP_TODO
+                cudaSafeCall( hipFuncSetCacheConfig(mog2<true, SrcT, WorkT>, hipFuncCachePreferL1) );
+#endif //HIP_TODO
 
-                mog2<true, SrcT, WorkT><<<grid, block, 0, stream>>>((PtrStepSz<SrcT>) frame, fgmask, modesUsed,
+                hipLaunchKernelGGL((mog2<true, SrcT, WorkT>), dim3(grid), dim3(block), 0, stream, (PtrStepSz<SrcT>) frame, fgmask, modesUsed,
                                                                     weight, variance, (PtrStepSz<WorkT>) mean,
                                                                     alphaT, alpha1, prune);
             }
             else
             {
-                cudaSafeCall( cudaFuncSetCacheConfig(mog2<false, SrcT, WorkT>, cudaFuncCachePreferL1) );
+#ifdef HIP_TODO
+                cudaSafeCall( hipFuncSetCacheConfig(mog2<false, SrcT, WorkT>, hipFuncCachePreferL1) );
+#endif //HIP_TODO
 
-                mog2<false, SrcT, WorkT><<<grid, block, 0, stream>>>((PtrStepSz<SrcT>) frame, fgmask, modesUsed,
+                hipLaunchKernelGGL((mog2<false, SrcT, WorkT>), dim3(grid), dim3(block), 0, stream, (PtrStepSz<SrcT>) frame, fgmask, modesUsed,
                                                                     weight, variance, (PtrStepSz<WorkT>) mean,
                                                                     alphaT, alpha1, prune);
             }
 
-            cudaSafeCall( cudaGetLastError() );
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
         void mog2_gpu(PtrStepSzb frame, int cn, PtrStepSzb fgmask, PtrStepSzb modesUsed, PtrStepSzf weight, PtrStepSzf variance, PtrStepSzb mean,
-                      float alphaT, float prune, bool detectShadows, cudaStream_t stream)
+                      float alphaT, float prune, bool detectShadows, hipStream_t stream)
         {
-            typedef void (*func_t)(PtrStepSzb frame, PtrStepSzb fgmask, PtrStepSzb modesUsed, PtrStepSzf weight, PtrStepSzf variance, PtrStepSzb mean, float alphaT, float prune, bool detectShadows, cudaStream_t stream);
+            typedef void (*func_t)(PtrStepSzb frame, PtrStepSzb fgmask, PtrStepSzb modesUsed, PtrStepSzf weight, PtrStepSzf variance, PtrStepSzb mean, float alphaT, float prune, bool detectShadows, hipStream_t stream);
 
             static const func_t funcs[] =
             {
@@ -377,8 +382,8 @@ namespace cv { namespace cuda { namespace device
         template <typename WorkT, typename OutT>
         __global__ void getBackgroundImage2(const PtrStepSzb modesUsed, const PtrStepf gmm_weight, const PtrStep<WorkT> gmm_mean, PtrStep<OutT> dst)
         {
-            const int x = blockIdx.x * blockDim.x + threadIdx.x;
-            const int y = blockIdx.y * blockDim.y + threadIdx.y;
+            const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (x >= modesUsed.cols || y >= modesUsed.rows)
                 return;
@@ -407,23 +412,25 @@ namespace cv { namespace cuda { namespace device
         }
 
         template <typename WorkT, typename OutT>
-        void getBackgroundImage2_caller(PtrStepSzb modesUsed, PtrStepSzf weight, PtrStepSzb mean, PtrStepSzb dst, cudaStream_t stream)
+        void getBackgroundImage2_caller(PtrStepSzb modesUsed, PtrStepSzf weight, PtrStepSzb mean, PtrStepSzb dst, hipStream_t stream)
         {
             dim3 block(32, 8);
             dim3 grid(divUp(modesUsed.cols, block.x), divUp(modesUsed.rows, block.y));
 
-            cudaSafeCall( cudaFuncSetCacheConfig(getBackgroundImage2<WorkT, OutT>, cudaFuncCachePreferL1) );
+#ifdef HIP_TODO
+            cudaSafeCall( hipFuncSetCacheConfig(getBackgroundImage2<WorkT, OutT>, hipFuncCachePreferL1) );
+#endif //HIP_TODO
 
-            getBackgroundImage2<WorkT, OutT><<<grid, block, 0, stream>>>(modesUsed, weight, (PtrStepSz<WorkT>) mean, (PtrStepSz<OutT>) dst);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((getBackgroundImage2<WorkT, OutT>), dim3(grid), dim3(block), 0, stream, modesUsed, weight, (PtrStepSz<WorkT>) mean, (PtrStepSz<OutT>) dst);
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
-        void getBackgroundImage2_gpu(int cn, PtrStepSzb modesUsed, PtrStepSzf weight, PtrStepSzb mean, PtrStepSzb dst, cudaStream_t stream)
+        void getBackgroundImage2_gpu(int cn, PtrStepSzb modesUsed, PtrStepSzf weight, PtrStepSzb mean, PtrStepSzb dst, hipStream_t stream)
         {
-            typedef void (*func_t)(PtrStepSzb modesUsed, PtrStepSzf weight, PtrStepSzb mean, PtrStepSzb dst, cudaStream_t stream);
+            typedef void (*func_t)(PtrStepSzb modesUsed, PtrStepSzf weight, PtrStepSzb mean, PtrStepSzb dst, hipStream_t stream);
 
             static const func_t funcs[] =
             {

@@ -57,8 +57,8 @@ namespace cv { namespace cuda { namespace device
     {
         void mog_gpu(PtrStepSzb frame, int cn, PtrStepSzb fgmask, PtrStepSzf weight, PtrStepSzf sortKey, PtrStepSzb mean, PtrStepSzb var,
                      int nmixtures, float varThreshold, float learningRate, float backgroundRatio, float noiseSigma,
-                     cudaStream_t stream);
-        void getBackgroundImage_gpu(int cn, PtrStepSzf weight, PtrStepSzb mean, PtrStepSzb dst, int nmixtures, float backgroundRatio, cudaStream_t stream);
+                     hipStream_t stream);
+        void getBackgroundImage_gpu(int cn, PtrStepSzf weight, PtrStepSzb mean, PtrStepSzb dst, int nmixtures, float backgroundRatio, hipStream_t stream);
     }
 }}}
 

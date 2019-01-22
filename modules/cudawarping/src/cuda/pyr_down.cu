@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -52,14 +53,13 @@ namespace cv { namespace cuda { namespace device
 {
     namespace imgproc
     {
-        template <typename T, typename B> __global__ void pyrDown(const PtrStepSz<T> src, PtrStep<T> dst, const B b, int dst_cols)
+        template <typename T, typename B> __global__ void pyrDown(const PtrStepSz<float> src, PtrStepSz<T> dst, const B b, int dst_cols)
         {
             typedef typename TypeVec<float, VecTraits<T>::cn>::vec_type work_t;
-
             __shared__ work_t smem[256 + 4];
 
-            const int x = blockIdx.x * blockDim.x + threadIdx.x;
-            const int y = blockIdx.y;
+            const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            const int y = hipBlockIdx_y;
 
             const int src_y = 2 * y;
 
@@ -74,10 +74,10 @@ namespace cv { namespace cuda { namespace device
                     sum = sum + 0.25f   * src(src_y + 1, x);
                     sum = sum + 0.0625f * src(src_y + 2, x);
 
-                    smem[2 + threadIdx.x] = sum;
+                    smem[2 + hipThreadIdx_x] = sum;
                 }
 
-                if (threadIdx.x < 2)
+                if (hipThreadIdx_x < 2)
                 {
                     const int left_x = x - 2;
 
@@ -89,10 +89,10 @@ namespace cv { namespace cuda { namespace device
                     sum = sum + 0.25f   * src(src_y + 1, left_x);
                     sum = sum + 0.0625f * src(src_y + 2, left_x);
 
-                    smem[threadIdx.x] = sum;
+                    smem[hipThreadIdx_x] = sum;
                 }
 
-                if (threadIdx.x > 253)
+                if (hipThreadIdx_x > 253)
                 {
                     const int right_x = x + 2;
 
@@ -104,7 +104,7 @@ namespace cv { namespace cuda { namespace device
                     sum = sum + 0.25f   * src(src_y + 1, right_x);
                     sum = sum + 0.0625f * src(src_y + 2, right_x);
 
-                    smem[4 + threadIdx.x] = sum;
+                    smem[4 + hipThreadIdx_x] = sum;
                 }
             }
             else
@@ -118,10 +118,10 @@ namespace cv { namespace cuda { namespace device
                     sum = sum + 0.25f   * src(b.idx_row_high(src_y + 1), b.idx_col_high(x));
                     sum = sum + 0.0625f * src(b.idx_row_high(src_y + 2), b.idx_col_high(x));
 
-                    smem[2 + threadIdx.x] = sum;
+                    smem[2 + hipThreadIdx_x] = sum;
                 }
 
-                if (threadIdx.x < 2)
+                if (hipThreadIdx_x < 2)
                 {
                     const int left_x = x - 2;
 
@@ -133,10 +133,10 @@ namespace cv { namespace cuda { namespace device
                     sum = sum + 0.25f   * src(b.idx_row_high(src_y + 1), b.idx_col(left_x));
                     sum = sum + 0.0625f * src(b.idx_row_high(src_y + 2), b.idx_col(left_x));
 
-                    smem[threadIdx.x] = sum;
+                    smem[hipThreadIdx_x] = sum;
                 }
 
-                if (threadIdx.x > 253)
+                if (hipThreadIdx_x > 253)
                 {
                     const int right_x = x + 2;
 
@@ -148,15 +148,15 @@ namespace cv { namespace cuda { namespace device
                     sum = sum + 0.25f   * src(b.idx_row_high(src_y + 1), b.idx_col_high(right_x));
                     sum = sum + 0.0625f * src(b.idx_row_high(src_y + 2), b.idx_col_high(right_x));
 
-                    smem[4 + threadIdx.x] = sum;
+                    smem[4 + hipThreadIdx_x] = sum;
                 }
             }
 
             __syncthreads();
 
-            if (threadIdx.x < 128)
+            if (hipThreadIdx_x < 128)
             {
-                const int tid2 = threadIdx.x * 2;
+                const int tid2 = hipThreadIdx_x * 2;
 
                 work_t sum;
 
@@ -166,61 +166,61 @@ namespace cv { namespace cuda { namespace device
                 sum = sum + 0.25f   * smem[2 + tid2 + 1];
                 sum = sum + 0.0625f * smem[2 + tid2 + 2];
 
-                const int dst_x = (blockIdx.x * blockDim.x + tid2) / 2;
+                const int dst_x = (hipBlockIdx_x * hipBlockDim_x + tid2) / 2;
 
                 if (dst_x < dst_cols)
                     dst.ptr(y)[dst_x] = saturate_cast<T>(sum);
             }
         }
 
-        template <typename T, template <typename> class B> void pyrDown_caller(PtrStepSz<T> src, PtrStepSz<T> dst, cudaStream_t stream)
+        template <typename T, template <typename> class B> void pyrDown_caller(PtrStepSz<T> src, PtrStepSz<T> dst, hipStream_t stream)
         {
             const dim3 block(256);
             const dim3 grid(divUp(src.cols, block.x), dst.rows);
 
             B<T> b(src.rows, src.cols);
 
-            pyrDown<T><<<grid, block, 0, stream>>>(src, dst, b, dst.cols);
-            cudaSafeCall( cudaGetLastError() );
+            hipLaunchKernelGGL((pyrDown< T, B<T>>), dim3(grid), dim3(block), 0, stream, (PtrStepSz<float>)src, dst, b, dst.cols);
+            cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
 
-        template <typename T> void pyrDown_gpu(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream)
+        template <typename T> void pyrDown_gpu(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream)
         {
             pyrDown_caller<T, BrdReflect101>(static_cast< PtrStepSz<T> >(src), static_cast< PtrStepSz<T> >(dst), stream);
         }
 
-        template void pyrDown_gpu<uchar>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        //template void pyrDown_gpu<uchar2>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        template void pyrDown_gpu<uchar3>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        template void pyrDown_gpu<uchar4>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
+        template void pyrDown_gpu<uchar>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        //template void pyrDown_gpu<uchar2>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        template void pyrDown_gpu<uchar3>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        template void pyrDown_gpu<uchar4>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
 
-        //template void pyrDown_gpu<schar>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        //template void pyrDown_gpu<char2>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        //template void pyrDown_gpu<char3>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        //template void pyrDown_gpu<char4>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
+        //template void pyrDown_gpu<schar>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        //template void pyrDown_gpu<char2>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        //template void pyrDown_gpu<char3>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        //template void pyrDown_gpu<char4>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
 
-        template void pyrDown_gpu<ushort>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        //template void pyrDown_gpu<ushort2>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        template void pyrDown_gpu<ushort3>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        template void pyrDown_gpu<ushort4>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
+        template void pyrDown_gpu<ushort>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        //template void pyrDown_gpu<ushort2>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        template void pyrDown_gpu<ushort3>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        template void pyrDown_gpu<ushort4>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
 
-        template void pyrDown_gpu<short>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        //template void pyrDown_gpu<short2>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        template void pyrDown_gpu<short3>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        template void pyrDown_gpu<short4>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
+        template void pyrDown_gpu<short>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        //template void pyrDown_gpu<short2>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        template void pyrDown_gpu<short3>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        template void pyrDown_gpu<short4>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
 
-        template void pyrDown_gpu<int>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        //template void pyrDown_gpu<int2>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        template void pyrDown_gpu<int3>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        template void pyrDown_gpu<int4>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
+        template void pyrDown_gpu<int>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        //template void pyrDown_gpu<int2>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        template void pyrDown_gpu<int3>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        template void pyrDown_gpu<int4>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
 
-        template void pyrDown_gpu<float>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        //template void pyrDown_gpu<float2>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        template void pyrDown_gpu<float3>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
-        template void pyrDown_gpu<float4>(PtrStepSzb src, PtrStepSzb dst, cudaStream_t stream);
+        template void pyrDown_gpu<float>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        //template void pyrDown_gpu<float2>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        template void pyrDown_gpu<float3>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
+        template void pyrDown_gpu<float4>(PtrStepSzb src, PtrStepSzb dst, hipStream_t stream);
     } // namespace imgproc
 }}} // namespace cv { namespace cuda { namespace cudev
 

@@ -1,3 +1,4 @@
+#include "hip/hip_runtime.h"
 /*M///////////////////////////////////////////////////////////////////////////////////////
 //
 //  IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
@@ -53,7 +54,7 @@ namespace column_filter
     #define MAX_KERNEL_SIZE 32
 
     template <int KSIZE, typename T, typename D, typename B>
-    __global__ void linearColumnFilter(const PtrStepSz<T> src, PtrStep<D> dst, const float* kernel, const int anchor, const B brd)
+    __global__ void linearColumnFilter(const PtrStepSz<T> src, PtrStepSz<D> dst, const float* kernel, const int anchor, const B brd)
     {
         #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 200)
             const int BLOCK_DIM_X = 16;
@@ -71,53 +72,53 @@ namespace column_filter
 
         __shared__ sum_t smem[(PATCH_PER_BLOCK + 2 * HALO_SIZE) * BLOCK_DIM_Y][BLOCK_DIM_X];
 
-        const int x = blockIdx.x * BLOCK_DIM_X + threadIdx.x;
+        const int x = hipBlockIdx_x * BLOCK_DIM_X + hipThreadIdx_x;
 
         if (x >= src.cols)
             return;
 
         const T* src_col = src.ptr() + x;
 
-        const int yStart = blockIdx.y * (BLOCK_DIM_Y * PATCH_PER_BLOCK) + threadIdx.y;
+        const int yStart = hipBlockIdx_y * (BLOCK_DIM_Y * PATCH_PER_BLOCK) + hipThreadIdx_y;
 
-        if (blockIdx.y > 0)
+        if (hipBlockIdx_y > 0)
         {
             //Upper halo
             #pragma unroll
             for (int j = 0; j < HALO_SIZE; ++j)
-                smem[threadIdx.y + j * BLOCK_DIM_Y][threadIdx.x] = saturate_cast<sum_t>(src(yStart - (HALO_SIZE - j) * BLOCK_DIM_Y, x));
+                smem[hipThreadIdx_y + j * BLOCK_DIM_Y][hipThreadIdx_x] = saturate_cast<sum_t>(src(yStart - (HALO_SIZE - j) * BLOCK_DIM_Y, x));
         }
         else
         {
             //Upper halo
             #pragma unroll
             for (int j = 0; j < HALO_SIZE; ++j)
-                smem[threadIdx.y + j * BLOCK_DIM_Y][threadIdx.x] = saturate_cast<sum_t>(brd.at_low(yStart - (HALO_SIZE - j) * BLOCK_DIM_Y, src_col, src.step));
+                smem[hipThreadIdx_y + j * BLOCK_DIM_Y][hipThreadIdx_x] = saturate_cast<sum_t>(brd.at_low(yStart - (HALO_SIZE - j) * BLOCK_DIM_Y, src_col, src.step));
         }
 
-        if (blockIdx.y + 2 < gridDim.y)
+        if (hipBlockIdx_y + 2 < hipGridDim_y)
         {
             //Main data
             #pragma unroll
             for (int j = 0; j < PATCH_PER_BLOCK; ++j)
-                smem[threadIdx.y + HALO_SIZE * BLOCK_DIM_Y + j * BLOCK_DIM_Y][threadIdx.x] = saturate_cast<sum_t>(src(yStart + j * BLOCK_DIM_Y, x));
+                smem[hipThreadIdx_y + HALO_SIZE * BLOCK_DIM_Y + j * BLOCK_DIM_Y][hipThreadIdx_x] = saturate_cast<sum_t>(src(yStart + j * BLOCK_DIM_Y, x));
 
             //Lower halo
             #pragma unroll
             for (int j = 0; j < HALO_SIZE; ++j)
-                smem[threadIdx.y + (PATCH_PER_BLOCK + HALO_SIZE) * BLOCK_DIM_Y + j * BLOCK_DIM_Y][threadIdx.x] = saturate_cast<sum_t>(src(yStart + (PATCH_PER_BLOCK + j) * BLOCK_DIM_Y, x));
+                smem[hipThreadIdx_y + (PATCH_PER_BLOCK + HALO_SIZE) * BLOCK_DIM_Y + j * BLOCK_DIM_Y][hipThreadIdx_x] = saturate_cast<sum_t>(src(yStart + (PATCH_PER_BLOCK + j) * BLOCK_DIM_Y, x));
         }
         else
         {
             //Main data
             #pragma unroll
             for (int j = 0; j < PATCH_PER_BLOCK; ++j)
-                smem[threadIdx.y + HALO_SIZE * BLOCK_DIM_Y + j * BLOCK_DIM_Y][threadIdx.x] = saturate_cast<sum_t>(brd.at_high(yStart + j * BLOCK_DIM_Y, src_col, src.step));
+                smem[hipThreadIdx_y + HALO_SIZE * BLOCK_DIM_Y + j * BLOCK_DIM_Y][hipThreadIdx_x] = saturate_cast<sum_t>(brd.at_high(yStart + j * BLOCK_DIM_Y, src_col, src.step));
 
             //Lower halo
             #pragma unroll
             for (int j = 0; j < HALO_SIZE; ++j)
-                smem[threadIdx.y + (PATCH_PER_BLOCK + HALO_SIZE) * BLOCK_DIM_Y + j * BLOCK_DIM_Y][threadIdx.x] = saturate_cast<sum_t>(brd.at_high(yStart + (PATCH_PER_BLOCK + j) * BLOCK_DIM_Y, src_col, src.step));
+                smem[hipThreadIdx_y + (PATCH_PER_BLOCK + HALO_SIZE) * BLOCK_DIM_Y + j * BLOCK_DIM_Y][hipThreadIdx_x] = saturate_cast<sum_t>(brd.at_high(yStart + (PATCH_PER_BLOCK + j) * BLOCK_DIM_Y, src_col, src.step));
         }
 
         __syncthreads();
@@ -133,7 +134,7 @@ namespace column_filter
 
                 #pragma unroll
                 for (int k = 0; k < KSIZE; ++k)
-                    sum = sum + smem[threadIdx.y + HALO_SIZE * BLOCK_DIM_Y + j * BLOCK_DIM_Y - anchor + k][threadIdx.x] * kernel[k];
+                    sum = sum + smem[hipThreadIdx_y + HALO_SIZE * BLOCK_DIM_Y + j * BLOCK_DIM_Y - anchor + k][hipThreadIdx_x] * kernel[k];
 
                 dst(y, x) = saturate_cast<D>(sum);
             }
@@ -141,7 +142,7 @@ namespace column_filter
     }
 
     template <int KSIZE, typename T, typename D, template<typename> class B>
-    void caller(PtrStepSz<T> src, PtrStepSz<D> dst, const float* kernel, int anchor, int cc, cudaStream_t stream)
+    void caller(PtrStepSz<T> src, PtrStepSz<D> dst, const float* kernel, int anchor, int cc, hipStream_t stream)
     {
         int BLOCK_DIM_X;
         int BLOCK_DIM_Y;
@@ -165,21 +166,21 @@ namespace column_filter
 
         B<T> brd(src.rows);
 
-        linearColumnFilter<KSIZE, T, D><<<grid, block, 0, stream>>>(src, dst, kernel, anchor, brd);
+        hipLaunchKernelGGL((linearColumnFilter<KSIZE, T, D, B<T>>), dim3(grid), dim3(block), 0, stream, src, dst, kernel, anchor, brd);
 
-        cudaSafeCall( cudaGetLastError() );
+        cudaSafeCall( hipGetLastError() );
 
         if (stream == 0)
-            cudaSafeCall( cudaDeviceSynchronize() );
+            cudaSafeCall( hipDeviceSynchronize() );
     }
 }
 
 namespace filter
 {
     template <typename T, typename D>
-    void linearColumn(PtrStepSzb src, PtrStepSzb dst, const float* kernel, int ksize, int anchor, int brd_type, int cc, cudaStream_t stream)
+    void linearColumn(PtrStepSzb src, PtrStepSzb dst, const float* kernel, int ksize, int anchor, int brd_type, int cc, hipStream_t stream)
     {
-        typedef void (*caller_t)(PtrStepSz<T> src, PtrStepSz<D> dst, const float* kernel, int anchor, int cc, cudaStream_t stream);
+        typedef void (*caller_t)(PtrStepSz<T> src, PtrStepSz<D> dst, const float* kernel, int anchor, int cc, hipStream_t stream);
 
         static const caller_t callers[5][33] =
         {

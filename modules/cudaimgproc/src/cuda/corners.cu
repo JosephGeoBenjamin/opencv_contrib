@@ -59,8 +59,8 @@ namespace cv { namespace cuda { namespace device
     {
         /////////////////////////////////////////// Corner Harris /////////////////////////////////////////////////
 
-        texture<float, cudaTextureType2D, hipReadModeElementType> harrisDxTex(0, hipFilterModePoint, hipAddressModeClamp);
-        texture<float, cudaTextureType2D, hipReadModeElementType> harrisDyTex(0, hipFilterModePoint, hipAddressModeClamp);
+        texture<float, hipTextureType2D, hipReadModeElementType> harrisDxTex(0, hipFilterModePoint, hipAddressModeClamp);
+        texture<float, hipTextureType2D, hipReadModeElementType> harrisDyTex(0, hipFilterModePoint, hipAddressModeClamp);
 
         __global__ void cornerHarris_kernel(const int block_size, const float k, PtrStepSzf dst)
         {
@@ -164,8 +164,8 @@ namespace cv { namespace cuda { namespace device
 
         /////////////////////////////////////////// Corner Min Eigen Val /////////////////////////////////////////////////
 
-        texture<float, cudaTextureType2D, hipReadModeElementType> minEigenValDxTex(0, hipFilterModePoint, hipAddressModeClamp);
-        texture<float, cudaTextureType2D, hipReadModeElementType> minEigenValDyTex(0, hipFilterModePoint, hipAddressModeClamp);
+        texture<float, hipTextureType2D, hipReadModeElementType> minEigenValDxTex(0, hipFilterModePoint, hipAddressModeClamp);
+        texture<float, hipTextureType2D, hipReadModeElementType> minEigenValDyTex(0, hipFilterModePoint, hipAddressModeClamp);
 
         __global__ void cornerMinEigenVal_kernel(const int block_size, PtrStepSzf dst)
         {

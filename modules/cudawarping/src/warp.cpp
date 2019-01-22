@@ -61,17 +61,17 @@ namespace cv { namespace cuda { namespace device
 {
     namespace imgproc
     {
-        void buildWarpAffineMaps_gpu(float coeffs[2 * 3], PtrStepSzf xmap, PtrStepSzf ymap, cudaStream_t stream);
+        void buildWarpAffineMaps_gpu(float coeffs[2 * 3], PtrStepSzf xmap, PtrStepSzf ymap, hipStream_t stream);
 
         template <typename T>
         void warpAffine_gpu(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation,
-                            int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
+                            int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
 
-        void buildWarpPerspectiveMaps_gpu(float coeffs[3 * 3], PtrStepSzf xmap, PtrStepSzf ymap, cudaStream_t stream);
+        void buildWarpPerspectiveMaps_gpu(float coeffs[3 * 3], PtrStepSzf xmap, PtrStepSzf ymap, hipStream_t stream);
 
         template <typename T>
         void warpPerspective_gpu(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[3 * 3], PtrStepSzb dst, int interpolation,
-                            int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
+                            int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
     }
 }}}
 
@@ -135,6 +135,7 @@ void cv::cuda::buildWarpPerspectiveMaps(InputArray _M, bool inverse, Size dsize,
 
 namespace
 {
+#ifdef NPP_ENABLE
     template <int DEPTH> struct NppWarpFunc
     {
         typedef typename NPPTypeTraits<DEPTH>::npp_type npp_type;
@@ -148,7 +149,7 @@ namespace
     {
         typedef typename NppWarpFunc<DEPTH>::npp_type npp_type;
 
-        static void call(const cv::cuda::GpuMat& src, cv::cuda::GpuMat& dst, double coeffs[][3], int interpolation, cudaStream_t stream)
+        static void call(const cv::cuda::GpuMat& src, cv::cuda::GpuMat& dst, double coeffs[][3], int interpolation, hipStream_t stream)
         {
             static const int npp_inter[] = {NPPI_INTER_NN, NPPI_INTER_LINEAR, NPPI_INTER_CUBIC};
 
@@ -175,9 +176,11 @@ namespace
                               coeffs, npp_inter[interpolation]) );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
     };
+#endif //NPP_ENABLE
+
 }
 
 void cv::cuda::warpAffine(InputArray _src, OutputArray _dst, InputArray _M, Size dsize, int flags, int borderMode, Scalar borderValue, Stream& stream)
@@ -200,6 +203,7 @@ void cv::cuda::warpAffine(InputArray _src, OutputArray _dst, InputArray _M, Size
     Point ofs;
     src.locateROI(wholeSize, ofs);
 
+#ifdef NPP_ENABLE
     static const bool useNppTab[6][4][3] =
     {
         {
@@ -239,14 +243,16 @@ void cv::cuda::warpAffine(InputArray _src, OutputArray _dst, InputArray _M, Size
             {false, false, true}
         }
     };
+#endif //NPP_ENABLE
 
+#ifdef NPP_ENABLE
     bool useNpp = borderMode == BORDER_CONSTANT && ofs.x == 0 && ofs.y == 0 && useNppTab[src.depth()][src.channels() - 1][interpolation];
     // NPP bug on float data
     useNpp = useNpp && src.depth() != CV_32F;
 
     if (useNpp)
     {
-        typedef void (*func_t)(const cv::cuda::GpuMat& src, cv::cuda::GpuMat& dst, double coeffs[][3], int flags, cudaStream_t stream);
+        typedef void (*func_t)(const cv::cuda::GpuMat& src, cv::cuda::GpuMat& dst, double coeffs[][3], int flags, hipStream_t stream);
 
         static const func_t funcs[2][6][4] =
         {
@@ -281,10 +287,12 @@ void cv::cuda::warpAffine(InputArray _src, OutputArray _dst, InputArray _M, Size
     }
     else
     {
+#endif //NPP_ENABLE
+
         using namespace cv::cuda::device::imgproc;
 
         typedef void (*func_t)(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation,
-            int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
+            int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
 
         static const func_t funcs[6][4] =
         {
@@ -316,7 +324,10 @@ void cv::cuda::warpAffine(InputArray _src, OutputArray _dst, InputArray _M, Size
 
         func(src, PtrStepSzb(wholeSize.height, wholeSize.width, src.datastart, src.step), ofs.x, ofs.y, coeffs,
             dst, interpolation, borderMode, borderValueFloat.val, StreamAccessor::getStream(stream), deviceSupports(FEATURE_SET_COMPUTE_20));
+#ifdef NPP_ENABLE
     }
+#endif //NPP_ENABLE
+
 }
 
 void cv::cuda::warpPerspective(InputArray _src, OutputArray _dst, InputArray _M, Size dsize, int flags, int borderMode, Scalar borderValue, Stream& stream)
@@ -339,6 +350,7 @@ void cv::cuda::warpPerspective(InputArray _src, OutputArray _dst, InputArray _M,
     Point ofs;
     src.locateROI(wholeSize, ofs);
 
+#ifdef NPP_ENABLE
     static const bool useNppTab[6][4][3] =
     {
         {
@@ -378,14 +390,17 @@ void cv::cuda::warpPerspective(InputArray _src, OutputArray _dst, InputArray _M,
             {false, false, true}
         }
     };
+#endif //NPP_ENABLE
 
+
+#ifdef NPP_ENABLE
     bool useNpp = borderMode == BORDER_CONSTANT && ofs.x == 0 && ofs.y == 0 && useNppTab[src.depth()][src.channels() - 1][interpolation];
     // NPP bug on float data
     useNpp = useNpp && src.depth() != CV_32F;
 
     if (useNpp)
     {
-        typedef void (*func_t)(const cv::cuda::GpuMat& src, cv::cuda::GpuMat& dst, double coeffs[][3], int flags, cudaStream_t stream);
+        typedef void (*func_t)(const cv::cuda::GpuMat& src, cv::cuda::GpuMat& dst, double coeffs[][3], int flags, hipStream_t stream);
 
         static const func_t funcs[2][6][4] =
         {
@@ -420,10 +435,12 @@ void cv::cuda::warpPerspective(InputArray _src, OutputArray _dst, InputArray _M,
     }
     else
     {
+#endif //NPP_ENABLE
+
         using namespace cv::cuda::device::imgproc;
 
         typedef void (*func_t)(PtrStepSzb src, PtrStepSzb srcWhole, int xoff, int yoff, float coeffs[2 * 3], PtrStepSzb dst, int interpolation,
-            int borderMode, const float* borderValue, cudaStream_t stream, bool cc20);
+            int borderMode, const float* borderValue, hipStream_t stream, bool cc20);
 
         static const func_t funcs[6][4] =
         {
@@ -455,7 +472,10 @@ void cv::cuda::warpPerspective(InputArray _src, OutputArray _dst, InputArray _M,
 
         func(src, PtrStepSzb(wholeSize.height, wholeSize.width, src.datastart, src.step), ofs.x, ofs.y, coeffs,
             dst, interpolation, borderMode, borderValueFloat.val, StreamAccessor::getStream(stream), deviceSupports(FEATURE_SET_COMPUTE_20));
+#ifdef NPP_ENABLE
     }
+#endif //NPP_ENABLE
+
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -463,6 +483,7 @@ void cv::cuda::warpPerspective(InputArray _src, OutputArray _dst, InputArray _M,
 
 namespace
 {
+#ifdef NPP_ENABLE
     template <int DEPTH> struct NppRotateFunc
     {
         typedef typename NPPTypeTraits<DEPTH>::npp_type npp_type;
@@ -476,7 +497,7 @@ namespace
     {
         typedef typename NppRotateFunc<DEPTH>::npp_type npp_type;
 
-        static void call(const GpuMat& src, GpuMat& dst, Size dsize, double angle, double xShift, double yShift, int interpolation, cudaStream_t stream)
+        static void call(const GpuMat& src, GpuMat& dst, Size dsize, double angle, double xShift, double yShift, int interpolation, hipStream_t stream)
         {
             CV_UNUSED(dsize);
             static const int npp_inter[] = {NPPI_INTER_NN, NPPI_INTER_LINEAR, NPPI_INTER_CUBIC};
@@ -499,22 +520,27 @@ namespace
                 dst.ptr<npp_type>(), static_cast<int>(dst.step), dstroi, angle, xShift, yShift, npp_inter[interpolation]) );
 
             if (stream == 0)
-                cudaSafeCall( cudaDeviceSynchronize() );
+                cudaSafeCall( hipDeviceSynchronize() );
         }
     };
+#endif //NPP_ENABLE
+
 }
 
 void cv::cuda::rotate(InputArray _src, OutputArray _dst, Size dsize, double angle, double xShift, double yShift, int interpolation, Stream& stream)
 {
-    typedef void (*func_t)(const GpuMat& src, GpuMat& dst, Size dsize, double angle, double xShift, double yShift, int interpolation, cudaStream_t stream);
+    typedef void (*func_t)(const GpuMat& src, GpuMat& dst, Size dsize, double angle, double xShift, double yShift, int interpolation, hipStream_t stream);
     static const func_t funcs[6][4] =
     {
+#ifdef NPP_ENABLE
         {NppRotate<CV_8U, nppiRotate_8u_C1R>::call, 0, NppRotate<CV_8U, nppiRotate_8u_C3R>::call, NppRotate<CV_8U, nppiRotate_8u_C4R>::call},
         {0,0,0,0},
         {NppRotate<CV_16U, nppiRotate_16u_C1R>::call, 0, NppRotate<CV_16U, nppiRotate_16u_C3R>::call, NppRotate<CV_16U, nppiRotate_16u_C4R>::call},
         {0,0,0,0},
         {0,0,0,0},
         {NppRotate<CV_32F, nppiRotate_32f_C1R>::call, 0, NppRotate<CV_32F, nppiRotate_32f_C3R>::call, NppRotate<CV_32F, nppiRotate_32f_C4R>::call}
+#endif //NPP_ENABLE
+
     };
 
     GpuMat src = _src.getGpuMat();
