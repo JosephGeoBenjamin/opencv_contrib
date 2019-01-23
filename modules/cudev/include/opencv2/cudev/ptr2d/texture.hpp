@@ -106,13 +106,16 @@ template <typename T> struct TexturePtr
 
     __device__ __forceinline__ T operator ()(float y, float x) const
     {
-    #if CV_CUDEV_ARCH < 300
+    //HIP_NOTE: __CUDA_ARCH__ < 300 condition causes tex buffer to ZERO
+    //#if CV_CUDEV_ARCH < 300
+    #ifndef __HIP_ARCH_HAS_WARP_SHUFFLE__
         // Use the texture reference
         return tex2D(CvCudevTextureRef<T>::ref, x, y);
     #else
         // Use the texture object
         return tex2D<T>(texObj, x, y);
     #endif
+
     }
 };
 
@@ -126,8 +129,9 @@ template <typename T> struct Texture : TexturePtr<T>
                               hipTextureFilterMode filterMode = hipFilterModePoint,
                               hipTextureAddressMode addressMode = hipAddressModeClamp)
     {
+        //HIP_TODO: add device support appropriately
         cc30 = deviceSupports(FEATURE_SET_COMPUTE_30);
-
+        //cc30 = true;
         rows = mat.rows;
         cols = mat.cols;
 
@@ -191,14 +195,18 @@ template <typename T> struct TexturePtr
 
     __device__ __forceinline__ T operator ()(float y, float x) const
     {
-    #if CV_CUDEV_ARCH >= 300
-        // Use the texture object
-        return tex2D<T>(texObj, x, y);
+    //HIP_NOTE: __CUDA_ARCH__ >= 300 condition causes tex buffer to ZERO
+    //#if CV_CUDEV_ARCH >= 300
+    #if __HIP_ARCH_HAS_WARP_SHUFFLE__
+       // Use the texture object
+       return tex2D<T>(texObj, x, y);
     #else
-        CV_UNUSED(y);
-        CV_UNUSED(x);
-        return T();
+       CV_UNUSED(y);
+       CV_UNUSED(x);
+       return T();
     #endif
+
+
     }
 };
 
