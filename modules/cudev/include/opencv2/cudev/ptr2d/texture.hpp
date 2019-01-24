@@ -52,8 +52,9 @@
 #include "gpumat.hpp"
 #include "traits.hpp"
 
-#if CUDART_VERSION >= 5050
-
+//HIP_TODO: Nvidia
+//#if CUDART_VERSION >= 5050
+#if 1
 namespace
 {
     template <typename T> struct CvCudevTextureRef
@@ -95,8 +96,9 @@ namespace cv { namespace cudev {
 //! @addtogroup cudev
 //! @{
 
-#if CUDART_VERSION >= 5050
-
+//HIP_TODO: Nvidia
+//#if CUDART_VERSION >= 5050
+#if 1
 template <typename T> struct TexturePtr
 {
     typedef T     value_type;
