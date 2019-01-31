@@ -55,6 +55,8 @@
 #include <hip/hip_fp16.h>
 #endif
 
+#include <iostream>
+
 namespace cv { namespace cudev {
 
 //! @addtogroup cudev
@@ -233,18 +235,6 @@ template <> __device__ __forceinline__ int saturate_cast<int>(uint v)
     asm("cvt.sat.s32.u32 %0, %1;" : "=r"(res) : "r"(v));
     return res;
 }
-template <> __device__ __forceinline__ int saturate_cast<int>(float v)
-{
-    return __float2int_rn(v);
-}
-template <> __device__ __forceinline__ int saturate_cast<int>(double v)
-{
-#if CV_CUDEV_ARCH >= 130
-    return __double2int_rn(v);
-#else
-    return saturate_cast<int>((float) v);
-#endif
-}
 
 template <> __device__ __forceinline__ uint saturate_cast<uint>(schar v)
 {
@@ -266,14 +256,33 @@ template <> __device__ __forceinline__ uint saturate_cast<uint>(int v)
     return res;
 }
 #endif //__HIP_PLATFORM_NVCC__
+
+template <> __device__ __forceinline__ int saturate_cast<int>(float v)
+{
+    return __float2int_rn(v);
+}
+
+template <> __device__ __forceinline__ int saturate_cast<int>(double v)
+{
+//HIP_NOTE: for using Double type
+//#if CV_CUDEV_ARCH >= 130
+#if __HIP_ARCH_HAS_DOUBLES__
+    return __double2int_rn(v);
+#else
+    return saturate_cast<int>((float) v);
+#endif
+}
+
 template <> __device__ __forceinline__ uint saturate_cast<uint>(float v)
 {
     return __float2uint_rn(v);
 }
 template <> __device__ __forceinline__ uint saturate_cast<uint>(double v)
 {
-#if CV_CUDEV_ARCH >= 130
-    return __double2uint_rn(v);
+//HIP_NOTE: for using Double type
+//#if CV_CUDEV_ARCH >= 130
+#if __HIP_ARCH_HAS_DOUBLES__
+        return __double2uint_rn(v);
 #else
     return saturate_cast<uint>((float) v);
 #endif
@@ -283,7 +292,9 @@ template <typename T, typename D> __device__ __forceinline__ D cast_fp16(T v);
 
 template <> __device__ __forceinline__ float cast_fp16<short, float>(short v)
 {
-#if __CUDACC_VER_MAJOR__ >= 9
+//HIP_NOTE:
+//#if __CUDACC_VER_MAJOR__ >= 9
+#if __HIPCC__
   return float(*(__half*)&v);
 #else
     return __half2float(v);
@@ -292,7 +303,9 @@ template <> __device__ __forceinline__ float cast_fp16<short, float>(short v)
 
 template <> __device__ __forceinline__ short cast_fp16<float, short>(float v)
 {
-#if __CUDACC_VER_MAJOR__ >= 9
+//HIP_NOTE:
+//#if __CUDACC_VER_MAJOR__ >= 9
+#if __HIPCC__
   __half h(v);
   return *(short*)&h;
 #else
