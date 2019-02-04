@@ -56,7 +56,7 @@
 #endif
 
 #include <iostream>
-
+#include <stdlib.h>
 namespace cv { namespace cudev {
 
 //! @addtogroup cudev
@@ -255,6 +255,180 @@ template <> __device__ __forceinline__ uint saturate_cast<uint>(int v)
     asm("cvt.sat.u32.s32 %0, %1;" : "=r"(res) : "r"(v));
     return res;
 }
+
+#elif defined (__HIP_PLATFORM_HCC__)
+
+template <> __device__ __forceinline__ uchar saturate_cast<uchar>(schar v)
+{
+    if (v < 0) return 0;
+    else return uchar(v);
+}
+template <> __device__ __forceinline__ uchar saturate_cast<uchar>(short v)
+{
+    if (v < 0) return 0;
+    else if (v > 255) return 255;
+    else return uchar(v);
+}
+template <> __device__ __forceinline__ uchar saturate_cast<uchar>(ushort v)
+{
+    if (v < 0) return 0;
+    else if (v > 255) return 255;
+    else return uchar(v);
+}
+template <> __device__ __forceinline__ uchar saturate_cast<uchar>(int v)
+{
+    if (v < 0) return 0;
+    else if (v > 255) return 255;
+    else return uchar(v);
+}
+template <> __device__ __forceinline__ uchar saturate_cast<uchar>(uint v)
+{
+    if (v < 0) return 0;
+    else if (v > 255) return 255;
+    else return uchar(v);
+}
+template <> __device__ __forceinline__ uchar saturate_cast<uchar>(float v)
+{
+    if (v < 0.f) return 0;
+    else if (v > 255.f) return 255;
+    else return uchar(v);
+}
+template <> __device__ __forceinline__ uchar saturate_cast<uchar>(double v)
+{
+    if (v < 0.0) return 0;
+    else if (v > 255.0) return 255;
+    else return uchar(v);
+}
+
+template <> __device__ __forceinline__ schar saturate_cast<schar>(uchar v)
+{
+    if (v > 127) return 127;
+    else return schar(v);
+}
+template <> __device__ __forceinline__ schar saturate_cast<schar>(short v)
+{
+    if (v > 127) return 127;
+    else if (v < -128) return -128;
+    else return schar(v);
+}
+template <> __device__ __forceinline__ schar saturate_cast<schar>(ushort v)
+{
+    if (v > 127) return 127;
+    else return schar(v);
+}
+template <> __device__ __forceinline__ schar saturate_cast<schar>(int v)
+{
+    if (v > 127) return 127;
+    else if (v < -128) return -128;
+    else return schar(v);
+}
+template <> __device__ __forceinline__ schar saturate_cast<schar>(uint v)
+{
+    if (v > 127) return 127;
+    else if (v < -128) return -128;
+    else return schar(v);
+}
+template <> __device__ __forceinline__ schar saturate_cast<schar>(float v)
+{
+    if (v > 127.f) return 127;
+    else if (v < -128.f) return -128;
+    else return schar(v);
+}
+template <> __device__ __forceinline__ schar saturate_cast<schar>(double v)
+{
+    if (v > 127.0) return 127;
+    else if (v < -128.0) return -128;
+    else return schar(v);
+}
+
+template <> __device__ __forceinline__ ushort saturate_cast<ushort>(schar v)
+{
+    if (v < 0) return 0;
+    else return ushort(v);
+}
+template <> __device__ __forceinline__ ushort saturate_cast<ushort>(short v)
+{
+    if (v < 0) return 0;
+    else return ushort(v);
+}
+template <> __device__ __forceinline__ ushort saturate_cast<ushort>(int v)
+{
+    if (v >  65535) return 65535;
+    else if (v < 0) return 0;
+    else return ushort(v);
+}
+template <> __device__ __forceinline__ ushort saturate_cast<ushort>(uint v)
+{
+    if (v >  65535) return 65535;
+    else if (v < 0) return 0;
+    else return ushort(v);
+}
+template <> __device__ __forceinline__ ushort saturate_cast<ushort>(float v)
+{
+    if (v >  65535) return 65535;
+    else if (v < 0) return 0;
+    else return ushort(v);
+}
+template <> __device__ __forceinline__ ushort saturate_cast<ushort>(double v)
+{
+    if (v >  65535) return 65535;
+    else if (v < 0) return 0;
+    else return ushort(v);
+}
+
+template <> __device__ __forceinline__ short saturate_cast<short>(ushort v)
+{
+    if (v > 32767) return  32767;
+    else return short(v);
+}
+template <> __device__ __forceinline__ short saturate_cast<short>(int v)
+{
+    if (v > 32767) return  32767;
+    else if (v < -32768) return -32768;
+    else return short(v);
+}
+template <> __device__ __forceinline__ short saturate_cast<short>(uint v)
+{
+    if (v > 32767) return  32767;
+    else if (v < -32768) return -32768;
+    else return short(v);
+}
+template <> __device__ __forceinline__ short saturate_cast<short>(float v)
+{
+    if (v > 32767.f) return  32767;
+    else if (v < -32768.f) return -32768;
+    else return short(v);
+}
+template <> __device__ __forceinline__ short saturate_cast<short>(double v)
+{
+    if (v > 32767.0) return 32767;
+    else if (v < -32768.0) return -32768;
+    else return short(v);
+}
+
+template <> __device__ __forceinline__ int saturate_cast<int>(uint v)
+{
+    uint l = -1;
+    if (v > l/2) return l/2;
+    else return int(v);
+}
+
+template <> __device__ __forceinline__ uint saturate_cast<uint>(schar v)
+{
+    if (v < 0) return 0;
+    else return uint(v);
+}
+template <> __device__ __forceinline__ uint saturate_cast<uint>(short v)
+{
+    if (v < 0) return 0;
+    else return uint(v);
+}
+template <> __device__ __forceinline__ uint saturate_cast<uint>(int v)
+{
+    if (v < 0) return 0;
+    else return uint(v);
+}
+
 #endif //__HIP_PLATFORM_NVCC__
 
 template <> __device__ __forceinline__ int saturate_cast<int>(float v)
