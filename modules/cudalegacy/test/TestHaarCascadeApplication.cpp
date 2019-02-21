@@ -199,6 +199,10 @@ bool TestHaarCascadeApplication::process()
 
     NCVStatus nppStat;
     Ncv32u szTmpBufIntegral, szTmpBufSqIntegral;
+    Ncv32u detectionsOnThisScale_d = 0;
+    Ncv32u detectionsOnThisScale_h = 0;
+
+#ifdef NPP_ENABLE
     nppStat = nppiStIntegralGetSize_8u32u(NcvSize32u(this->width, this->height), &szTmpBufIntegral, this->devProp);
     ncvAssertReturn(nppStat == NPPST_SUCCESS, false);
     nppStat = nppiStSqrIntegralGetSize_8u64u(NcvSize32u(this->width, this->height), &szTmpBufSqIntegral, this->devProp);
@@ -206,8 +210,6 @@ bool TestHaarCascadeApplication::process()
     NCVVectorAlloc<Ncv8u> d_tmpIIbuf(*this->allocatorGPU.get(), std::max(szTmpBufIntegral, szTmpBufSqIntegral));
     ncvAssertReturn(d_tmpIIbuf.isMemAllocated(), false);
 
-    Ncv32u detectionsOnThisScale_d = 0;
-    Ncv32u detectionsOnThisScale_h = 0;
 
     NCV_SKIP_COND_BEGIN
 
@@ -276,6 +278,7 @@ bool TestHaarCascadeApplication::process()
     }
 
     NCV_SKIP_COND_END
+#endif //NPP_ENABLE
 
     int devId;
     ncvAssertCUDAReturn(cudaGetDevice(&devId), false);

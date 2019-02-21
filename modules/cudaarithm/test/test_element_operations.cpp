@@ -2596,6 +2596,7 @@ PARAM_TEST_CASE(Magnitude, cv::cuda::DeviceInfo, cv::Size, UseRoi)
     }
 };
 
+#ifdef NPP_ENABLE
 CUDA_TEST_P(Magnitude, NPP)
 {
     cv::Mat src = randomMat(size, CV_32FC2);
@@ -2626,6 +2627,7 @@ CUDA_TEST_P(Magnitude, Sqr_NPP)
 
     EXPECT_MAT_NEAR(dst_gold, dst, 1e-1);
 }
+#endif //NPP_ENABLE
 
 CUDA_TEST_P(Magnitude, Accuracy)
 {

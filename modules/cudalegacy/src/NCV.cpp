@@ -99,6 +99,7 @@ namespace
         error_entry( NCV_HAAR_XML_LOADING_EXCEPTION ),
         error_entry( NCV_NOIMPL_HAAR_TILTED_FEATURES ),
         error_entry( NCV_WARNING_HAAR_DETECTIONS_VECTOR_OVERFLOW ),
+#ifdef NPP_ENABLE
         error_entry( NPPST_SUCCESS ),
         error_entry( NPPST_ERROR ),
         error_entry( NPPST_CUDA_KERNEL_EXECUTION_ERROR ),
@@ -113,6 +114,8 @@ namespace
         error_entry( NPPST_MEM_INSUFFICIENT_BUFFER ),
         error_entry( NPPST_MEM_RESIDENCE_ERROR ),
         error_entry( NPPST_MEM_INTERNAL_ERROR )
+#endif //NPP_ENABLE
+
     };
 
     const size_t ncv_error_num = sizeof(ncv_errors) / sizeof(ncv_errors[0]);

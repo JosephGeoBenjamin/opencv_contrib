@@ -108,7 +108,10 @@ bool TestResize<T>::process()
     NCV_SKIP_COND_END
 
     ncvStat = h_img.copySolid(d_img, 0);
+
+#ifdef NPP_ENABLE
     ncvAssertReturn(ncvStat == NPPST_SUCCESS, false);
+
     NCV_SKIP_COND_BEGIN
     if (sizeof(T) == sizeof(Ncv32u))
     {
@@ -152,6 +155,7 @@ bool TestResize<T>::process()
     }
     ncvAssertReturn(ncvStat == NPPST_SUCCESS, false);
     NCV_SKIP_COND_END
+#endif //NPP_ENABLE
 
     //bit-to-bit check
     bool bLoopVirgin = true;

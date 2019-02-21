@@ -877,6 +877,7 @@ NCVStatus NCVBroxOpticalFlow(const NCVBroxOpticalFlowDescriptor desc,
             NcvRect32u srcROI (0, 0, prev_level_width, prev_level_height);
             NcvRect32u dstROI (0, 0, level_width, level_height);
 
+#ifdef NPP_ENABLE
             // frame 0
             ncvAssertReturnNcvStat( nppiStResize_32f_C1R (I0->ptr(), srcSize, prev_level_pitch, srcROI,
                 level_frame0->ptr(), dstSize, level_width_aligned * sizeof (float), dstROI, scale_factor, scale_factor, nppStSupersample) );
@@ -884,7 +885,9 @@ NCVStatus NCVBroxOpticalFlow(const NCVBroxOpticalFlowDescriptor desc,
             // frame 1
             ncvAssertReturnNcvStat( nppiStResize_32f_C1R (I1->ptr(), srcSize, prev_level_pitch, srcROI,
                 level_frame1->ptr(), dstSize, level_width_aligned * sizeof (float), dstROI, scale_factor, scale_factor, nppStSupersample) );
-        }
+#endif //NPP_ENABLE
+
+            }
 
         I0 = level_frame0.release();
         I1 = level_frame1.release();
@@ -962,7 +965,7 @@ NCVStatus NCVBroxOpticalFlow(const NCVBroxOpticalFlowDescriptor desc,
             NcvSize32u srcSize(kLevelWidth, kLevelHeight);
             Ncv32u nSrcStep = kLevelStride * sizeof(float);
             NcvRect32u oROI(0, 0, kLevelWidth, kLevelHeight);
-
+#ifdef NPP_ENABLE
             // Ix0
             ncvAssertReturnNcvStat( nppiStFilterRowBorder_32f_C1R (I0->ptr(), srcSize, nSrcStep, Ix0.ptr(), srcSize, nSrcStep, oROI,
                 nppStBorderMirror, derivativeFilter.ptr(), kDFilterSize, kDFilterSize/2, 1.0f/12.0f) );
@@ -990,6 +993,7 @@ NCVStatus NCVBroxOpticalFlow(const NCVBroxOpticalFlowDescriptor desc,
             // Ixy
             ncvAssertReturnNcvStat( nppiStFilterRowBorder_32f_C1R (Iy.ptr(), srcSize, nSrcStep, Ixy.ptr(), srcSize, nSrcStep, oROI,
                 nppStBorderMirror, derivativeFilter.ptr(), kDFilterSize, kDFilterSize/2, 1.0f/12.0f) );
+#endif //NPP_ENABLE
 
             ncvAssertCUDAReturn(cudaBindTexture2D(0, tex_Ix,  Ix.ptr(),  ch_desc, kLevelWidth, kLevelHeight, kPitchTex), NCV_CUDA_ERROR);
             ncvAssertCUDAReturn(cudaBindTexture2D(0, tex_Ixx, Ixx.ptr(), ch_desc, kLevelWidth, kLevelHeight, kPitchTex), NCV_CUDA_ERROR);
@@ -1127,7 +1131,7 @@ NCVStatus NCVBroxOpticalFlow(const NCVBroxOpticalFlowDescriptor desc,
                 NcvSize32u dstSize (nw, nh);
                 NcvRect32u srcROI (0, 0, kLevelWidth, kLevelHeight);
                 NcvRect32u dstROI (0, 0, nw, nh);
-
+#ifdef NPP_ENABLE
                 ncvAssertReturnNcvStat( nppiStResize_32f_C1R (ptrU->ptr(), inner_srcSize, kLevelStride * sizeof (float), srcROI,
                     ptrUNew->ptr(), dstSize, ns * sizeof (float), dstROI, 1.0f/scale_factor, 1.0f/scale_factor, nppStBicubic) );
 
@@ -1136,6 +1140,7 @@ NCVStatus NCVBroxOpticalFlow(const NCVBroxOpticalFlowDescriptor desc,
 
                 ncvAssertReturnNcvStat( nppiStResize_32f_C1R (ptrV->ptr(), inner_srcSize, kLevelStride * sizeof (float), srcROI,
                     ptrVNew->ptr(), dstSize, ns * sizeof (float), dstROI, 1.0f/scale_factor, 1.0f/scale_factor, nppStBicubic) );
+#endif //NPP_ENABLE
 
                 ScaleVector(ptrVNew->ptr(), ptrVNew->ptr(), 1.0f/scale_factor, ns * nh, stream);
                 ncvAssertCUDALastErrorReturn((int)NCV_CUDA_ERROR);

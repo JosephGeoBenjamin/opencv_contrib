@@ -62,7 +62,7 @@ texture<uint2,  1, cudaReadModeElementType> tex64u;
 //
 //==============================================================================
 
-
+#ifdef NPP_ENABLE
 static cudaStream_t nppStream = 0;
 
 
@@ -2612,5 +2612,6 @@ NCVStatus nppiStResize_32f_C1R(const Ncv32f *pSrc,
 
     return status;
 }
+#endif //NPP_ENABLE
 
 #endif /* CUDA_DISABLER */

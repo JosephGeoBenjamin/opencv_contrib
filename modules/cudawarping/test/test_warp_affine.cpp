@@ -234,6 +234,7 @@ INSTANTIATE_TEST_CASE_P(CUDA_Warping, WarpAffine, testing::Combine(
 ///////////////////////////////////////////////////////////////////
 // Test NPP
 
+#ifdef NPP_ENABLE
 PARAM_TEST_CASE(WarpAffineNPP, cv::cuda::DeviceInfo, MatType, Inverse, Interpolation)
 {
     cv::cuda::DeviceInfo devInfo;
@@ -277,6 +278,7 @@ INSTANTIATE_TEST_CASE_P(CUDA_Warping, WarpAffineNPP, testing::Combine(
     DIRECT_INVERSE,
     testing::Values(Interpolation(cv::INTER_NEAREST), Interpolation(cv::INTER_LINEAR), Interpolation(cv::INTER_CUBIC))));
 
+#endif //NPP_ENABLE
 
 }} // namespace
 #endif // HAVE_CUDA

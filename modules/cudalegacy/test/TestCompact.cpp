@@ -103,12 +103,14 @@ bool TestCompact::process()
     NCVVectorAlloc<Ncv32u> h_dstLen(*this->allocatorCPU.get(), 1);
     ncvAssertReturn(h_dstLen.isMemAllocated(), false);
     Ncv32u bufSize;
+    Ncv32u h_outElemNum_h = 0; // Avoid getting disabled
+#ifdef NPP_ENABLE
     ncvStat = nppsStCompactGetSize_32u(this->length, &bufSize, this->devProp);
     ncvAssertReturn(NPPST_SUCCESS == ncvStat, false);
     NCVVectorAlloc<Ncv8u> d_tmpBuf(*this->allocatorGPU.get(), bufSize);
     ncvAssertReturn(d_tmpBuf.isMemAllocated(), false);
 
-    Ncv32u h_outElemNum_h = 0;
+//    Ncv32u h_outElemNum_h = 0; //moved up
 
     NCV_SKIP_COND_BEGIN
     ncvStat = h_vecSrc.copySolid(d_vecSrc, 0);
@@ -123,6 +125,7 @@ bool TestCompact::process()
     ncvStat = nppsStCompact_32u_host(h_vecSrc.ptr(), this->length, h_vecDst.ptr(), &h_outElemNum_h, this->badElem);
     ncvAssertReturn(ncvStat == NPPST_SUCCESS, false);
     NCV_SKIP_COND_END
+#endif //NPP_ENABLE
 
     //bit-to-bit check
     bool bLoopVirgin = true;

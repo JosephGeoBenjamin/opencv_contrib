@@ -110,6 +110,8 @@ double cv::cuda::threshold(InputArray _src, OutputArray _dst, double thresh, dou
 
     if (depth == CV_32F && type == 2 /*THRESH_TRUNC*/)
     {
+
+#ifdef NPP_ENABLE
         NppStreamHandler h(StreamAccessor::getStream(stream));
 
         NppiSize sz;
@@ -118,6 +120,7 @@ double cv::cuda::threshold(InputArray _src, OutputArray _dst, double thresh, dou
 
         nppSafeCall( nppiThreshold_32f_C1R(src.ptr<Npp32f>(), static_cast<int>(src.step),
             dst.ptr<Npp32f>(), static_cast<int>(dst.step), sz, static_cast<Npp32f>(thresh), NPP_CMP_GREATER) );
+#endif //NPP_ENABLE
 
         if (!stream)
             CV_CUDEV_SAFE_CALL( cudaDeviceSynchronize() );

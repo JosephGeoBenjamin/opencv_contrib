@@ -63,9 +63,10 @@ struct NVidiaTest : TestWithParam<cv::cuda::DeviceInfo>
         _path = _path + "haarcascade/";
     }
 };
-
-struct NPPST : NVidiaTest {};
 struct NCV : NVidiaTest {};
+
+#ifdef NPP_ENABLE
+struct NPPST : NVidiaTest {};
 
 CUDA_TEST_P(NPPST, Integral)
 {
@@ -108,6 +109,7 @@ CUDA_TEST_P(NPPST, Transpose)
 
     ASSERT_TRUE(res);
 }
+#endif //NPP_ENABLE
 
 CUDA_TEST_P(NCV, VectorOperations)
 {
@@ -144,7 +146,10 @@ CUDA_TEST_P(NCV, Visualization)
     ASSERT_TRUE(res);
 }
 
+#ifdef NPP_ENABLE
 INSTANTIATE_TEST_CASE_P(CUDA_Legacy, NPPST, ALL_DEVICES);
+#endif //NPP_ENABLE
+
 INSTANTIATE_TEST_CASE_P(CUDA_Legacy, NCV, ALL_DEVICES);
 
 

@@ -88,6 +88,7 @@ namespace
         }
     };
 
+#ifdef NPP_ENABLE
     template <int DEPTH, int cn> struct NppBitwiseCFunc
     {
         typedef typename NPPTypeTraits<DEPTH>::npp_type npp_type;
@@ -122,12 +123,14 @@ namespace
                 CV_CUDEV_SAFE_CALL( cudaDeviceSynchronize() );
         }
     };
+#endif //NPP_ENABLE
+
 }
 
 void bitScalar(const GpuMat& src, cv::Scalar value, bool, GpuMat& dst, const GpuMat& mask, double, Stream& stream, int op)
 {
     CV_UNUSED(mask);
-
+#ifdef NPP_ENABLE
     typedef void (*func_t)(const GpuMat& src, cv::Scalar value, GpuMat& dst, Stream& stream);
     static const func_t funcs[3][6][4] =
     {
@@ -166,6 +169,8 @@ void bitScalar(const GpuMat& src, cv::Scalar value, bool, GpuMat& dst, const Gpu
     CV_DbgAssert( op >= 0 && op < 3 );
 
     funcs[op][depth][cn - 1](src, value, dst, stream);
+#endif //NPP_ENABLE
+
 }
 
 #endif

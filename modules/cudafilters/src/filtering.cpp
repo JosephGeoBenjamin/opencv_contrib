@@ -95,6 +95,8 @@ namespace
 
 namespace
 {
+
+#ifdef NPP_ENABLE
     class NPPBoxFilter : public Filter
     {
     public:
@@ -179,6 +181,8 @@ namespace
         if (stream == 0)
             cudaSafeCall( cudaDeviceSynchronize() );
     }
+#endif //NPP_ENABLE
+
 }
 
 Ptr<Filter> cv::cuda::createBoxFilter(int srcType, int dstType, Size ksize, Point anchor, int borderMode, Scalar borderVal)
@@ -187,8 +191,12 @@ Ptr<Filter> cv::cuda::createBoxFilter(int srcType, int dstType, Size ksize, Poin
         dstType = srcType;
 
     dstType = CV_MAKE_TYPE(CV_MAT_DEPTH(dstType), CV_MAT_CN(srcType));
-
+#ifdef NPP_ENABLE
     return makePtr<NPPBoxFilter>(srcType, dstType, ksize, anchor, borderMode, borderVal);
+#else
+    return 0;
+#endif //NPP_ENABLE
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -524,18 +532,20 @@ namespace
         void apply(InputArray src, OutputArray dst, Stream& stream = Stream::Null());
 
     private:
+
+#ifdef NPP_ENABLE
         typedef NppStatus (*nppMorfFilter8u_t)(const Npp8u* pSrc, Npp32s nSrcStep, Npp8u* pDst, Npp32s nDstStep, NppiSize oSizeROI,
                                                const Npp8u* pMask, NppiSize oMaskSize, NppiPoint oAnchor);
         typedef NppStatus (*nppMorfFilter32f_t)(const Npp32f* pSrc, Npp32s nSrcStep, Npp32f* pDst, Npp32s nDstStep, NppiSize oSizeROI,
                                                 const Npp8u* pMask, NppiSize oMaskSize, NppiPoint oAnchor);
 
+        nppMorfFilter8u_t func8u_;
+        nppMorfFilter32f_t func32f_;
+#endif //NPP_ENABLE
         int type_;
         GpuMat kernel_;
         Point anchor_;
         int iters_;
-        nppMorfFilter8u_t func8u_;
-        nppMorfFilter32f_t func32f_;
-
         GpuMat srcBorder_;
         GpuMat buf_;
     };
@@ -543,6 +553,7 @@ namespace
     MorphologyFilter::MorphologyFilter(int op, int srcType, InputArray _kernel, Point anchor, int iterations) :
         type_(srcType), anchor_(anchor), iters_(iterations)
     {
+#ifdef NPP_ENABLE
         static const nppMorfFilter8u_t funcs8u[2][5] =
         {
             {0, nppiErode_8u_C1R, 0, 0, nppiErode_8u_C4R },
@@ -594,6 +605,8 @@ namespace
         {
             func32f_ = funcs32f[op][CV_MAT_CN(srcType)];
         }
+#endif //NPP_ENABLE
+
     }
 
     void MorphologyFilter::apply(InputArray _src, OutputArray _dst, Stream& _stream)
@@ -618,6 +631,7 @@ namespace
         GpuMat dst = _dst.getGpuMat();
 
         cudaStream_t stream = StreamAccessor::getStream(_stream);
+#ifdef NPP_ENABLE
         NppStreamHandler h(stream);
 
         NppiSize oSizeROI;
@@ -658,6 +672,7 @@ namespace
                                       oSizeROI, kernel_.ptr<Npp8u>(), oMaskSize, oAnchor) );
             }
         }
+#endif //NPP_ENABLE
 
         if (stream == 0)
             cudaSafeCall( cudaDeviceSynchronize() );
@@ -837,6 +852,7 @@ namespace
         RANK_MIN
     };
 
+#ifdef NPP_ENABLE
     class NPPRankFilter : public Filter
     {
     public:
@@ -907,16 +923,29 @@ namespace
         if (stream == 0)
             cudaSafeCall( cudaDeviceSynchronize() );
     }
+#endif //NPP_ENABLE
+
 }
 
 Ptr<Filter> cv::cuda::createBoxMaxFilter(int srcType, Size ksize, Point anchor, int borderMode, Scalar borderVal)
 {
+#ifdef NPP_ENABLE
     return makePtr<NPPRankFilter>(RANK_MAX, srcType, ksize, anchor, borderMode, borderVal);
+#else 
+    return 0;
+#endif //NPP_ENABLE
 }
 
 Ptr<Filter> cv::cuda::createBoxMinFilter(int srcType, Size ksize, Point anchor, int borderMode, Scalar borderVal)
 {
+
+#ifdef NPP_ENABLE
     return makePtr<NPPRankFilter>(RANK_MIN, srcType, ksize, anchor, borderMode, borderVal);
+#else
+    return 0;
+#endif //NPP_ENABLE
+
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -924,6 +953,7 @@ Ptr<Filter> cv::cuda::createBoxMinFilter(int srcType, Size ksize, Point anchor, 
 
 namespace
 {
+#ifdef NPP_ENABLE
     class NppRowSumFilter : public Filter
     {
     public:
@@ -976,15 +1006,23 @@ namespace
         if (stream == 0)
             cudaSafeCall( cudaDeviceSynchronize() );
     }
+#endif //NPP_ENABLE
+
 }
 
 Ptr<Filter> cv::cuda::createRowSumFilter(int srcType, int dstType, int ksize, int anchor, int borderMode, Scalar borderVal)
 {
+#ifdef NPP_ENABLE
     return makePtr<NppRowSumFilter>(srcType, dstType, ksize, anchor, borderMode, borderVal);
+#else 
+    return 0;
+#endif //NPP_ENABLE
+
 }
 
 namespace
 {
+#ifdef NPP_ENABLE
     class NppColumnSumFilter : public Filter
     {
     public:
@@ -1037,11 +1075,18 @@ namespace
         if (stream == 0)
             cudaSafeCall( cudaDeviceSynchronize() );
     }
+#endif //NPP_ENABLE
+
 }
 
 Ptr<Filter> cv::cuda::createColumnSumFilter(int srcType, int dstType, int ksize, int anchor, int borderMode, Scalar borderVal)
 {
+#ifdef NPP_ENABLE
     return makePtr<NppColumnSumFilter>(srcType, dstType, ksize, anchor, borderMode, borderVal);
+#else 
+    return 0;
+#endif //NPP_ENABLE
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

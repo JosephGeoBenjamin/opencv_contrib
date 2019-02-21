@@ -93,6 +93,9 @@ bool TestIntegralImage<T_in, T_out>::process()
     NCVMatrixAlloc<T_out> h_imgII_d(*this->allocatorCPU.get(), widthII, heightII);
     ncvAssertReturn(h_imgII_d.isMemAllocated(), false);
 
+    NCV_SET_SKIP_COND(this->allocatorGPU.get()->isCounting()); //moved here to avoid getting disabled
+
+#ifdef NPP_ENABLE
     Ncv32u bufSize;
     if (sizeof(T_in) == sizeof(Ncv8u))
     {
@@ -112,7 +115,7 @@ bool TestIntegralImage<T_in, T_out>::process()
     NCVVectorAlloc<Ncv8u> d_tmpBuf(*this->allocatorGPU.get(), bufSize);
     ncvAssertReturn(d_tmpBuf.isMemAllocated(), false);
 
-    NCV_SET_SKIP_COND(this->allocatorGPU.get()->isCounting());
+    //NCV_SET_SKIP_COND(this->allocatorGPU.get()->isCounting()); // moved up
     NCV_SKIP_COND_BEGIN
 
     ncvAssertReturn(this->src.fill(h_img), false);
@@ -164,6 +167,7 @@ bool TestIntegralImage<T_in, T_out>::process()
     }
 
     NCV_SKIP_COND_END
+#endif //NPP_ENABLE
 
     //bit-to-bit check
     bool bLoopVirgin = true;

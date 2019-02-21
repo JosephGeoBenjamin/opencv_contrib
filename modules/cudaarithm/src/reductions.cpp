@@ -148,11 +148,14 @@ void cv::cuda::meanStdDev(InputArray _src, OutputArray _dst, Stream& stream)
     sz.height = src.rows;
 
     int bufSize;
+
+#ifdef NPP_ENABLE
 #if (CUDA_VERSION <= 4020)
     nppSafeCall( nppiMeanStdDev8uC1RGetBufferHostSize(sz, &bufSize) );
 #else
     nppSafeCall( nppiMeanStdDevGetBufferHostSize_8u_C1R(sz, &bufSize) );
 #endif
+#endif //NPP_ENABLE
 
     BufferPool pool(stream);
     GpuMat buf = pool.getBuffer(1, bufSize, CV_8UC1);
@@ -160,7 +163,9 @@ void cv::cuda::meanStdDev(InputArray _src, OutputArray _dst, Stream& stream)
     // detail: https://github.com/opencv/opencv/issues/11063
     //NppStreamHandler h(StreamAccessor::getStream(stream));
 
+#ifdef NPP_ENABLE
     nppSafeCall( nppiMean_StdDev_8u_C1R(src.ptr<Npp8u>(), static_cast<int>(src.step), sz, buf.ptr<Npp8u>(), dst.ptr<Npp64f>(), dst.ptr<Npp64f>() + 1) );
+#endif //NPP_ENABLE
 
     syncOutput(dst, _dst, stream);
 }
@@ -193,6 +198,9 @@ void cv::cuda::rectStdDev(InputArray _src, InputArray _sqr, OutputArray _dst, Re
 
     GpuMat dst = getOutputMat(_dst, src.size(), CV_32FC1, _stream);
 
+    cudaStream_t stream = StreamAccessor::getStream(_stream);
+
+#ifdef NPP_ENABLE
     NppiSize sz;
     sz.width = src.cols;
     sz.height = src.rows;
@@ -203,12 +211,11 @@ void cv::cuda::rectStdDev(InputArray _src, InputArray _sqr, OutputArray _dst, Re
     nppRect.x = rect.x;
     nppRect.y = rect.y;
 
-    cudaStream_t stream = StreamAccessor::getStream(_stream);
-
     NppStreamHandler h(stream);
 
     nppSafeCall( nppiRectStdDev_32s32f_C1R(src.ptr<Npp32s>(), static_cast<int>(src.step), sqr.ptr<Npp64f>(), static_cast<int>(sqr.step),
                 dst.ptr<Npp32f>(), static_cast<int>(dst.step), sz, nppRect) );
+#endif //NPP_ENABLE
 
     if (stream == 0)
         cudaSafeCall( cudaDeviceSynchronize() );
