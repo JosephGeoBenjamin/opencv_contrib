@@ -104,7 +104,9 @@ namespace block_reduce_detail
             For<I + 1, N>::merge(smem, val, tid, delta, op);
         }
 
-#if CV_CUDEV_ARCH >= 300
+//HIP_NOTE:
+//#if CV_CUDEV_ARCH >= 300
+#ifdef __HIP_ARCH_HAS_WARP_SHUFFLE__
         template <class ValTuple, class OpTuple>
         __device__ static void mergeShfl(const ValTuple& val, uint delta, uint width, const OpTuple& op)
         {
@@ -132,7 +134,9 @@ namespace block_reduce_detail
         {
         }
 
-#if CV_CUDEV_ARCH >= 300
+//HIP_NOTE:
+//#if CV_CUDEV_ARCH >= 300
+#ifdef __HIP_ARCH_HAS_WARP_SHUFFLE__
         template <class ValTuple, class OpTuple>
         __device__ __forceinline__ static void mergeShfl(const ValTuple&, uint, uint, const OpTuple&)
         {
@@ -195,7 +199,9 @@ namespace block_reduce_detail
 
     // mergeShfl
 
-#if CV_CUDEV_ARCH >= 300
+//HIP_NOTE:
+//#if CV_CUDEV_ARCH >= 300
+#ifdef __HIP_ARCH_HAS_WARP_SHUFFLE__
     template <typename T, class Op>
     __device__ __forceinline__ void mergeShfl(T& val, uint delta, uint width, const Op& op)
     {
@@ -287,7 +293,9 @@ namespace block_reduce_detail
             Unroll<I / 2, Pointer, Reference, Op>::loop(smem, val, tid, op);
         }
 
-#if CV_CUDEV_ARCH >= 300
+//HIP_NOTE:
+//#if CV_CUDEV_ARCH >= 300
+#ifdef __HIP_ARCH_HAS_WARP_SHUFFLE__
         __device__ static void loopShfl(Reference val, Op op, uint N)
         {
             mergeShfl(val, I, N, op);
@@ -302,7 +310,9 @@ namespace block_reduce_detail
         {
         }
 
-#if CV_CUDEV_ARCH >= 300
+//HIP_NOTE:
+//#if CV_CUDEV_ARCH >= 300
+#ifdef __HIP_ARCH_HAS_WARP_SHUFFLE__
         __device__ __forceinline__ static void loopShfl(Reference, Op, uint)
         {
         }
@@ -316,7 +326,9 @@ namespace block_reduce_detail
         template <typename Pointer, typename Reference, class Op>
         __device__ static void reduce(Pointer smem, Reference val, uint tid, Op op)
         {
-        #if CV_CUDEV_ARCH >= 300
+        //HIP_NOTE:
+        //#if CV_CUDEV_ARCH >= 300
+        #ifdef __HIP_ARCH_HAS_WARP_SHUFFLE__
             CV_UNUSED(smem);
             CV_UNUSED(tid);
 
@@ -341,7 +353,10 @@ namespace block_reduce_detail
         {
             const uint laneId = Warp::laneId();
 
-        #if CV_CUDEV_ARCH >= 300
+        //HIP_NOTE:
+        //#if CV_CUDEV_ARCH >= 300
+        #ifdef __HIP_ARCH_HAS_WARP_SHUFFLE__
+
             Unroll<16, Pointer, Reference, Op>::loopShfl(val, op, warpSize);
 
             if (laneId == 0)
@@ -364,7 +379,9 @@ namespace block_reduce_detail
 
             if (tid < 32)
             {
-        #if CV_CUDEV_ARCH >= 300
+        //HIP_NOTE:
+        //#if CV_CUDEV_ARCH >= 300
+        #ifdef __HIP_ARCH_HAS_WARP_SHUFFLE__
                 Unroll<M / 2, Pointer, Reference, Op>::loopShfl(val, op, M);
         #else
                 Unroll<M / 2, Pointer, Reference, Op>::loop(smem, val, tid, op);

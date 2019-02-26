@@ -57,7 +57,9 @@ namespace grid_histogram_detail
     template <int BIN_COUNT, int BLOCK_SIZE, class SrcPtr, typename ResType, class MaskPtr>
     __global__ void histogram(const SrcPtr src, ResType* hist, const MaskPtr mask, const int rows, const int cols)
     {
-    #if CV_CUDEV_ARCH >= 120
+    //HIP_NOTE:
+    //#if CV_CUDEV_ARCH >= 120
+    #ifdef __HIP_ARCH_HAS_SHARED_FLOAT_ATOMIC_EXCH__
         __shared__ ResType smem[BIN_COUNT];
 
         const int y = hipBlockIdx_x * hipBlockDim_y + hipThreadIdx_y;

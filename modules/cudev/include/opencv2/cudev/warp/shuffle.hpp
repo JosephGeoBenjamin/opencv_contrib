@@ -54,9 +54,11 @@ namespace cv { namespace cudev {
 //! @addtogroup cudev
 //! @{
 
-#if CV_CUDEV_ARCH >= 300
+//HIP_NOTE:
+//#if CV_CUDEV_ARCH >= 300
+#ifdef __HIP_ARCH_HAS_WARP_SHUFFLE__
 
-#if __CUDACC_VER_MAJOR__ >= 9
+#if __CUDACC_VER_MAJOR__ >= 9 //HIP_TODO
 #  define __shfl(x, y, z) __shfl_sync(0xFFFFFFFFU, x, y, z)
 #  define __shfl_xor(x, y, z) __shfl_xor_sync(0xFFFFFFFFU, x, y, z)
 #  define __shfl_up(x, y, z) __shfl_up_sync(0xFFFFFFFFU, x, y, z)
@@ -99,7 +101,7 @@ __device__ __forceinline__ float shfl(float val, int srcLane, int width = warpSi
     return __shfl(val, srcLane, width);
 }
 
-__device__ double shfl(double val, int srcLane, int width = warpSize)
+__device__ __forceinline__ double shfl(double val, int srcLane, int width = warpSize)
 {
     int lo = __double2loint(val);
     int hi = __double2hiint(val);
@@ -190,7 +192,7 @@ __device__ __forceinline__ float shfl_up(float val, uint delta, int width = warp
     return __shfl_up(val, delta, width);
 }
 
-__device__ double shfl_up(double val, uint delta, int width = warpSize)
+__device__ __forceinline__ double shfl_up(double val, uint delta, int width = warpSize)
 {
     int lo = __double2loint(val);
     int hi = __double2hiint(val);
@@ -281,7 +283,7 @@ __device__ __forceinline__ float shfl_down(float val, uint delta, int width = wa
     return __shfl_down(val, delta, width);
 }
 
-__device__ double shfl_down(double val, uint delta, int width = warpSize)
+__device__ __forceinline__ double shfl_down(double val, uint delta, int width = warpSize)
 {
     int lo = __double2loint(val);
     int hi = __double2hiint(val);
@@ -372,7 +374,7 @@ __device__ __forceinline__ float shfl_xor(float val, int laneMask, int width = w
     return __shfl_xor(val, laneMask, width);
 }
 
-__device__ double shfl_xor(double val, int laneMask, int width = warpSize)
+__device__ __forceinline__ double shfl_xor(double val, int laneMask, int width = warpSize)
 {
     int lo = __double2loint(val);
     int hi = __double2hiint(val);

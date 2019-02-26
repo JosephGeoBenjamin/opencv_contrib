@@ -169,7 +169,9 @@ namespace integral_detail
 
     __global__ static void horisontal_pass_8u_shfl_kernel(const GlobPtr<uint4> img, GlobPtr<uint4> integral)
     {
-    #if CV_CUDEV_ARCH >= 300
+    //HIP_NOTE:
+    //#if CV_CUDEV_ARCH >= 300
+    #ifdef __HIP_ARCH_HAS_WARP_SHUFFLE__
         __shared__ int sums[128];
 
         const int id = hipThreadIdx_x;
@@ -422,7 +424,9 @@ namespace integral_detail
     template <typename T>
     __global__ void vertical_pass(GlobPtr<T> integral, const int rows, const int cols)
     {
-    #if CV_CUDEV_ARCH >= 300
+    //HIP_NOTE:
+    //#if CV_CUDEV_ARCH >= 300
+    #ifdef __HIP_ARCH_HAS_WARP_SHUFFLE__
         __shared__ T sums[32][9];
 
         const int tidx = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;

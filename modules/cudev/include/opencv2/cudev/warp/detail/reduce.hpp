@@ -94,7 +94,9 @@ namespace warp_reduce_detail
             For<I + 1, N>::merge(smem, val, tid, delta, op);
         }
 
-#if CV_CUDEV_ARCH >= 300
+//HIP_NOTE:
+//#if CV_CUDEV_ARCH >= 300
+#ifdef __HIP_ARCH_HAS_WARP_SHUFFLE__
         template <class ValTuple, class OpTuple>
         __device__ static void mergeShfl(const ValTuple& val, uint delta, uint width, const OpTuple& op)
         {
@@ -118,7 +120,9 @@ namespace warp_reduce_detail
         {
         }
 
-#if CV_CUDEV_ARCH >= 300
+//HIP_NOTE:
+//#if CV_CUDEV_ARCH >= 300
+#ifdef __HIP_ARCH_HAS_WARP_SHUFFLE__
         template <class ValTuple, class OpTuple>
         __device__ __forceinline__ static void mergeShfl(const ValTuple&, uint, uint, const OpTuple&)
         {
@@ -166,7 +170,9 @@ namespace warp_reduce_detail
 
     // mergeShfl
 
-#if CV_CUDEV_ARCH >= 300
+//HIP_NOTE:
+//#if CV_CUDEV_ARCH >= 300
+#ifdef __HIP_ARCH_HAS_WARP_SHUFFLE__
     template <typename T, class Op>
     __device__ __forceinline__ void mergeShfl(T& val, uint delta, uint width, const Op& op)
     {
@@ -192,7 +198,9 @@ namespace warp_reduce_detail
         template <typename Pointer, typename Reference, class Op>
         __device__ static void reduce(Pointer smem, Reference val, uint tid, Op op)
         {
-        #if CV_CUDEV_ARCH >= 300
+        //HIP_NOTE:
+        //#if CV_CUDEV_ARCH >= 300
+        #ifdef __HIP_ARCH_HAS_WARP_SHUFFLE__
             CV_UNUSED(smem);
             CV_UNUSED(tid);
 
