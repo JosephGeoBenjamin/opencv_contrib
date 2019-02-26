@@ -67,7 +67,9 @@ __device__ __forceinline__ uint atomicAdd(uint* address, uint val)
 
 __device__ __forceinline__ float atomicAdd(float* address, float val)
 {
-#if CV_CUDEV_ARCH >= 200
+//HIP_NOTE:
+//#if CV_CUDEV_ARCH >= 200
+#ifdef __HIP_ARCH_HAS_GLOBAL_INT64_ATOMICS__
     return ::atomicAdd(address, val);
 #else
     int* address_as_i = (int*) address;
@@ -83,7 +85,10 @@ __device__ __forceinline__ float atomicAdd(float* address, float val)
 
 __device__ static double atomicAdd(double* address, double val)
 {
-#if CV_CUDEV_ARCH >= 130
+
+//HIP_NOTE:
+//#if CV_CUDEV_ARCH >= 130
+#ifdef __HIP_ARCH_HAS_DOUBLES__
     unsigned long long int* address_as_ull = (unsigned long long int*) address;
     unsigned long long int old = *address_as_ull, assumed;
     do {
@@ -113,7 +118,9 @@ __device__ __forceinline__ uint atomicMin(uint* address, uint val)
 
 __device__ static float atomicMin(float* address, float val)
 {
-#if CV_CUDEV_ARCH >= 120
+//HIP_NOTE:
+//#if CV_CUDEV_ARCH >= 120
+#ifdef __HIP_ARCH_HAS_SHARED_FLOAT_ATOMIC_EXCH__
     int* address_as_i = (int*) address;
     int old = *address_as_i, assumed;
     do {
@@ -131,7 +138,9 @@ __device__ static float atomicMin(float* address, float val)
 
 __device__ static double atomicMin(double* address, double val)
 {
-#if CV_CUDEV_ARCH >= 130
+//HIP_NOTE:
+//#if CV_CUDEV_ARCH >= 130
+#ifdef __HIP_ARCH_HAS_DOUBLES__
     unsigned long long int* address_as_ull = (unsigned long long int*) address;
     unsigned long long int old = *address_as_ull, assumed;
     do {
@@ -161,7 +170,9 @@ __device__ __forceinline__ uint atomicMax(uint* address, uint val)
 
 __device__ static float atomicMax(float* address, float val)
 {
-#if CV_CUDEV_ARCH >= 120
+//HIP_NOTE:
+//#if CV_CUDEV_ARCH >= 120
+#ifdef __HIP_ARCH_HAS_SHARED_FLOAT_ATOMIC_EXCH__
     int* address_as_i = (int*) address;
     int old = *address_as_i, assumed;
     do {
@@ -179,7 +190,9 @@ __device__ static float atomicMax(float* address, float val)
 
 __device__ static double atomicMax(double* address, double val)
 {
-#if CV_CUDEV_ARCH >= 130
+//HIP_NOTE:
+//#if CV_CUDEV_ARCH >= 130
+#ifdef __HIP_ARCH_HAS_DOUBLES__
     unsigned long long int* address_as_ull = (unsigned long long int*) address;
     unsigned long long int old = *address_as_ull, assumed;
     do {
