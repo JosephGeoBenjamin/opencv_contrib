@@ -176,9 +176,10 @@ namespace grid_transform_detail
 
         if (x >= cols || y >= rows || !mask(y, x))
             return;
-#ifdef HIP_TODO
+
+//HIP_NOTE:
         dst(y, x) = saturate_cast<DstType>(op(src1(y, x), src2(y, x)));
-#endif //HIP_TODO
+
 
     }
 
@@ -237,9 +238,9 @@ namespace grid_transform_detail
             {
                 const read_type1 src1_n_el = ((const read_type1*)src1)[x];
                 const read_type2 src2_n_el = ((const read_type2*)src2)[x];
-#ifdef HIP_TODO
+
+//HIP_NOTE:
                 OpUnroller<SHIFT>::unroll(src1_n_el, src2_n_el, ((write_type*)dst)[x], op, mask, x_shifted, y);
-#endif //HIP_TODO
 
             }
             else
@@ -248,9 +249,8 @@ namespace grid_transform_detail
                 {
                     if (mask(y, real_x))
                     {
-#ifdef HIP_TODO
+//HIP_NOTE:
                         dst[real_x] = op(src1[real_x], src2[real_x]);
-#endif //HIP_TODO
                     }
 
                 }

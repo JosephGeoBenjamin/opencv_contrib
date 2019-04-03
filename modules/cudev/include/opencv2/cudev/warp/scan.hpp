@@ -58,7 +58,9 @@ namespace cv { namespace cudev {
 template <typename T>
 __device__ T warpScanInclusive(T data, volatile T* smem, uint tid)
 {
-#if CV_CUDEV_ARCH >= 300
+//HIP_NOTE:
+//#if CV_CUDEV_ARCH >= 300
+#ifdef __HIP_ARCH_HAS_WARP_SHUFFLE__
     CV_UNUSED(smem);
     CV_UNUSED(tid);
 

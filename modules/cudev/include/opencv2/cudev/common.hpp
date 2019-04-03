@@ -59,10 +59,11 @@ using namespace cv::cuda;
 
 // CV_CUDEV_ARCH
 
-#ifndef __CUDA_ARCH__
+//HIP_NOTE: #ifndef __CUDA_ARCH__
+#if __HIP_DEVICE_COMPILE__
 #   define CV_CUDEV_ARCH 0
 #else
-#   define CV_CUDEV_ARCH __CUDA_ARCH__
+#   define CV_CUDEV_ARCH __HIP_DEVICE_COMPILE__
 #endif
 
 // CV_CUDEV_SAFE_CALL
