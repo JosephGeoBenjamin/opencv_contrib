@@ -231,8 +231,10 @@ void cv::cuda::gemm(InputArray _src1, InputArray _src2, double alpha, InputArray
     const float alphaf = static_cast<float>(alpha);
     const float betaf = static_cast<float>(beta);
 
+#ifdef __HIP_PLATFORM_HCC__
     const hipComplex alphacf = make_hipComplex(alphaf, 0);
     const hipComplex betacf = make_hipComplex(betaf, 0);
+#endif //Platform Deduce
 
     const hipDoubleComplex alphac = make_hipDoubleComplex(alpha, 0);
     const hipDoubleComplex betac = make_hipDoubleComplex(beta, 0);

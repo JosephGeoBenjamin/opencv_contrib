@@ -392,7 +392,7 @@ namespace cv { namespace cuda { namespace device
 
         void prefilter_xsobel(const PtrStepSzb& input, const PtrStepSzb& output, int prefilterCap, hipStream_t & stream)
         {
-            hipChannelFormatDesc desc = hipCreateChannelDesc<unsigned char>();.
+            hipChannelFormatDesc desc = hipCreateChannelDesc<unsigned char>();
 #ifdef __HIP_PLATFORM_HCC__
             cudaSafeCall( hipBindTexture2D( 0, texForSobel, input.data, desc, input.cols, input.rows, input.step ) );
 #endif //Platform Deduce
