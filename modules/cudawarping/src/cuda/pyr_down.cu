@@ -53,7 +53,11 @@ namespace cv { namespace cuda { namespace device
 {
     namespace imgproc
     {
+#ifdef __HIP_PLATFORM_HCC__
         template <typename T, typename B> __global__ void pyrDown(const PtrStepSz<float> src, PtrStepSz<T> dst, const B b, int dst_cols)
+#elif defined (__HIP_PLATFORM_NVCC__)
+        template <typename T, typename B> __global__ void pyrDown(const PtrStepSz<T> src, PtrStepSz<T> dst, const B b, int dst_cols)
+#endif //Platform Deduce
         {
             typedef typename TypeVec<float, VecTraits<T>::cn>::vec_type work_t;
             __shared__ work_t smem[256 + 4];
@@ -179,8 +183,12 @@ namespace cv { namespace cuda { namespace device
             const dim3 grid(divUp(src.cols, block.x), dst.rows);
 
             B<T> b(src.rows, src.cols);
-
+#ifdef __HIP_PLATFORM_HCC__
             hipLaunchKernelGGL((pyrDown< T, B<T>>), dim3(grid), dim3(block), 0, stream, (PtrStepSz<float>)src, dst, b, dst.cols);
+#elif defined (__HIP_PLATFORM_NVCC__)
+            hipLaunchKernelGGL((pyrDown< T, B<T>>), dim3(grid), dim3(block), 0, stream, src, dst, b, dst.cols);
+#endif //Platform Deduce
+
             cudaSafeCall( hipGetLastError() );
 
             if (stream == 0)
