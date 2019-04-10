@@ -75,12 +75,18 @@ namespace
 
             hipChannelFormatDesc desc = hipCreateChannelDesc<T>();
 
+#ifdef __HIP_PLATFORM_HCC__
             CV_CUDEV_SAFE_CALL( hipBindTexture2D(0, &ref, mat.data, &desc, mat.cols, mat.rows, mat.step) );
+#endif //Platform Deduce
+
         }
 
         __host__ static void unbind()
-        {
+        {;
+#ifdef __HIP_PLATFORM_HCC__
             hipUnbindTexture(ref);
+#endif //Platform Deduce
+
         }
     };
 

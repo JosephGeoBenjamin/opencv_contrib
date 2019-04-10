@@ -122,9 +122,12 @@ namespace
             hipDestroyTextureObject(texLutTableObj);
         }
         else
-        {
+        {;
             // Use the texture reference
+#ifdef __HIP_PLATFORM_HCC__
             hipUnbindTexture(texLutTable);
+#endif //Platform Deduce
+
         }
     }
 

@@ -914,8 +914,11 @@ NCVStatus NCVBroxOpticalFlow(const NCVBroxOpticalFlowDescriptor desc,
 
         //select images with lowest resolution
         size_t pitch = alignUp(pyr.w.back(), kStrideAlignmentFloat) * sizeof(float);
+
+#ifdef __HIP_PLATFORM_HCC__
         ncvAssertCUDAReturn(hipBindTexture2D(0, tex_I0, pyr.img0.back()->ptr(), channel_desc, pyr.w.back(), pyr.h.back(), pitch), NCV_CUDA_ERROR);
         ncvAssertCUDAReturn(hipBindTexture2D(0, tex_I1, pyr.img1.back()->ptr(), channel_desc, pyr.w.back(), pyr.h.back(), pitch), NCV_CUDA_ERROR);
+#endif //Platform Deduce
         ncvAssertCUDAReturn(hipStreamSynchronize(stream), NCV_CUDA_ERROR);
 
         FloatVector* ptrU = &u;
@@ -954,8 +957,10 @@ NCVStatus NCVBroxOpticalFlow(const NCVBroxOpticalFlowDescriptor desc,
             ++img0Iter;
             ++img1Iter;
 
+#ifdef __HIP_PLATFORM_HCC__
             ncvAssertCUDAReturn(hipBindTexture2D(0, tex_I0, I0->ptr(), ch_desc, kLevelWidth, kLevelHeight, kLevelStride*sizeof(float)), NCV_CUDA_ERROR);
             ncvAssertCUDAReturn(hipBindTexture2D(0, tex_I1, I1->ptr(), ch_desc, kLevelWidth, kLevelHeight, kLevelStride*sizeof(float)), NCV_CUDA_ERROR);
+#endif //Platform Deduce
 
             //compute derivatives
             dim3 dBlocks(iDivUp(kLevelWidth, 32), iDivUp(kLevelHeight, 6));
@@ -997,6 +1002,7 @@ NCVStatus NCVBroxOpticalFlow(const NCVBroxOpticalFlowDescriptor desc,
                 nppStBorderMirror, derivativeFilter.ptr(), kDFilterSize, kDFilterSize/2, 1.0f/12.0f) );
 #endif //NPP_ENABLE
 
+#ifdef __HIP_PLATFORM_HCC__
             ncvAssertCUDAReturn(hipBindTexture2D(0, tex_Ix,  Ix.ptr(),  ch_desc, kLevelWidth, kLevelHeight, kPitchTex), NCV_CUDA_ERROR);
             ncvAssertCUDAReturn(hipBindTexture2D(0, tex_Ixx, Ixx.ptr(), ch_desc, kLevelWidth, kLevelHeight, kPitchTex), NCV_CUDA_ERROR);
             ncvAssertCUDAReturn(hipBindTexture2D(0, tex_Ix0, Ix0.ptr(), ch_desc, kLevelWidth, kLevelHeight, kPitchTex), NCV_CUDA_ERROR);
@@ -1004,6 +1010,7 @@ NCVStatus NCVBroxOpticalFlow(const NCVBroxOpticalFlowDescriptor desc,
             ncvAssertCUDAReturn(hipBindTexture2D(0, tex_Iyy, Iyy.ptr(), ch_desc, kLevelWidth, kLevelHeight, kPitchTex), NCV_CUDA_ERROR);
             ncvAssertCUDAReturn(hipBindTexture2D(0, tex_Iy0, Iy0.ptr(), ch_desc, kLevelWidth, kLevelHeight, kPitchTex), NCV_CUDA_ERROR);
             ncvAssertCUDAReturn(hipBindTexture2D(0, tex_Ixy, Ixy.ptr(), ch_desc, kLevelWidth, kLevelHeight, kPitchTex), NCV_CUDA_ERROR);
+#endif //Platform Deduce
 
             //    flow
             ncvAssertCUDAReturn(hipBindTexture(0, tex_u, ptrU->ptr(), ch_desc, kLevelSizeInBytes), NCV_CUDA_ERROR);

@@ -865,13 +865,18 @@ namespace cv { namespace cuda { namespace device
             int colOfs = 0;
 
             hipChannelFormatDesc desc = hipCreateChannelDesc<T>();
+#ifdef __HIP_PLATFORM_HCC__
             cudaSafeCall( hipBindTexture2D(&texOfs, tex, src.data, desc, src.cols, src.rows, src.step) );
+#endif //Platform Deduce
 
             if (texOfs != 0)
             {
                 colOfs = static_cast<int>( texOfs/sizeof(T) );
+#ifdef __HIP_PLATFORM_HCC__
                 cudaSafeCall( hipUnbindTexture(tex) );
                 cudaSafeCall( hipBindTexture2D(&texOfs, tex, src.data, desc, src.cols, src.rows, src.step) );
+#endif //Platform Deduce
+
             }
 
             dim3 threads(32, 8);
@@ -884,8 +889,10 @@ namespace cv { namespace cuda { namespace device
             cudaSafeCall( hipGetLastError() );
 
             cudaSafeCall( hipDeviceSynchronize() );
-
+#ifdef __HIP_PLATFORM_HCC__
             cudaSafeCall( hipUnbindTexture(tex) );
+#endif //Platform Deduce
+
         }
 
         void resize_8UC1(const PtrStepSzb& src, PtrStepSzb dst) { resize_for_hog<uchar> (src, dst, resize8UC1_tex); }

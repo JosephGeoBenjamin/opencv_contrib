@@ -338,7 +338,10 @@ NCVStatus scanRowsWrapperDevice(T_in *d_src, Ncv32u srcStride,
         ncvAssertCUDAReturn(hipBindTexture(&alignmentOffset, tex8u, d_src, cfdTex, roi.height * srcStride), NPPST_TEXTURE_BIND_ERROR);
         if (alignmentOffset > 0)
         {
+#ifdef __HIP_PLATFORM_HCC__
             ncvAssertCUDAReturn(hipUnbindTexture(tex8u), NCV_CUDA_ERROR);
+#endif //Platform Deduce
+
             ncvAssertCUDAReturn(hipBindTexture(&alignmentOffset, tex8u, d_src, cfdTex, alignmentOffset + roi.height * srcStride), NPPST_TEXTURE_BIND_ERROR);
         }
     }
@@ -1944,8 +1947,10 @@ NCVStatus BlendFrames(const Ncv32f *src0,
 
     hipChannelFormatDesc desc = hipCreateChannelDesc <float> ();
     const Ncv32u pitch = stride * sizeof (float);
+#ifdef __HIP_PLATFORM_HCC__
     ncvAssertCUDAReturn (hipBindTexture2D (0, tex_src1, src1, desc, width, height, pitch), NPPST_TEXTURE_BIND_ERROR);
     ncvAssertCUDAReturn (hipBindTexture2D (0, tex_src0, src0, desc, width, height, pitch), NPPST_TEXTURE_BIND_ERROR);
+#endif //Platform Deduce
 
     dim3 threads (32, 4);
     dim3 blocks (iDivUp (width, threads.x), iDivUp (height, threads.y));
@@ -2550,9 +2555,10 @@ NCVStatus nppiStResize_32f_C1R(const Ncv32f *pSrc,
         texSrc2D.normalized = true;
 
         hipChannelFormatDesc desc = hipCreateChannelDesc <float> ();
-
+#ifdef __HIP_PLATFORM_HCC__
         hipBindTexture2D (0, texSrc2D, pSrc, desc, srcSize.width, srcSize.height,
             nSrcStep);
+#endif //Platform Deduce
 
         dim3 ctaSize (32, 6);
         dim3 gridSize ((dstSize.width  + ctaSize.x - 1) / ctaSize.x,

@@ -392,8 +392,10 @@ namespace cv { namespace cuda { namespace device
 
         void prefilter_xsobel(const PtrStepSzb& input, const PtrStepSzb& output, int prefilterCap, hipStream_t & stream)
         {
-            hipChannelFormatDesc desc = hipCreateChannelDesc<unsigned char>();
+            hipChannelFormatDesc desc = hipCreateChannelDesc<unsigned char>();.
+#ifdef __HIP_PLATFORM_HCC__
             cudaSafeCall( hipBindTexture2D( 0, texForSobel, input.data, desc, input.cols, input.rows, input.step ) );
+#endif //Platform Deduce
 
             dim3 threads(16, 16, 1);
             dim3 grid(1, 1, 1);
@@ -406,8 +408,10 @@ namespace cv { namespace cuda { namespace device
 
             if (stream == 0)
                 cudaSafeCall( hipDeviceSynchronize() );
-
+#ifdef __HIP_PLATFORM_HCC__
             cudaSafeCall( hipUnbindTexture (texForSobel ) );
+#endif //Platform Deduce
+
         }
 
 
@@ -517,7 +521,9 @@ namespace cv { namespace cuda { namespace device
             texForTF.addressMode[1] = hipAddressModeWrap;
 
             hipChannelFormatDesc desc = hipCreateChannelDesc<unsigned char>();
+#ifdef __HIP_PLATFORM_HCC__
             cudaSafeCall( hipBindTexture2D( 0, texForTF, input.data, desc, input.cols, input.rows, input.step ) );
+#endif //Platform Deduce
 
             dim3 threads(128, 1, 1);
             dim3 grid(1, 1, 1);
@@ -531,8 +537,10 @@ namespace cv { namespace cuda { namespace device
 
             if (stream == 0)
                 cudaSafeCall( hipDeviceSynchronize() );
-
+#ifdef __HIP_PLATFORM_HCC__
             cudaSafeCall( hipUnbindTexture (texForTF) );
+#endif //Platform Deduce
+
         }
     } // namespace stereobm
 }}} // namespace cv { namespace cuda { namespace cudev
