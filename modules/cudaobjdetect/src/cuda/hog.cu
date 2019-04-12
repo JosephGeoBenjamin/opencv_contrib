@@ -137,12 +137,12 @@ namespace cv { namespace cuda { namespace device
                                                          int cell_size, int patch_size, int block_patch_size,
                                                          int threads_cell, int threads_block, int half_cell_size)
         {
-            const int block_x = threadIdx.z;
-            const int cell_x = threadIdx.x / threads_cell;
-            const int cell_y = threadIdx.y;
-            const int cell_thread_x = threadIdx.x & (threads_cell - 1);
+            const int block_x = hipThreadIdx_z;
+            const int cell_x = hipThreadIdx_x / threads_cell;
+            const int cell_y = hipThreadIdx_y;
+            const int cell_thread_x = hipThreadIdx_x & (threads_cell - 1);
 
-            if (blockIdx.x * blockDim.z + block_x >= img_block_width)
+            if (hipBlockIdx_x * hipBlockDim_z + block_x >= img_block_width)
                 return;
 
             HIP_DYNAMIC_SHARED( float, smem)
@@ -152,15 +152,15 @@ namespace cv { namespace cuda { namespace device
             // patch_size means that patch_size pixels affect on block's cell
             if (cell_thread_x < patch_size)
             {
-                const int offset_x = (blockIdx.x * blockDim.z + block_x) * cblock_stride_x +
+                const int offset_x = (hipBlockIdx_x * hipBlockDim_z + block_x) * cblock_stride_x +
                                      half_cell_size * cell_x + cell_thread_x;
-                const int offset_y = blockIdx.y * cblock_stride_y + half_cell_size * cell_y;
+                const int offset_y = hipBlockIdx_y * cblock_stride_y + half_cell_size * cell_y;
 
                 const float* grad_ptr = grad.ptr(offset_y) + offset_x * 2;
                 const unsigned char* qangle_ptr = qangle.ptr(offset_y) + offset_x * 2;
 
 
-                float* hist = hists + patch_size * (cell_y * blockDim.z * cncells_block_y +
+                float* hist = hists + patch_size * (cell_y * hipBlockDim_z * cncells_block_y +
                                             cell_x + block_x * cncells_block_x) +
                                            cell_thread_x;
                 for (int bin_id = 0; bin_id < cnbins; ++bin_id)
@@ -169,7 +169,7 @@ namespace cv { namespace cuda { namespace device
                 //(dist_x, dist_y) : distance between current pixel in patch and cell's center
                 const int dist_x = -half_cell_size + (int)cell_thread_x - half_cell_size * cell_x;
 
-                const int dist_y_begin = -half_cell_size - half_cell_size * (int)threadIdx.y;
+                const int dist_y_begin = -half_cell_size - half_cell_size * (int)hipThreadIdx_y;
                 for (int dist_y = dist_y_begin; dist_y < dist_y_begin + patch_size; ++dist_y)
                 {
                     float2 vote = *(const float2*)grad_ptr;
@@ -207,8 +207,8 @@ namespace cv { namespace cuda { namespace device
 
             __syncthreads();
 
-            float* block_hist = block_hists + (blockIdx.y * img_block_width +
-                                               blockIdx.x * blockDim.z + block_x) *
+            float* block_hist = block_hists + (hipBlockIdx_y * img_block_width +
+                                               hipBlockIdx_x * hipBlockDim_z + block_x) *
                                               cblock_hist_size;
 
             //copying from final_hist to block_hist
@@ -288,7 +288,7 @@ namespace cv { namespace cuda { namespace device
         template<int size>
         __device__ float reduce_smem(float* smem, float val)
         {
-            unsigned int tid = threadIdx.x;
+            unsigned int tid = hipThreadIdx_x;
             float sum = val;
 
             reduce<size>(smem, sum, tid, plus<float>());
@@ -304,7 +304,7 @@ namespace cv { namespace cuda { namespace device
             else
             {
             #if __CUDA_ARCH__ >= 300
-                if (threadIdx.x == 0)
+                if (hipThreadIdx_x == 0)
                     smem[0] = sum;
             #endif
 
@@ -321,18 +321,18 @@ namespace cv { namespace cuda { namespace device
                                                            const int img_block_width,
                                                            float* block_hists, float threshold)
         {
-            if (blockIdx.x * blockDim.z + threadIdx.z >= img_block_width)
+            if (hipBlockIdx_x * hipBlockDim_z + hipThreadIdx_z >= img_block_width)
                 return;
 
-            float* hist = block_hists + (blockIdx.y * img_block_width +
-                                         blockIdx.x * blockDim.z + threadIdx.z) *
-                                        block_hist_size + threadIdx.x;
+            float* hist = block_hists + (hipBlockIdx_y * img_block_width +
+                                         hipBlockIdx_x * hipBlockDim_z + hipThreadIdx_z) *
+                                        block_hist_size + hipThreadIdx_x;
 
             __shared__ float sh_squares[nthreads * nblocks];
-            float* squares = sh_squares + threadIdx.z * nthreads;
+            float* squares = sh_squares + hipThreadIdx_z * nthreads;
 
             float elem = 0.f;
-            if (threadIdx.x < block_hist_size)
+            if (hipThreadIdx_x < block_hist_size)
                 elem = hist[0];
 
             __syncthreads(); // prevent race condition (redundant?)
@@ -346,7 +346,7 @@ namespace cv { namespace cuda { namespace device
 
             scale = 1.0f / (::sqrtf(sum) + 1e-3f);
 
-            if (threadIdx.x < block_hist_size)
+            if (hipThreadIdx_x < block_hist_size)
                 hist[0] = elem * scale;
         }
 
@@ -399,16 +399,16 @@ namespace cv { namespace cuda { namespace device
                                                                                                            const float* block_hists, const float* coefs,
                                                                                                            float free_coef, float threshold, float* confidences)
        {
-           const int win_x = threadIdx.z;
-           if (blockIdx.x * blockDim.z + win_x >= img_win_width)
+           const int win_x = hipThreadIdx_z;
+           if (hipBlockIdx_x * hipBlockDim_z + win_x >= img_win_width)
                    return;
 
-           const float* hist = block_hists + (blockIdx.y * win_block_stride_y * img_block_width +
-                                                                                blockIdx.x * win_block_stride_x * blockDim.z + win_x) *
+           const float* hist = block_hists + (hipBlockIdx_y * win_block_stride_y * img_block_width +
+                                                                                hipBlockIdx_x * win_block_stride_x * hipBlockDim_z + win_x) *
                                                                                cblock_hist_size;
 
            float product = 0.f;
-           for (int i = threadIdx.x; i < cdescr_size; i += nthreads)
+           for (int i = hipThreadIdx_x; i < cdescr_size; i += nthreads)
            {
                    int offset_y = i / cdescr_width;
                    int offset_x = i - offset_y * cdescr_width;
@@ -417,12 +417,12 @@ namespace cv { namespace cuda { namespace device
 
            __shared__ float products[nthreads * nblocks];
 
-           const int tid = threadIdx.z * nthreads + threadIdx.x;
+           const int tid = hipThreadIdx_z * nthreads + hipThreadIdx_x;
 
            reduce<nthreads>(products, product, tid, plus<float>());
 
-           if (threadIdx.x == 0)
-               confidences[blockIdx.y * img_win_width + blockIdx.x * blockDim.z + win_x] = product + free_coef;
+           if (hipThreadIdx_x == 0)
+               confidences[hipBlockIdx_y * img_win_width + hipBlockIdx_x * hipBlockDim_z + win_x] = product + free_coef;
 
        }
 
@@ -463,16 +463,16 @@ namespace cv { namespace cuda { namespace device
                                                           const float* block_hists, const float* coefs,
                                                           float free_coef, float threshold, unsigned char* labels)
         {
-            const int win_x = threadIdx.z;
-            if (blockIdx.x * blockDim.z + win_x >= img_win_width)
+            const int win_x = hipThreadIdx_z;
+            if (hipBlockIdx_x * hipBlockDim_z + win_x >= img_win_width)
                 return;
 
-            const float* hist = block_hists + (blockIdx.y * win_block_stride_y * img_block_width +
-                                               blockIdx.x * win_block_stride_x * blockDim.z + win_x) *
+            const float* hist = block_hists + (hipBlockIdx_y * win_block_stride_y * img_block_width +
+                                               hipBlockIdx_x * win_block_stride_x * hipBlockDim_z + win_x) *
                                               cblock_hist_size;
 
             float product = 0.f;
-            for (int i = threadIdx.x; i < cdescr_size; i += nthreads)
+            for (int i = hipThreadIdx_x; i < cdescr_size; i += nthreads)
             {
                 int offset_y = i / cdescr_width;
                 int offset_x = i - offset_y * cdescr_width;
@@ -481,12 +481,12 @@ namespace cv { namespace cuda { namespace device
 
             __shared__ float products[nthreads * nblocks];
 
-            const int tid = threadIdx.z * nthreads + threadIdx.x;
+            const int tid = hipThreadIdx_z * nthreads + hipThreadIdx_x;
 
             reduce<nthreads>(products, product, tid, plus<float>());
 
-            if (threadIdx.x == 0)
-                labels[blockIdx.y * img_win_width + blockIdx.x * blockDim.z + win_x] = (product + free_coef >= threshold);
+            if (hipThreadIdx_x == 0)
+                labels[hipBlockIdx_y * img_win_width + hipBlockIdx_x * hipBlockDim_z + win_x] = (product + free_coef >= threshold);
         }
 
 
@@ -530,14 +530,14 @@ namespace cv { namespace cuda { namespace device
                                                       PtrStepf descriptors)
         {
             // Get left top corner of the window in src
-            const float* hist = block_hists + (blockIdx.y * win_block_stride_y * img_block_width +
-                                               blockIdx.x * win_block_stride_x) * cblock_hist_size;
+            const float* hist = block_hists + (hipBlockIdx_y * win_block_stride_y * img_block_width +
+                                               hipBlockIdx_x * win_block_stride_x) * cblock_hist_size;
 
             // Get left top corner of the window in dst
-            float* descriptor = descriptors.ptr(blockIdx.y * gridDim.x + blockIdx.x);
+            float* descriptor = descriptors.ptr(hipBlockIdx_y * gridDim.x + hipBlockIdx_x);
 
             // Copy elements from src to dst
-            for (int i = threadIdx.x; i < cdescr_size; i += nthreads)
+            for (int i = hipThreadIdx_x; i < cdescr_size; i += nthreads)
             {
                 int offset_y = i / cdescr_width;
                 int offset_x = i - offset_y * cdescr_width;
@@ -578,14 +578,14 @@ namespace cv { namespace cuda { namespace device
                                                       PtrStepf descriptors)
         {
             // Get left top corner of the window in src
-            const float* hist = block_hists + (blockIdx.y * win_block_stride_y * img_block_width +
-                                               blockIdx.x * win_block_stride_x) * cblock_hist_size;
+            const float* hist = block_hists + (hipBlockIdx_y * win_block_stride_y * img_block_width +
+                                               hipBlockIdx_x * win_block_stride_x) * cblock_hist_size;
 
             // Get left top corner of the window in dst
-            float* descriptor = descriptors.ptr(blockIdx.y * gridDim.x + blockIdx.x);
+            float* descriptor = descriptors.ptr(hipBlockIdx_y * gridDim.x + hipBlockIdx_x);
 
             // Copy elements from src to dst
-            for (int i = threadIdx.x; i < cdescr_size; i += nthreads)
+            for (int i = hipThreadIdx_x; i < cdescr_size; i += nthreads)
             {
                 int block_idx = i / cblock_hist_size;
                 int idx_in_block = i - block_idx * cblock_hist_size;
@@ -631,9 +631,9 @@ namespace cv { namespace cuda { namespace device
         __global__ void compute_gradients_8UC4_kernel(int height, int width, const PtrStepb img,
                                                       float angle_scale, PtrStepf grad, PtrStepb qangle)
         {
-            const int x = blockIdx.x * blockDim.x + threadIdx.x;
+            const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
 
-            const uchar4* row = (const uchar4*)img.ptr(blockIdx.y);
+            const uchar4* row = (const uchar4*)img.ptr(hipBlockIdx_y);
 
             __shared__ float sh_row[(nthreads + 2) * 3];
 
@@ -643,11 +643,11 @@ namespace cv { namespace cuda { namespace device
             else
                 val = row[width - 2];
 
-            sh_row[threadIdx.x + 1] = val.x;
-            sh_row[threadIdx.x + 1 + (nthreads + 2)] = val.y;
-            sh_row[threadIdx.x + 1 + 2 * (nthreads + 2)] = val.z;
+            sh_row[hipThreadIdx_x + 1] = val.x;
+            sh_row[hipThreadIdx_x + 1 + (nthreads + 2)] = val.y;
+            sh_row[hipThreadIdx_x + 1 + 2 * (nthreads + 2)] = val.z;
 
-            if (threadIdx.x == 0)
+            if (hipThreadIdx_x == 0)
             {
                 val = row[::max(x - 1, 1)];
                 sh_row[0] = val.x;
@@ -655,12 +655,12 @@ namespace cv { namespace cuda { namespace device
                 sh_row[2 * (nthreads + 2)] = val.z;
             }
 
-            if (threadIdx.x == blockDim.x - 1)
+            if (hipThreadIdx_x == hipBlockDim_x - 1)
             {
                 val = row[::min(x + 1, width - 2)];
-                sh_row[blockDim.x + 1] = val.x;
-                sh_row[blockDim.x + 1 + (nthreads + 2)] = val.y;
-                sh_row[blockDim.x + 1 + 2 * (nthreads + 2)] = val.z;
+                sh_row[hipBlockDim_x + 1] = val.x;
+                sh_row[hipBlockDim_x + 1 + (nthreads + 2)] = val.y;
+                sh_row[hipBlockDim_x + 1 + 2 * (nthreads + 2)] = val.z;
             }
 
             __syncthreads();
@@ -668,12 +668,12 @@ namespace cv { namespace cuda { namespace device
             {
                 float3 a, b;
 
-                b.x = sh_row[threadIdx.x + 2];
-                b.y = sh_row[threadIdx.x + 2 + (nthreads + 2)];
-                b.z = sh_row[threadIdx.x + 2 + 2 * (nthreads + 2)];
-                a.x = sh_row[threadIdx.x];
-                a.y = sh_row[threadIdx.x + (nthreads + 2)];
-                a.z = sh_row[threadIdx.x + 2 * (nthreads + 2)];
+                b.x = sh_row[hipThreadIdx_x + 2];
+                b.y = sh_row[hipThreadIdx_x + 2 + (nthreads + 2)];
+                b.z = sh_row[hipThreadIdx_x + 2 + 2 * (nthreads + 2)];
+                a.x = sh_row[hipThreadIdx_x];
+                a.y = sh_row[hipThreadIdx_x + (nthreads + 2)];
+                a.z = sh_row[hipThreadIdx_x + 2 * (nthreads + 2)];
 
                 float3 dx;
                 if (correct_gamma)
@@ -683,12 +683,12 @@ namespace cv { namespace cuda { namespace device
 
                 float3 dy = make_float3(0.f, 0.f, 0.f);
 
-                if (blockIdx.y > 0 && blockIdx.y < height - 1)
+                if (hipBlockIdx_y > 0 && hipBlockIdx_y < height - 1)
                 {
-                    val = ((const uchar4*)img.ptr(blockIdx.y - 1))[x];
+                    val = ((const uchar4*)img.ptr(hipBlockIdx_y - 1))[x];
                     a = make_float3(val.x, val.y, val.z);
 
-                    val = ((const uchar4*)img.ptr(blockIdx.y + 1))[x];
+                    val = ((const uchar4*)img.ptr(hipBlockIdx_y + 1))[x];
                     b = make_float3(val.x, val.y, val.z);
 
                     if (correct_gamma)
@@ -724,8 +724,8 @@ namespace cv { namespace cuda { namespace device
                 ang -= hidx;
                 hidx = (hidx + cnbins) % cnbins;
 
-                ((uchar2*)qangle.ptr(blockIdx.y))[x] = make_uchar2(hidx, (hidx + 1) % cnbins);
-                ((float2*)grad.ptr(blockIdx.y))[x] = make_float2(mag0 * (1.f - ang), mag0 * ang);
+                ((uchar2*)qangle.ptr(hipBlockIdx_y))[x] = make_uchar2(hidx, (hidx + 1) % cnbins);
+                ((float2*)grad.ptr(hipBlockIdx_y))[x] = make_float2(mag0 * (1.f - ang), mag0 * ang);
             }
         }
 
@@ -755,22 +755,22 @@ namespace cv { namespace cuda { namespace device
         __global__ void compute_gradients_8UC1_kernel(int height, int width, const PtrStepb img,
                                                       float angle_scale, PtrStepf grad, PtrStepb qangle)
         {
-            const int x = blockIdx.x * blockDim.x + threadIdx.x;
+            const int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
 
-            const unsigned char* row = (const unsigned char*)img.ptr(blockIdx.y);
+            const unsigned char* row = (const unsigned char*)img.ptr(hipBlockIdx_y);
 
             __shared__ float sh_row[nthreads + 2];
 
             if (x < width)
-                sh_row[threadIdx.x + 1] = row[x];
+                sh_row[hipThreadIdx_x + 1] = row[x];
             else
-                sh_row[threadIdx.x + 1] = row[width - 2];
+                sh_row[hipThreadIdx_x + 1] = row[width - 2];
 
-            if (threadIdx.x == 0)
+            if (hipThreadIdx_x == 0)
                 sh_row[0] = row[::max(x - 1, 1)];
 
-            if (threadIdx.x == blockDim.x - 1)
-                sh_row[blockDim.x + 1] = row[::min(x + 1, width - 2)];
+            if (hipThreadIdx_x == hipBlockDim_x - 1)
+                sh_row[hipBlockDim_x + 1] = row[::min(x + 1, width - 2)];
 
             __syncthreads();
             if (x < width)
@@ -778,15 +778,15 @@ namespace cv { namespace cuda { namespace device
                 float dx;
 
                 if (correct_gamma)
-                    dx = ::sqrtf(sh_row[threadIdx.x + 2]) - ::sqrtf(sh_row[threadIdx.x]);
+                    dx = ::sqrtf(sh_row[hipThreadIdx_x + 2]) - ::sqrtf(sh_row[hipThreadIdx_x]);
                 else
-                    dx = sh_row[threadIdx.x + 2] - sh_row[threadIdx.x];
+                    dx = sh_row[hipThreadIdx_x + 2] - sh_row[hipThreadIdx_x];
 
                 float dy = 0.f;
-                if (blockIdx.y > 0 && blockIdx.y < height - 1)
+                if (hipBlockIdx_y > 0 && hipBlockIdx_y < height - 1)
                 {
-                    float a = ((const unsigned char*)img.ptr(blockIdx.y + 1))[x];
-                    float b = ((const unsigned char*)img.ptr(blockIdx.y - 1))[x];
+                    float a = ((const unsigned char*)img.ptr(hipBlockIdx_y + 1))[x];
+                    float b = ((const unsigned char*)img.ptr(hipBlockIdx_y - 1))[x];
                     if (correct_gamma)
                         dy = ::sqrtf(a) - ::sqrtf(b);
                     else
@@ -799,8 +799,8 @@ namespace cv { namespace cuda { namespace device
                 ang -= hidx;
                 hidx = (hidx + cnbins) % cnbins;
 
-                ((uchar2*)qangle.ptr(blockIdx.y))[x] = make_uchar2(hidx, (hidx + 1) % cnbins);
-                ((float2*)  grad.ptr(blockIdx.y))[x] = make_float2(mag * (1.f - ang), mag * ang);
+                ((uchar2*)qangle.ptr(hipBlockIdx_y))[x] = make_uchar2(hidx, (hidx + 1) % cnbins);
+                ((float2*)  grad.ptr(hipBlockIdx_y))[x] = make_float2(mag * (1.f - ang), mag * ang);
             }
         }
 
@@ -837,22 +837,29 @@ namespace cv { namespace cuda { namespace device
 
         __global__ void resize_for_hog_kernel(float sx, float sy, PtrStepSz<uchar> dst, int colOfs)
         {
-            unsigned int x = blockIdx.x * blockDim.x + threadIdx.x;
-            unsigned int y = blockIdx.y * blockDim.y + threadIdx.y;
+            unsigned int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            unsigned int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (x < dst.cols && y < dst.rows)
+            { ;
+#ifdef __HIP_PLATFORM_HCC__
                 dst.ptr(y)[x] = tex2D(resize8UC1_tex, x * sx + colOfs, y * sy) * 255;
+#endif //Platform Deduce
+            }
         }
 
         __global__ void resize_for_hog_kernel(float sx, float sy, PtrStepSz<uchar4> dst, int colOfs)
         {
-            unsigned int x = blockIdx.x * blockDim.x + threadIdx.x;
-            unsigned int y = blockIdx.y * blockDim.y + threadIdx.y;
+            unsigned int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+            unsigned int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
             if (x < dst.cols && y < dst.rows)
-            {
+            { ;
+#ifdef __HIP_PLATFORM_HCC__
                 float4 val = tex2D(resizeFP4_tex, x * sx + colOfs, y * sy);
                 dst.ptr(y)[x] = make_uchar4(val.x * 255, val.y * 255, val.z * 255, val.w * 255);
+#endif //Platform Deduce
+
             }
         }
 
